@@ -1,7 +1,7 @@
 # Stereo Image Combiner
 
 A simple web-based tool for combining two images side by side with customizable options.  Particularly useful for stereo slide pairs.
-![image](https://github.com/user-attachments/assets/07561e35-cd59-4bfb-9507-dfc6723e0cf7)
+![image](https://github.com/user-attachments/assets/c021a695-feec-4e55-beb0-76e0eba58692)
 
 ## Overview
 
