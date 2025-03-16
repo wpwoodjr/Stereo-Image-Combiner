@@ -2,7 +2,7 @@
 
 A simple web-based tool for combining two images side by side with customizable options.  Particularly useful for stereo slide pairs.
 
-![image](https://github.com/user-attachments/assets/60c94384-bcc0-43a9-acf6-580d66189534)
+![image](https://github.com/user-attachments/assets/c9a63f7b-0155-4ffc-b18c-eb733a792593)
 
 ## Overview
 
@@ -12,30 +12,30 @@ Image Combiner is a lightweight browser-based application that allows users to:
 - Change the color of the gap between images
 - Scale the preview display
 - Swap image positions
-- Save the resulting combined image as a PNG file
+- Save the resulting combined image as a PNG or JPG file
 
 No server processing or uploading is required - all operations happen directly in your browser.
 
 ## Features
 
-- **Drag and Drop Interface**: Simply drag and drop your images onto the application
+- **Drag and Drop Interface**: Simply drag and drop your images onto the application, or use the file browser
 - **Live Preview**: See how your combined image will look as you adjust settings
 - **Customizable Gap**: Adjust the space between images from 0 to 200 pixels
 - **Gap Color Selection**: Choose any color for the space between your images
 - **Image Swapping**: Easily change the order of images with a single click
 - **Scalable Preview**: Adjust the preview size without affecting the final output
-- **High-Quality Export**: Save the combined image in PNG format at full resolution
+- **High-Quality Export**: Save the combined image in PNG format at full resolution or JPG at your selected quality
 
 ## Usage
 
-1. Open `index.html` in any modern web browser
+1. Open `index.html` in any modern web browser, or browse to https://wpwoodjr.github.io/Stereo-Image-Combiner/
 2. Drag and drop two images onto the designated drop zone
 3. Use the controls to adjust:
    - Scale (for preview only)
    - Gap between images
    - Gap color
 4. Click "Swap Images" to change their order if desired
-5. Click "Save as PNG" to download the combined image
+5. Click "Save Image" to download the combined image
 6. Use "Reset Images" to clear current images and start over with default settings
 
 ## Technical Details
@@ -44,7 +44,7 @@ No server processing or uploading is required - all operations happen directly i
 - No external dependencies or libraries required
 - Uses HTML5 Canvas for image manipulation and rendering
 - Handles various image formats supported by your browser (JPG, PNG, GIF, etc.)
-- The final output is always saved as a PNG with full transparency support
+- The final output is saved as a PNG with full transparency support, or optionally a JPG with selectable quality setting
 
 ## Browser Compatibility
 
