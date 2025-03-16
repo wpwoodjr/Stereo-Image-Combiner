@@ -46,19 +46,34 @@
             max-width: none;
             max-height: none;
         }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px;
+            border-radius: 6px;
+        }
+        .control-group:not(:last-child) {
+            margin-right: 15px;
+            border-right: 1px solid #444444;
+            padding-right: 15px;
+        }
+        .save-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
         #controls {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 20px;
-            margin-bottom: 20px;
-            width: 100%;
             flex-wrap: wrap;
             padding: 15px;
             background-color: #1e1e1e;
             z-index: 20;
             position: relative;
             border-radius: 8px;
+            gap: 5px;
         }
         #imageInfo {
             display: flex;
@@ -147,17 +162,35 @@
         </a>
     </div>
     <div id="controls">
-        <button id="swap">Swap Images</button>
-        <label for="scale">Display Scale:</label>
-        <input type="range" id="scale" min="10" max="100" value="50">
-        <span id="scaleValue">50%</span>
-        <label for="gap">Gap between images:</label>
-        <input type="range" id="gap" min="0" max="200" value="100">
-        <input type="number" id="gapNumber" min="0" max="200" value="100">
-        <label for="color">Gap color:</label>
-        <input type="color" id="color" value="#000000">
-        <button id="save">Save as PNG</button>
-        <button id="reset">Reset Images</button>
+        <div class="control-group">
+            <button id="swap">Swap Images</button>
+            <button id="reset">Reset Images</button>
+        </div>
+        <div class="control-group">
+            <label for="scale">Display Scale:</label>
+            <input type="range" id="scale" min="10" max="100" value="50">
+            <span id="scaleValue">50%</span>
+        </div>
+        <div class="control-group">
+            <label for="gap">Gap:</label>
+            <input type="range" id="gap" min="0" max="200" value="100">
+            <input type="number" id="gapNumber" min="0" max="200" value="100">
+            <label for="color">Color:</label>
+            <input type="color" id="color" value="#000000">
+        </div>
+        <div class="control-group save-group">
+            <label for="format">Format:</label>
+            <select id="format">
+                <option value="image/png">PNG</option>
+                <option value="image/jpeg">JPG</option>
+            </select>
+            <div id="qualityContainer" style="display: none;">
+                <label for="quality">Quality:</label>
+                <input type="range" id="quality" min="0" max="100" value="90">
+                <span id="qualityValue">90%</span>
+            </div>
+            <button id="save">Save Image</button>
+        </div>
     </div>
     <div id="imageInfo">
         <span id="leftImageName"></span>
@@ -190,6 +223,10 @@
         const leftImageName = document.getElementById('leftImageName');
         const rightImageName = document.getElementById('rightImageName');
         const fileInput = document.getElementById('fileInput');
+        const formatSelect = document.getElementById('format');
+        const qualitySlider = document.getElementById('quality');
+        const qualityValue = document.getElementById('qualityValue');
+        const qualityContainer = document.getElementById('qualityContainer');
 
         // Default values
         const DEFAULT_SCALE = 50;
@@ -440,6 +477,19 @@
             }
         });
 
+        // Show/hide quality slider based on format selection
+        formatSelect.addEventListener('change', function() {
+            if (this.value === 'image/jpeg') {
+                qualityContainer.style.display = 'flex';
+            } else {
+                qualityContainer.style.display = 'none';
+            }
+        });
+        // Update quality value display
+        qualitySlider.addEventListener('input', function() {
+            qualityValue.textContent = `${this.value}%`;
+        });
+
         saveButton.addEventListener('click', () => {
             if (images.length !== 2) {
                 alert('Please add two images before saving.');
@@ -464,8 +514,20 @@
 
             const link = document.createElement('a');
             const defaultName = imageNames[0].split('.').slice(0, -1).join('.') || 'combined_image';
-            link.download = `${defaultName}_combined.png`;
-            link.href = saveCanvas.toDataURL();
+
+            // Get selected format and set appropriate extension
+            const format = formatSelect.value;
+            const extension = format === 'image/jpeg' ? 'jpg' : 'png';
+            link.download = `${defaultName}_combined.${extension}`;
+
+            // For JPEG, use quality parameter; for PNG, don't specify quality
+            if (format === 'image/jpeg') {
+                const quality = parseInt(qualitySlider.value) / 100;
+                link.href = saveCanvas.toDataURL(format, quality);
+            } else {
+                link.href = saveCanvas.toDataURL(format);
+            }
+
             link.click();
         });
     </script>
