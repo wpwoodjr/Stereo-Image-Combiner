@@ -163,8 +163,10 @@
         <span id="leftImageName"></span>
         <span id="rightImageName"></span>
     </div>
-    <div id="canvasContainer">
-        <canvas id="canvas" width="800" height="400"></canvas>
+    <div style="width: 100%; overflow-x: auto; max-width: 100vw;" id="scrollContainer">
+        <div id="canvasContainer" style="max-width: none; width: auto; display: none; margin: 0 auto;">
+            <canvas id="canvas" width="800" height="400" style="display: block; margin: 0 auto;"></canvas>
+        </div>
     </div>
     <div id="dropzone">
         <p id="dropzoneMessage">Drag and drop two images here or click to browse</p>
@@ -403,6 +405,19 @@
 
             ctx.drawImage(images[0], 0, 0, images[0].width * scale, images[0].height * scale);
             ctx.drawImage(images[1], images[0].width * scale + scaledGap, 0, images[1].width * scale, images[1].height * scale);
+
+            // After drawing, center the scroll position
+            setTimeout(centerScrollPosition, 50);
+        }
+
+        // Function to center the scroll position
+        function centerScrollPosition() {
+            const scrollContainer = document.getElementById('scrollContainer');
+            if (scrollContainer) {
+                // Calculate the scroll width and center it
+                const scrollLeft = (scrollContainer.scrollWidth - scrollContainer.clientWidth) / 2;
+                scrollContainer.scrollLeft = scrollLeft;
+            }
         }
 
         swapButton.addEventListener('click', () => {
