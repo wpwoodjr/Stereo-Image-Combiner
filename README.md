@@ -9,7 +9,7 @@ A simple web-based tool for combining two images side by side with customizable 
 Image Combiner is a lightweight browser-based application that allows users to:
 - Combine two images side by side into a single image
 - Adjust the gap between images
-- Change the background color
+- Change the color of the gap between images
 - Scale the preview display
 - Swap image positions
 - Save the resulting combined image as a PNG file
@@ -21,7 +21,7 @@ No server processing or uploading is required - all operations happen directly i
 - **Drag and Drop Interface**: Simply drag and drop your images onto the application
 - **Live Preview**: See how your combined image will look as you adjust settings
 - **Customizable Gap**: Adjust the space between images from 0 to 200 pixels
-- **Background Color Selection**: Choose any color for the space between your images
+- **Gap Color Selection**: Choose any color for the space between your images
 - **Image Swapping**: Easily change the order of images with a single click
 - **Scalable Preview**: Adjust the preview size without affecting the final output
 - **High-Quality Export**: Save the combined image in PNG format at full resolution
