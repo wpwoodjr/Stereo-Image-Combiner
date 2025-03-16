@@ -244,9 +244,10 @@
             }
             if (files.length > 2) {
                 alert('Please select only two images.');
-                return;
+            } else {
+                processFiles(files);
             }
-            processFiles(files);
+            fileInput.value = '';
         });
 
         // Process the selected files
@@ -269,9 +270,16 @@
                             canvasContainer.style.display = 'block';
                             dropzone.style.display = 'none';
                             updateImageNames();
+
+                            // Calculate and set optimal scale
+                            const optimalScale = calculateOptimalScale(images[0], images[1], gap);
+                            scale = optimalScale / 100;
+                            scaleSlider.value = optimalScale;
+                            scaleValue.textContent = `${optimalScale}%`;
+
+                            // draw the images
                             drawImages();
-                            // After drawing, center the scroll position
-                            setTimeout(centerScrollPosition, 50);
+
                         } else if (images.length === 1 && files.length === 1) {
                             dropzoneMessage.textContent = 'Add one more image';
                             updateImageNames();
@@ -281,6 +289,23 @@
                 };
                 reader.readAsDataURL(file);
             });
+        }
+
+        // Calculate the optimal scale
+        function calculateOptimalScale(img1, img2, gap) {
+            // Get the available viewport width (accounting for some margin)
+            const viewportWidth = window.innerWidth - 40;
+
+            // Calculate total width at 100% scale
+            const totalWidthAt100 = img1.width + img2.width + gap;
+
+            // Calculate the scale percentage needed to fit
+            let optimalScale = (viewportWidth / totalWidthAt100) * 100;
+
+            // Cap the scale between the min and max values of the slider
+            optimalScale = Math.min(Math.max(optimalScale, 10), 100);
+
+            return Math.floor(optimalScale); // Round down to nearest integer
         }
 
         // Make the canvas container also accept drag and drop to replace images
@@ -327,9 +352,6 @@
             dropzone.style.display = 'flex';
             dropzoneMessage.textContent = 'Drag and drop two images here or click to browse';
 
-            // Clear file input
-            fileInput.value = '';
-            
             // Reset control values to defaults
             resetControlsToDefaults();
         });
@@ -407,16 +429,6 @@
 
             ctx.drawImage(images[0], 0, 0, images[0].width * scale, images[0].height * scale);
             ctx.drawImage(images[1], images[0].width * scale + scaledGap, 0, images[1].width * scale, images[1].height * scale);
-        }
-
-        // Function to center the scroll position
-        function centerScrollPosition() {
-            const scrollContainer = document.getElementById('scrollContainer');
-            if (scrollContainer) {
-                // Calculate the scroll width and center it
-                const scrollLeft = (scrollContainer.scrollWidth - scrollContainer.clientWidth) / 2;
-                scrollContainer.scrollLeft = scrollLeft;
-            }
         }
 
         swapButton.addEventListener('click', () => {
