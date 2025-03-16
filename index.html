@@ -26,13 +26,15 @@
         #dropzone {
             width: 800px;
             height: 400px;
-            border: 2px dashed #555;
+            border: 2px dashed #555555;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             margin-top: 20px;
             position: relative;
             background-color: #202020;
+            cursor: pointer;
         }
         #canvasContainer {
             position: relative;
@@ -130,6 +132,9 @@
             height: 24px;
             fill: #ffffff;
         }
+        .file-input {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -162,7 +167,8 @@
         <canvas id="canvas" width="800" height="400"></canvas>
     </div>
     <div id="dropzone">
-        <p id="dropzoneMessage">Drag and drop two images here</p>
+        <p id="dropzoneMessage">Drag and drop two images here or click to browse</p>
+        <input type="file" id="fileInput" class="file-input" accept="image/*" multiple>
     </div>
 
     <script>
@@ -181,6 +187,7 @@
         const resetButton = document.getElementById('reset');
         const leftImageName = document.getElementById('leftImageName');
         const rightImageName = document.getElementById('rightImageName');
+        const fileInput = document.getElementById('fileInput');
 
         // Default values
         const DEFAULT_SCALE = 50;
@@ -194,13 +201,25 @@
         let scale = DEFAULT_SCALE / 100;
         let realGap = gap; // Actual gap used in saved image
 
+        // Make the entire dropzone clickable
+        dropzone.addEventListener('click', (e) => {
+            // Prevent click from triggering on child elements
+            if (e.target === dropzone || e.target === dropzoneMessage) {
+                fileInput.click();
+            }
+        });
+
         dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropzone.style.backgroundColor = '#303030';
+            // Update the dropzone message
+            dropzoneMessage.textContent = 'Drag and drop two images here';
         });
 
         dropzone.addEventListener('dragleave', () => {
             dropzone.style.backgroundColor = '#202020';
+            // Update the dropzone message
+            dropzoneMessage.textContent = 'Drag and drop two images here or click to browse';
         });
 
         dropzone.addEventListener('drop', (e) => {
@@ -214,13 +233,27 @@
             processFiles(files);
         });
 
-        // Process the dropped files
+        // File browser input handler
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            // Add this check to prevent processing when no files are selected (cancel case)
+            if (files.length === 0) {
+                return;
+            }
+            if (files.length > 2) {
+                alert('Please select only two images.');
+                return;
+            }
+            processFiles(files);
+        });
+
+        // Process the selected files
         function processFiles(files) {
             images = [];
             imageNames = [];
             Array.from(files).forEach((file) => {
                 if (!file.type.startsWith('image/')) {
-                    alert('Please drop only image files.');
+                    alert('Please select only image files.');
                     return;
                 }
                 const reader = new FileReader();
@@ -236,7 +269,7 @@
                             updateImageNames();
                             drawImages();
                         } else if (images.length === 1 && files.length === 1) {
-                            dropzoneMessage.textContent = 'Drop one more image';
+                            dropzoneMessage.textContent = 'Add one more image';
                             updateImageNames();
                         }
                     };
@@ -269,6 +302,14 @@
             processFiles(files);
         });
 
+        // Make the canvas container clickable
+        canvasContainer.addEventListener('click', (e) => {
+            // Prevent click from triggering on child elements
+            if (e.target === canvas || e.target === canvasContainer) {
+                fileInput.click();
+            }
+        });
+
         // Allow resetting to drop more images and restore default settings
         resetButton.addEventListener('click', () => {
             // Reset images
@@ -280,7 +321,10 @@
             // Reset UI display
             canvasContainer.style.display = 'none';
             dropzone.style.display = 'flex';
-            dropzoneMessage.textContent = 'Drag and drop two images here';
+            dropzoneMessage.textContent = 'Drag and drop two images here or click to browse';
+
+            // Clear file input
+            fileInput.value = '';
             
             // Reset control values to defaults
             resetControlsToDefaults();
