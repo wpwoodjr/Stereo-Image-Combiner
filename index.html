@@ -270,6 +270,8 @@
                             dropzone.style.display = 'none';
                             updateImageNames();
                             drawImages();
+                            // After drawing, center the scroll position
+                            setTimeout(centerScrollPosition, 50);
                         } else if (images.length === 1 && files.length === 1) {
                             dropzoneMessage.textContent = 'Add one more image';
                             updateImageNames();
@@ -405,9 +407,6 @@
 
             ctx.drawImage(images[0], 0, 0, images[0].width * scale, images[0].height * scale);
             ctx.drawImage(images[1], images[0].width * scale + scaledGap, 0, images[1].width * scale, images[1].height * scale);
-
-            // After drawing, center the scroll position
-            setTimeout(centerScrollPosition, 50);
         }
 
         // Function to center the scroll position
