@@ -10,16 +10,25 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #ffffff;
+            margin-bottom: 20px;
         }
         #dropzone {
             width: 800px;
             height: 400px;
-            border: 2px dashed #ccc;
+            border: 2px dashed #555;
             display: flex;
             justify-content: center;
             align-items: center;
             margin-top: 20px;
             position: relative;
+            background-color: #202020;
         }
         #canvasContainer {
             position: relative;
@@ -39,21 +48,55 @@
             margin-bottom: 20px;
             width: 100%;
             flex-wrap: wrap;
-            padding: 10px;
-            background-color: #f5f5f5;
+            padding: 15px;
+            background-color: #1e1e1e;
             z-index: 20;
             position: relative;
+            border-radius: 8px;
         }
         #imageInfo {
             display: flex;
             justify-content: space-between;
             width: 800px;
             margin: 10px 0;
+            color: #b0b0b0;
         }
         #dropzoneMessage {
             position: absolute;
             z-index: 10;
             pointer-events: none;
+            color: #aaaaaa;
+        }
+        button {
+            background-color: #333333;
+            color: #ffffff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #444444;
+        }
+        button:active {
+            background-color: #555555;
+        }
+        label {
+            color: #cccccc;
+        }
+        input[type="range"] {
+            background-color: #333333;
+        }
+        input[type="number"] {
+            background-color: #333333;
+            color: #ffffff;
+            border: 1px solid #555555;
+            padding: 4px;
+            width: 60px;
+        }
+        #scaleValue {
+            color: #bbbbbb;
         }
     </style>
 </head>
@@ -67,7 +110,7 @@
         <label for="gap">Gap between images:</label>
         <input type="range" id="gap" min="0" max="200" value="100">
         <input type="number" id="gapNumber" min="0" max="200" value="100">
-        <label for="color">Background color:</label>
+        <label for="color">Gap color:</label>
         <input type="color" id="color" value="#000000">
         <button id="save">Save as PNG</button>
         <button id="reset">Reset Images</button>
@@ -114,16 +157,16 @@
 
         dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
-            dropzone.style.backgroundColor = '#f0f0f0';
+            dropzone.style.backgroundColor = '#303030';
         });
 
         dropzone.addEventListener('dragleave', () => {
-            dropzone.style.backgroundColor = '';
+            dropzone.style.backgroundColor = '#202020';
         });
 
         dropzone.addEventListener('drop', (e) => {
             e.preventDefault();
-            dropzone.style.backgroundColor = '';
+            dropzone.style.backgroundColor = '#202020';
             const files = e.dataTransfer.files;
             if (files.length > 2) {
                 alert('Please drop only two images.');
