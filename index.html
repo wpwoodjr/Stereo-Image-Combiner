@@ -428,7 +428,7 @@
             let optimalScale = (viewportWidth / totalWidthAt100) * 100;
 
             // Cap the scale between the min and max values of the slider
-            optimalScale = Math.min(Math.max(optimalScale, 10), 100);
+            optimalScale = Math.min(Math.max(optimalScale, 1), 100);
 
             return Math.floor(optimalScale); // Round down to nearest integer
         }
