@@ -545,25 +545,34 @@
         function drawImages() {
             if (images.length !== 2) return;
 
-            // Recalculate pixel gap (in case images changed)
+            // Recalculate pixel gap
             calculatePixelGap();
-
-            // Calculate the scaled gap for display
             const scaledGap = pixelGap * scale;
 
+            // Calculate dimensions
             const totalWidth = images[0].width * scale + images[1].width * scale + scaledGap;
             const maxHeight = Math.max(images[0].height * scale, images[1].height * scale);
 
+            // Set canvas dimensions
             canvas.width = totalWidth;
             canvas.height = maxHeight;
 
+            // Clear the canvas with a transparent background
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Fill only the gap area with the selected color
             ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+            ctx.fillRect(
+                images[0].width * scale,  // X position (right after first image)
+                0,                        // Y position (top)
+                scaledGap,                // Width (just the gap)
+                maxHeight                 // Height (full height)
+            );
+            
+            // Draw the images
             ctx.drawImage(images[0], 0, 0, images[0].width * scale, images[0].height * scale);
             ctx.drawImage(images[1], images[0].width * scale + scaledGap, 0, images[1].width * scale, images[1].height * scale);
         }
-
         swapButton.addEventListener('click', () => {
             if (images.length === 2) {
                 [images[0], images[1]] = [images[1], images[0]];
