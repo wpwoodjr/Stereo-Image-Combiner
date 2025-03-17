@@ -2,7 +2,7 @@
 
 A simple web-based tool for combining two images side by side with customizable options.  Particularly useful for stereo slide pairs.
 
-![image](https://github.com/user-attachments/assets/c9a63f7b-0155-4ffc-b18c-eb733a792593)
+![image](https://github.com/user-attachments/assets/f5726ce8-f46b-4a50-a4db-27461eb6d69a)
 
 ## Overview
 
