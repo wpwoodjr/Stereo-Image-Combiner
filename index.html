@@ -114,10 +114,13 @@
             color: #ffffff;
             border: 1px solid #555555;
             padding: 4px;
-            width: 60px;
+            width: 50px;
         }
-        #scaleValue {
+        .value-display {
             color: #bbbbbb;
+            margin-left: 0px;
+            width: 40px;
+            display: inline-block;
         }
         .header-container {
             display: flex;
@@ -169,13 +172,13 @@
         <div class="control-group">
             <label for="scale">Display Scale:</label>
             <input type="range" id="scale" min="10" max="100" value="50">
-            <span id="scaleValue">50%</span>
+            <span id="scaleValue" class="value-display">50%</span>
         </div>
         <div class="control-group">
             <label for="gap">Gap:</label>
-            <input type="range" id="gap" min="0" max="200" value="100">
-            <input type="number" id="gapNumber" min="0" max="200" value="100">
-            <label for="color">Color:</label>
+            <input type="range" id="gap" min="0" max="200" value="75" step="1">
+            <span id="gapValue" class="value-display">7.5%</span>
+            <label for="color" style="margin-left: 15px;">Color:</label>
             <input type="color" id="color" value="#000000">
         </div>
         <div class="control-group save-group">
@@ -185,10 +188,13 @@
                 <option value="image/jpeg">JPG</option>
             </select>
             <div id="qualityContainer" style="display: none;">
-                <label for="quality">Quality:</label>
+                <label for="quality" style="margin-left: 15px;">Quality:</label>
                 <input type="range" id="quality" min="0" max="100" value="90">
-                <span id="qualityValue">90%</span>
+                <span id="qualityValue" class="value-display">90%</span>
             </div>
+            <button id="save" style="margin-left: 15px;">Save Image</button>
+        </div>
+    </div>
             <button id="save">Save Image</button>
         </div>
     </div>
@@ -215,7 +221,7 @@
         const scaleSlider = document.getElementById('scale');
         const scaleValue = document.getElementById('scaleValue');
         const gapSlider = document.getElementById('gap');
-        const gapNumber = document.getElementById('gapNumber');
+        const gapValue = document.getElementById('gapValue');
         const colorPicker = document.getElementById('color');
         const saveButton = document.getElementById('save');
         const swapButton = document.getElementById('swap');
@@ -230,15 +236,15 @@
 
         // Default values
         const DEFAULT_SCALE = 50;
-        const DEFAULT_GAP = 100;
+        const DEFAULT_GAP_PERCENT = 7.5; // Gap as percentage (7.5%)
         const DEFAULT_COLOR = '#000000';
 
         let images = [];
         let imageNames = [];
-        let gap = DEFAULT_GAP;
+        let gapPercent = DEFAULT_GAP_PERCENT;
         let bgColor = DEFAULT_COLOR;
         let scale = DEFAULT_SCALE / 100;
-        let realGap = gap; // Actual gap used in saved image
+        let pixelGap = 0; // Actual pixel gap calculated from percentage
 
         // Make the entire dropzone clickable
         dropzone.addEventListener('click', (e) => {
@@ -309,7 +315,8 @@
                             updateImageNames();
 
                             // Calculate and set optimal scale
-                            const optimalScale = calculateOptimalScale(images[0], images[1], gap);
+                            calculatePixelGap(); // Calculate pixel gap based on images
+                            const optimalScale = calculateOptimalScale(images[0], images[1]);
                             scale = optimalScale / 100;
                             scaleSlider.value = optimalScale;
                             scaleValue.textContent = `${optimalScale}%`;
@@ -328,13 +335,26 @@
             });
         }
 
+        // Calculate pixel gap based on percentage of average image width
+        function calculatePixelGap() {
+            if (images.length !== 2) return 0;
+            
+            const avgWidth = (images[0].width + images[1].width) / 2;
+            pixelGap = Math.round(avgWidth * (gapPercent / 100));
+            
+            // Update slider based on percentage (scaled to 0-200 range)
+            gapSlider.value = gapPercent * 10;
+            
+            return pixelGap;
+        }
+
         // Calculate the optimal scale
-        function calculateOptimalScale(img1, img2, gap) {
+        function calculateOptimalScale(img1, img2) {
             // Get the available viewport width (accounting for some margin)
             const viewportWidth = window.innerWidth - 40;
 
-            // Calculate total width at 100% scale
-            const totalWidthAt100 = img1.width + img2.width + gap;
+            // Calculate total width at 100% scale (using the current pixel gap)
+            const totalWidthAt100 = img1.width + img2.width + pixelGap;
 
             // Calculate the scale percentage needed to fit
             let optimalScale = (viewportWidth / totalWidthAt100) * 100;
@@ -400,10 +420,10 @@
             scaleValue.textContent = `${DEFAULT_SCALE}%`;
             
             // Reset gap
-            gap = DEFAULT_GAP;
-            realGap = DEFAULT_GAP;
-            gapSlider.value = DEFAULT_GAP;
-            gapNumber.value = DEFAULT_GAP;
+            gapPercent = DEFAULT_GAP_PERCENT;
+            gapSlider.value = DEFAULT_GAP_PERCENT * 10;
+            gapValue.textContent = `${DEFAULT_GAP_PERCENT}%`;
+            pixelGap = 0;
             
             // Reset color
             bgColor = DEFAULT_COLOR;
@@ -412,7 +432,6 @@
 
         scaleSlider.addEventListener('input', updateScale);
         gapSlider.addEventListener('input', updateGap);
-        gapNumber.addEventListener('input', updateGapFromNumber);
         colorPicker.addEventListener('input', updateColor);
 
         function updateScale() {
@@ -422,20 +441,15 @@
         }
 
         function updateGap() {
-            const inputValue = parseInt(this.value);
-            gap = inputValue;
-            gapNumber.value = gap;
-            // Store the original gap for saving
-            realGap = gap;
-            drawImages();
-        }
+            // Convert slider value (0-200) to percentage (0-20)
+            const sliderValue = parseInt(this.value);
+            gapPercent = sliderValue / 10;
 
-        function updateGapFromNumber() {
-            const inputValue = parseInt(this.value);
-            gap = inputValue;
-            gapSlider.value = gap;
-            // Store the original gap for saving
-            realGap = gap;
+            // Update gap value display with percentage
+            gapValue.textContent = `${gapPercent.toFixed(1)}%`;
+
+            // Recalculate pixel gap
+            calculatePixelGap();
             drawImages();
         }
 
@@ -452,8 +466,11 @@
         function drawImages() {
             if (images.length !== 2) return;
 
+            // Recalculate pixel gap (in case images changed)
+            calculatePixelGap();
+
             // Calculate the scaled gap for display
-            const scaledGap = gap * scale;
+            const scaledGap = pixelGap * scale;
 
             const totalWidth = images[0].width * scale + images[1].width * scale + scaledGap;
             const maxHeight = Math.max(images[0].height * scale, images[1].height * scale);
@@ -499,8 +516,11 @@
             const saveCanvas = document.createElement('canvas');
             const saveCtx = saveCanvas.getContext('2d');
 
-            // Use the real gap value (not scaled) for the final saved image
-            const totalWidth = images[0].width + images[1].width + realGap;
+            // Recalculate pixel gap for saving (at 100% scale)
+            const avgWidth = (images[0].width + images[1].width) / 2;
+            const saveGap = Math.round(avgWidth * (gapPercent / 100));
+
+            const totalWidth = images[0].width + images[1].width + saveGap;
             const maxHeight = Math.max(images[0].height, images[1].height);
 
             saveCanvas.width = totalWidth;
@@ -510,7 +530,7 @@
             saveCtx.fillRect(0, 0, saveCanvas.width, saveCanvas.height);
 
             saveCtx.drawImage(images[0], 0, 0);
-            saveCtx.drawImage(images[1], images[0].width + realGap, 0);
+            saveCtx.drawImage(images[1], images[0].width + saveGap, 0);
 
             const link = document.createElement('a');
             const defaultName = imageNames[0].split('.').slice(0, -1).join('.') || 'combined_image';
