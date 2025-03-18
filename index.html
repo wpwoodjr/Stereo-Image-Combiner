@@ -243,12 +243,24 @@
                         <span id="gapValue" class="value-display">7.5%</span>
                     </div>
                     
-                    <label for="color" style="margin-top: 10px;">Color:</label>
-                    <input type="color" id="color" value="#000000">
+                    <div class="control-row" style="margin-top: 10px;">
+                        <label for="color">Gap Color:</label>
+                        <input type="color" id="color" value="#000000" style="margin-left: 10px;">
+                    </div>
                 </div>
                 
                 <div class="control-group">
-                    <label for="format">Format:</label>
+                    <label for="trim">Trim Inner Edges:</label>
+                    <div class="control-row">
+                        <input type="range" id="trim" min="0" max="50" value="0" step="1">
+                        <span id="trimValue" class="value-display">0%</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button id="save">Save Image</button>
+                    
+                    <label for="format" style="margin-top: 15px;">Format:</label>
                     <select id="format">
                         <option value="image/png">PNG</option>
                         <option value="image/jpeg">JPG</option>
@@ -261,8 +273,6 @@
                             <span id="qualityValue" class="value-display">90%</span>
                         </div>
                     </div>
-                    
-                    <button id="save" style="margin-top: 15px;">Save Image</button>
                 </div>
             </div>
         </div>
@@ -305,6 +315,8 @@
         const qualitySlider = document.getElementById('quality');
         const qualityValue = document.getElementById('qualityValue');
         const qualityContainer = document.getElementById('qualityContainer');
+        const trimSlider = document.getElementById('trim');
+        const trimValue = document.getElementById('trimValue');
 
         // Default values
         const DEFAULT_SCALE = 50;
@@ -317,6 +329,7 @@
         let bgColor = DEFAULT_COLOR;
         let scale = DEFAULT_SCALE / 100;
         let pixelGap = 0; // Actual pixel gap calculated from percentage
+        let trimPercent = 0; // Default trim percentage
 
         // Make the entire dropzone clickable
         dropzone.addEventListener('click', (e) => {
@@ -433,8 +446,12 @@
                 ? window.innerWidth - 15
                 : window.innerWidth - leftPanelWidth - 50;
             
+            // Calculate trim amounts
+            const leftTrimPixels = Math.floor(img1.width * (trimPercent / 100));
+            const rightTrimPixels = Math.floor(img2.width * (trimPercent / 100));
+            
             // Calculate total width at 100% scale (using the current pixel gap)
-            const totalWidthAt100 = img1.width + img2.width + pixelGap;
+            const totalWidthAt100 = (img1.width - leftTrimPixels) + (img2.width - rightTrimPixels) + pixelGap;
             
             // Calculate the scale percentage needed to fit
             let optimalScale = (viewportWidth / totalWidthAt100) * 100;
@@ -507,11 +524,17 @@
             // Reset color
             bgColor = DEFAULT_COLOR;
             colorPicker.value = DEFAULT_COLOR;
+            
+            // Reset trim
+            trimPercent = 0;
+            trimSlider.value = 0;
+            trimValue.textContent = '0%';
         }
 
         scaleSlider.addEventListener('input', updateScale);
         gapSlider.addEventListener('input', updateGap);
         colorPicker.addEventListener('input', updateColor);
+        trimSlider.addEventListener('input', updateTrim);
 
         function updateScale() {
             scale = parseInt(this.value) / 100;
@@ -536,6 +559,12 @@
             bgColor = this.value;
             drawImages();
         }
+        
+        function updateTrim() {
+            trimPercent = parseInt(this.value);
+            trimValue.textContent = `${trimPercent}%`;
+            drawImages();
+        }
 
         function updateImageNames() {
             leftImageName.textContent = imageNames[0] || '';
@@ -549,30 +578,55 @@
             calculatePixelGap();
             const scaledGap = pixelGap * scale;
 
-            // Calculate dimensions
-            const totalWidth = images[0].width * scale + images[1].width * scale + scaledGap;
+            // Calculate trim amounts
+            const leftTrimPixels = Math.floor(images[0].width * (trimPercent / 100));
+            const rightTrimPixels = Math.floor(images[1].width * (trimPercent / 100));
+
+            // Calculate dimensions with trim
+            const totalWidth = (images[0].width - leftTrimPixels) * scale + 
+                               (images[1].width - rightTrimPixels) * scale + 
+                               scaledGap;
             const maxHeight = Math.max(images[0].height * scale, images[1].height * scale);
 
             // Set canvas dimensions
             canvas.width = totalWidth;
             canvas.height = maxHeight;
 
-            // Clear the canvas with a transparent background
+            // Clear the canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // Fill only the gap area with the selected color
             ctx.fillStyle = bgColor;
             ctx.fillRect(
-                images[0].width * scale,  // X position (right after first image)
-                0,                        // Y position (top)
-                scaledGap,                // Width (just the gap)
-                maxHeight                 // Height (full height)
+                (images[0].width - leftTrimPixels) * scale,  // X position (right after trimmed first image)
+                0,                                           // Y position (top)
+                scaledGap,                                   // Width (just the gap)
+                maxHeight                                    // Height (full height)
             );
             
-            // Draw the images
-            ctx.drawImage(images[0], 0, 0, images[0].width * scale, images[0].height * scale);
-            ctx.drawImage(images[1], images[0].width * scale + scaledGap, 0, images[1].width * scale, images[1].height * scale);
+            // Draw the first image with right edge trimmed
+            ctx.drawImage(
+                images[0],
+                0, 0,                                   // Source position
+                images[0].width - leftTrimPixels,       // Source width (trimmed)
+                images[0].height,                       // Source height
+                0, 0,                                   // Destination position
+                (images[0].width - leftTrimPixels) * scale, // Destination width
+                images[0].height * scale                // Destination height
+            );
+            
+            // Draw the second image with left edge trimmed
+            ctx.drawImage(
+                images[1],
+                rightTrimPixels, 0,                     // Source position (trimmed from left)
+                images[1].width - rightTrimPixels,      // Source width (remaining after trim)
+                images[1].height,                       // Source height
+                (images[0].width - leftTrimPixels) * scale + scaledGap, 0, // Destination position
+                (images[1].width - rightTrimPixels) * scale,  // Destination width
+                images[1].height * scale                // Destination height
+            );
         }
+        
         swapButton.addEventListener('click', () => {
             if (images.length === 2) {
                 [images[0], images[1]] = [images[1], images[0]];
@@ -608,17 +662,44 @@
             const avgWidth = (images[0].width + images[1].width) / 2;
             const saveGap = Math.round(avgWidth * (gapPercent / 100));
 
-            const totalWidth = images[0].width + images[1].width + saveGap;
+            // Calculate trim amounts at full resolution
+            const leftTrimPixels = Math.floor(images[0].width * (trimPercent / 100));
+            const rightTrimPixels = Math.floor(images[1].width * (trimPercent / 100));
+
+            // Calculate dimensions with trim
+            const totalWidth = (images[0].width - leftTrimPixels) + 
+                               (images[1].width - rightTrimPixels) + 
+                               saveGap;
             const maxHeight = Math.max(images[0].height, images[1].height);
 
             saveCanvas.width = totalWidth;
             saveCanvas.height = maxHeight;
 
+            // Fill with background color
             saveCtx.fillStyle = bgColor;
             saveCtx.fillRect(0, 0, saveCanvas.width, saveCanvas.height);
 
-            saveCtx.drawImage(images[0], 0, 0);
-            saveCtx.drawImage(images[1], images[0].width + saveGap, 0);
+            // Draw first image with right edge trimmed
+            saveCtx.drawImage(
+                images[0],
+                0, 0,                           // Source position
+                images[0].width - leftTrimPixels, // Source width (trimmed)
+                images[0].height,               // Source height
+                0, 0,                           // Destination position
+                images[0].width - leftTrimPixels, // Destination width
+                images[0].height                // Destination height
+            );
+            
+            // Draw second image with left edge trimmed
+            saveCtx.drawImage(
+                images[1],
+                rightTrimPixels, 0,             // Source position (trimmed from left)
+                images[1].width - rightTrimPixels, // Source width (remaining after trim)
+                images[1].height,               // Source height
+                images[0].width - leftTrimPixels + saveGap, 0, // Destination position
+                images[1].width - rightTrimPixels, // Destination width
+                images[1].height                // Destination height
+            );
 
             const link = document.createElement('a');
             const defaultName = imageNames[0].split('.').slice(0, -1).join('.') || 'combined_image';
