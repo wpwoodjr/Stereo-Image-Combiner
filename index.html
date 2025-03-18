@@ -353,6 +353,7 @@
         });
 
         dropzone.addEventListener('drop', (e) => {
+            dropzoneMessage.textContent = 'Drag and drop two images here or click to browse';
             e.preventDefault();
             dropzone.style.backgroundColor = '#202020';
             const files = e.dataTransfer.files;
@@ -503,7 +504,6 @@
             // Reset UI display
             canvasContainer.style.display = 'none';
             dropzone.style.display = 'flex';
-            dropzoneMessage.textContent = 'Drag and drop two images here or click to browse';
 
             // Reset control values to defaults
             resetControlsToDefaults();
