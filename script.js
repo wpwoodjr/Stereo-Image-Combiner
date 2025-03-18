@@ -20,8 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const qualitySlider = document.getElementById('quality');
     const qualityValue = document.getElementById('qualityValue');
     const qualityContainer = document.getElementById('qualityContainer');
-    const trimSlider = document.getElementById('trim');
-    const trimValue = document.getElementById('trimValue');
 
     // Default values
     const DEFAULT_SCALE = 50;
@@ -35,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let bgColor = DEFAULT_COLOR;
     let scale = DEFAULT_SCALE / 100;
     let pixelGap = 0; // Actual pixel gap calculated from percentage
-    let trimPercent = 0; // Default trim percentage
 
     // =========================
     // Event Listeners
@@ -140,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
     scaleSlider.addEventListener('input', updateScale);
     gapSlider.addEventListener('input', updateGap);
     colorPicker.addEventListener('input', updateColor);
-    trimSlider.addEventListener('input', updateTrim);
 
     swapButton.addEventListener('click', () => {
         if (images.length === 2) {
@@ -250,12 +246,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ? window.innerWidth - 15
             : window.innerWidth - leftPanelWidth - 50;
         
-        // Calculate trim amounts
-        const leftTrimPixels = Math.floor(img1.width * (trimPercent / 100));
-        const rightTrimPixels = Math.floor(img2.width * (trimPercent / 100));
-        
         // Calculate total width at 100% scale (using the current pixel gap)
-        const totalWidthAt100 = (img1.width - leftTrimPixels) + (img2.width - rightTrimPixels) + pixelGap;
+        const totalWidthAt100 = img1.width + img2.width + pixelGap;
         
         // Calculate the scale percentage needed to fit
         let optimalScale = (viewportWidth / totalWidthAt100) * 100;
@@ -281,11 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset color
         bgColor = DEFAULT_COLOR;
         colorPicker.value = DEFAULT_COLOR;
-        
-        // Reset trim
-        trimPercent = 0;
-        trimSlider.value = 0;
-        trimValue.textContent = '0%';
     }
 
     function updateScale() {
@@ -309,12 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateColor() {
         bgColor = this.value;
-        drawImages();
-    }
-    
-    function updateTrim() {
-        trimPercent = parseInt(this.value);
-        trimValue.textContent = `${trimPercent}%`;
         drawImages();
     }
 
@@ -350,17 +331,9 @@ function renderCombinedImage(options = {}) {
         renderGap = pixelGap * renderScale;
     }
     
-    // Calculate trim amounts
-    const leftTrimTotal = Math.floor(images[0].width * (trimPercent / 100));
-    const rightTrimTotal = Math.floor(images[1].width * (trimPercent / 100));
-    
-    // Divide the trim evenly between left and right sides
-    const leftImageLeftTrim = Math.floor(leftTrimTotal / 2);
-    const rightImageLeftTrim = Math.floor(rightTrimTotal / 2);
-
-    // Calculate dimensions with trim
-    const img1Width = (images[0].width - leftTrimTotal) * renderScale;
-    const img2Width = (images[1].width - rightTrimTotal) * renderScale;
+    // Calculate dimensions
+    const img1Width = images[0].width * renderScale;
+    const img2Width = images[1].width * renderScale;
     const totalWidth = img1Width + img2Width + renderGap;
     
     const img1Height = images[0].height * renderScale;
@@ -383,26 +356,22 @@ function renderCombinedImage(options = {}) {
         maxHeight                  // Height (full height)
     );
     
-    // Draw the first image with trim
+    // Draw the first image
     targetCtx.drawImage(
         images[0],
-        leftImageLeftTrim, 0,                   // Source position (trimmed from left)
-        images[0].width - leftTrimTotal,        // Source width (trimmed from both sides)
-        images[0].height,                       // Source height
+        0, 0,                                   // Source position
+        images[0].width, images[0].height,      // Source dimensions
         0, 0,                                   // Destination position
-        img1Width,                              // Destination width
-        img1Height                              // Destination height
+        img1Width, img1Height                   // Destination dimensions
     );
     
-    // Draw the second image with trim
+    // Draw the second image
     targetCtx.drawImage(
         images[1],
-        rightImageLeftTrim, 0,                  // Source position (trimmed from left)
-        images[1].width - rightTrimTotal,       // Source width (trimmed from both sides)
-        images[1].height,                       // Source height
+        0, 0,                                   // Source position
+        images[1].width, images[1].height,      // Source dimensions
         img1Width + renderGap, 0,               // Destination position (after first image + gap)
-        img2Width,                              // Destination width
-        img2Height                              // Destination height
+        img2Width, img2Height                   // Destination dimensions
     );
     
     // Return parameters used for rendering (useful for saving)
@@ -414,6 +383,7 @@ function renderCombinedImage(options = {}) {
         renderGap
     };
 }
+
     function drawImages() {
         renderCombinedImage({
             targetCanvas: canvas,
