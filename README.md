@@ -34,7 +34,7 @@ No server processing or uploading is required - all operations happen directly i
    - Scale (for preview only)
    - Gap between images
    - Gap color
-4. Click "Swap Images" to change their order if desired
+4. Click "Swap Images" to change their order, for instance to switch from cross-eyed viewing to parallel viewing of a stero image
 5. Click "Save Image" to download the combined image
 6. Use "Reset Images" to clear current images and start over with default settings
 
@@ -43,8 +43,8 @@ No server processing or uploading is required - all operations happen directly i
 - Built with vanilla JavaScript, HTML, and CSS
 - No external dependencies or libraries required
 - Uses HTML5 Canvas for image manipulation and rendering
-- Handles various image formats supported by your browser (JPG, PNG, GIF, etc.)
-- The final output is saved as a PNG with full transparency support, or optionally a JPG with selectable quality setting
+- Handles various input image formats supported by your browser (JPG, PNG, GIF, etc.)
+- The final output is saved as a JPG with selectable quality setting, or optionally a PNG with full transparency support
 
 ## Browser Compatibility
 
