@@ -323,106 +323,97 @@ document.addEventListener('DOMContentLoaded', () => {
         rightImageName.textContent = imageNames[1] || '';
     }
 
-    /**
-     * Creates a combined image with the current settings
-     * @param {Object} options - Options for rendering the combined image
-     * @param {HTMLCanvasElement} options.targetCanvas - The canvas to draw on
-     * @param {boolean} options.forSaving - Whether this is for saving (100% scale) or display
-     * @returns {Object} - Parameters used for the rendering (dimensions, etc.)
-     */
-    function renderCombinedImage(options = {}) {
-        if (images.length !== 2) return null;
-        
-        const { targetCanvas, forSaving = false } = options;
-        const targetCtx = targetCanvas.getContext('2d');
-        
-        // Use display scale or 100% for saving
-        const renderScale = forSaving ? 1 : scale;
-        
-        // Calculate gap - either scaled for display or full size for saving
-        let renderGap;
-        if (forSaving) {
-            // For saving: calculate pixel gap based on average width
-            const avgWidth = (images[0].width + images[1].width) / 2;
-            renderGap = Math.round(avgWidth * (gapPercent / 100));
-        } else {
-            // For display: use the current pixel gap and apply scale
-            calculatePixelGap();
-            renderGap = pixelGap * renderScale;
-        }
-        
-        // Calculate trim amounts
-        const leftTrimTotal = Math.floor(images[0].width * (trimPercent / 100));
-        const rightTrimTotal = Math.floor(images[1].width * (trimPercent / 100));
-        
-        // Divide the trim evenly between left and right sides
-        const leftImageLeftTrim = Math.floor(leftTrimTotal / 2);
-        const rightImageLeftTrim = Math.floor(rightTrimTotal / 2);
-
-        // Calculate dimensions with trim
-        const img1Width = (images[0].width - leftTrimTotal) * renderScale;
-        const img2Width = (images[1].width - rightTrimTotal) * renderScale;
-        const totalWidth = img1Width + img2Width + renderGap;
-        
-        const img1Height = images[0].height * renderScale;
-        const img2Height = images[1].height * renderScale;
-        const maxHeight = Math.max(img1Height, img2Height);
-
-        // Set canvas dimensions
-        targetCanvas.width = totalWidth;
-        targetCanvas.height = maxHeight;
-
-        // Clear the canvas
-        targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-        
-        // Fill background with selected color (either just gap or entire canvas)
-        targetCtx.fillStyle = bgColor;
-        
-        if (forSaving) {
-            // For saving, fill entire canvas
-            targetCtx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
-        } else {
-            // For display, only fill the gap
-            targetCtx.fillRect(
-                img1Width,                 // X position (after first image)
-                0,                         // Y position (top)
-                renderGap,                 // Width (just the gap)
-                maxHeight                  // Height (full height)
-            );
-        }
-        
-        // Draw the first image with trim
-        targetCtx.drawImage(
-            images[0],
-            leftImageLeftTrim, 0,                   // Source position (trimmed from left)
-            images[0].width - leftTrimTotal,        // Source width (trimmed from both sides)
-            images[0].height,                       // Source height
-            0, 0,                                   // Destination position
-            img1Width,                              // Destination width
-            img1Height                              // Destination height
-        );
-        
-        // Draw the second image with trim
-        targetCtx.drawImage(
-            images[1],
-            rightImageLeftTrim, 0,                  // Source position (trimmed from left)
-            images[1].width - rightTrimTotal,       // Source width (trimmed from both sides)
-            images[1].height,                       // Source height
-            img1Width + renderGap, 0,               // Destination position (after first image + gap)
-            img2Width,                              // Destination width
-            img2Height                              // Destination height
-        );
-        
-        // Return parameters used for rendering (useful for saving)
-        return {
-            totalWidth,
-            maxHeight,
-            img1Width,
-            img2Width,
-            renderGap
-        };
+/**
+ * Creates a combined image with the current settings
+ * @param {Object} options - Options for rendering the combined image
+ * @param {HTMLCanvasElement} options.targetCanvas - The canvas to draw on
+ * @param {boolean} options.forSaving - Whether this is for saving (100% scale) or display
+ * @returns {Object} - Parameters used for the rendering (dimensions, etc.)
+ */
+function renderCombinedImage(options = {}) {
+    if (images.length !== 2) return null;
+    
+    const { targetCanvas, forSaving = false } = options;
+    const targetCtx = targetCanvas.getContext('2d');
+    
+    // Use display scale or 100% for saving
+    const renderScale = forSaving ? 1 : scale;
+    
+    // Calculate gap - either scaled for display or full size for saving
+    let renderGap;
+    if (forSaving) {
+        // For saving: calculate pixel gap based on average width
+        const avgWidth = (images[0].width + images[1].width) / 2;
+        renderGap = Math.round(avgWidth * (gapPercent / 100));
+    } else {
+        // For display: use the current pixel gap and apply scale
+        renderGap = pixelGap * renderScale;
     }
+    
+    // Calculate trim amounts
+    const leftTrimTotal = Math.floor(images[0].width * (trimPercent / 100));
+    const rightTrimTotal = Math.floor(images[1].width * (trimPercent / 100));
+    
+    // Divide the trim evenly between left and right sides
+    const leftImageLeftTrim = Math.floor(leftTrimTotal / 2);
+    const rightImageLeftTrim = Math.floor(rightTrimTotal / 2);
 
+    // Calculate dimensions with trim
+    const img1Width = (images[0].width - leftTrimTotal) * renderScale;
+    const img2Width = (images[1].width - rightTrimTotal) * renderScale;
+    const totalWidth = img1Width + img2Width + renderGap;
+    
+    const img1Height = images[0].height * renderScale;
+    const img2Height = images[1].height * renderScale;
+    const maxHeight = Math.max(img1Height, img2Height);
+
+    // Set canvas dimensions
+    targetCanvas.width = totalWidth;
+    targetCanvas.height = maxHeight;
+
+    // Clear the canvas
+    targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+    
+    // Fill background with selected color (ONLY the gap)
+    targetCtx.fillStyle = bgColor;
+    targetCtx.fillRect(
+        img1Width,                 // X position (after first image)
+        0,                         // Y position (top)
+        renderGap,                 // Width (just the gap)
+        maxHeight                  // Height (full height)
+    );
+    
+    // Draw the first image with trim
+    targetCtx.drawImage(
+        images[0],
+        leftImageLeftTrim, 0,                   // Source position (trimmed from left)
+        images[0].width - leftTrimTotal,        // Source width (trimmed from both sides)
+        images[0].height,                       // Source height
+        0, 0,                                   // Destination position
+        img1Width,                              // Destination width
+        img1Height                              // Destination height
+    );
+    
+    // Draw the second image with trim
+    targetCtx.drawImage(
+        images[1],
+        rightImageLeftTrim, 0,                  // Source position (trimmed from left)
+        images[1].width - rightTrimTotal,       // Source width (trimmed from both sides)
+        images[1].height,                       // Source height
+        img1Width + renderGap, 0,               // Destination position (after first image + gap)
+        img2Width,                              // Destination width
+        img2Height                              // Destination height
+    );
+    
+    // Return parameters used for rendering (useful for saving)
+    return {
+        totalWidth,
+        maxHeight,
+        img1Width,
+        img2Width,
+        renderGap
+    };
+}
     function drawImages() {
         renderCombinedImage({
             targetCanvas: canvas,
