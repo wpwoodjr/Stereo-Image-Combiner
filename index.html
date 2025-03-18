@@ -250,7 +250,7 @@
                 </div>
                 
                 <div class="control-group">
-                    <label for="trim">Trim Inner Edges:</label>
+                    <label for="trim">Trim Edges:</label>
                     <div class="control-row">
                         <input type="range" id="trim" min="0" max="50" value="0" step="1">
                         <span id="trimValue" class="value-display">0%</span>
@@ -579,13 +579,19 @@
             const scaledGap = pixelGap * scale;
 
             // Calculate trim amounts
-            const leftTrimPixels = Math.floor(images[0].width * (trimPercent / 100));
-            const rightTrimPixels = Math.floor(images[1].width * (trimPercent / 100));
+            const leftTrimTotal = Math.floor(images[0].width * (trimPercent / 100));
+            const rightTrimTotal = Math.floor(images[1].width * (trimPercent / 100));
+            
+            // Divide the trim evenly between left and right sides (inside and outside)
+            const leftImageLeftTrim = Math.floor(leftTrimTotal / 2);
+            const leftImageRightTrim = leftTrimTotal - leftImageLeftTrim;
+            const rightImageLeftTrim = Math.floor(rightTrimTotal / 2);
+            const rightImageRightTrim = rightTrimTotal - rightImageLeftTrim;
 
             // Calculate dimensions with trim
-            const totalWidth = (images[0].width - leftTrimPixels) * scale + 
-                               (images[1].width - rightTrimPixels) * scale + 
-                               scaledGap;
+            const totalWidth = (images[0].width - leftTrimTotal) * scale + 
+                            (images[1].width - rightTrimTotal) * scale + 
+                            scaledGap;
             const maxHeight = Math.max(images[0].height * scale, images[1].height * scale);
 
             // Set canvas dimensions
@@ -598,31 +604,31 @@
             // Fill only the gap area with the selected color
             ctx.fillStyle = bgColor;
             ctx.fillRect(
-                (images[0].width - leftTrimPixels) * scale,  // X position (right after trimmed first image)
-                0,                                           // Y position (top)
-                scaledGap,                                   // Width (just the gap)
-                maxHeight                                    // Height (full height)
+                (images[0].width - leftTrimTotal) * scale,  // X position (after trimmed first image)
+                0,                                      // Y position (top)
+                scaledGap,                              // Width (just the gap)
+                maxHeight                               // Height (full height)
             );
             
-            // Draw the first image with right edge trimmed
+            // Draw the first image with both edges trimmed
             ctx.drawImage(
                 images[0],
-                0, 0,                                   // Source position
-                images[0].width - leftTrimPixels,       // Source width (trimmed)
+                leftImageLeftTrim, 0,                   // Source position (trimmed from left)
+                images[0].width - leftTrimTotal,        // Source width (trimmed from both sides)
                 images[0].height,                       // Source height
                 0, 0,                                   // Destination position
-                (images[0].width - leftTrimPixels) * scale, // Destination width
+                (images[0].width - leftTrimTotal) * scale, // Destination width
                 images[0].height * scale                // Destination height
             );
             
-            // Draw the second image with left edge trimmed
+            // Draw the second image with both edges trimmed
             ctx.drawImage(
                 images[1],
-                rightTrimPixels, 0,                     // Source position (trimmed from left)
-                images[1].width - rightTrimPixels,      // Source width (remaining after trim)
+                rightImageLeftTrim, 0,                  // Source position (trimmed from left)
+                images[1].width - rightTrimTotal,       // Source width (trimmed from both sides)
                 images[1].height,                       // Source height
-                (images[0].width - leftTrimPixels) * scale + scaledGap, 0, // Destination position
-                (images[1].width - rightTrimPixels) * scale,  // Destination width
+                (images[0].width - leftTrimTotal) * scale + scaledGap, 0, // Destination position
+                (images[1].width - rightTrimTotal) * scale,  // Destination width
                 images[1].height * scale                // Destination height
             );
         }
@@ -663,13 +669,19 @@
             const saveGap = Math.round(avgWidth * (gapPercent / 100));
 
             // Calculate trim amounts at full resolution
-            const leftTrimPixels = Math.floor(images[0].width * (trimPercent / 100));
-            const rightTrimPixels = Math.floor(images[1].width * (trimPercent / 100));
+            const leftTrimTotal = Math.floor(images[0].width * (trimPercent / 100));
+            const rightTrimTotal = Math.floor(images[1].width * (trimPercent / 100));
+            
+            // Divide the trim evenly between left and right sides
+            const leftImageLeftTrim = Math.floor(leftTrimTotal / 2);
+            const leftImageRightTrim = leftTrimTotal - leftImageLeftTrim;
+            const rightImageLeftTrim = Math.floor(rightTrimTotal / 2);
+            const rightImageRightTrim = rightTrimTotal - rightImageLeftTrim;
 
             // Calculate dimensions with trim
-            const totalWidth = (images[0].width - leftTrimPixels) + 
-                               (images[1].width - rightTrimPixels) + 
-                               saveGap;
+            const totalWidth = (images[0].width - leftTrimTotal) + 
+                            (images[1].width - rightTrimTotal) + 
+                            saveGap;
             const maxHeight = Math.max(images[0].height, images[1].height);
 
             saveCanvas.width = totalWidth;
@@ -679,26 +691,26 @@
             saveCtx.fillStyle = bgColor;
             saveCtx.fillRect(0, 0, saveCanvas.width, saveCanvas.height);
 
-            // Draw first image with right edge trimmed
+            // Draw first image with both edges trimmed
             saveCtx.drawImage(
                 images[0],
-                0, 0,                           // Source position
-                images[0].width - leftTrimPixels, // Source width (trimmed)
-                images[0].height,               // Source height
-                0, 0,                           // Destination position
-                images[0].width - leftTrimPixels, // Destination width
-                images[0].height                // Destination height
+                leftImageLeftTrim, 0,                   // Source position
+                images[0].width - leftTrimTotal,        // Source width (trimmed from both sides)
+                images[0].height,                       // Source height
+                0, 0,                                   // Destination position
+                images[0].width - leftTrimTotal,        // Destination width
+                images[0].height                        // Destination height
             );
             
-            // Draw second image with left edge trimmed
+            // Draw second image with both edges trimmed
             saveCtx.drawImage(
                 images[1],
-                rightTrimPixels, 0,             // Source position (trimmed from left)
-                images[1].width - rightTrimPixels, // Source width (remaining after trim)
-                images[1].height,               // Source height
-                images[0].width - leftTrimPixels + saveGap, 0, // Destination position
-                images[1].width - rightTrimPixels, // Destination width
-                images[1].height                // Destination height
+                rightImageLeftTrim, 0,                  // Source position
+                images[1].width - rightTrimTotal,       // Source width (trimmed from both sides)
+                images[1].height,                       // Source height
+                images[0].width - leftTrimTotal + saveGap, 0, // Destination position
+                images[1].width - rightTrimTotal,       // Destination width
+                images[1].height                        // Destination height
             );
 
             const link = document.createElement('a');
