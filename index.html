@@ -260,13 +260,15 @@
                 <div class="control-group">
                     <button id="save">Save Image</button>
                     
-                    <label for="format" style="margin-top: 15px;">Format:</label>
-                    <select id="format">
-                        <option value="image/png">PNG</option>
-                        <option value="image/jpeg">JPG</option>
-                    </select>
+                    <div class="control-row" style="margin-top: 15px;">
+                        <label for="format">Format:</label>
+                        <select id="format" style="margin-left: 10px;">
+                            <option value="image/jpeg">JPG</option>
+                            <option value="image/png">PNG</option>
+                        </select>
+                    </div>
                     
-                    <div id="qualityContainer" class="control-group" style="display: none; margin-top: 10px;">
+                    <div id="qualityContainer" class="control-group" style="display: block; margin-top: 5px;">
                         <label for="quality">Quality:</label>
                         <div class="control-row">
                             <input type="range" id="quality" min="0" max="100" value="90">
