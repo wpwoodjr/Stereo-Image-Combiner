@@ -162,7 +162,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (images.length === 2) {
             const optimalScale = calculateOptimalScale(images[0], images[1]);
             setScale(optimalScale / 100);
-            drawImages();
+            if (window.cropModule.isCropping()) {
+                window.cropModule.onScaleChange(scale);
+            } else {
+                // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
+                drawImages();
+            }
         }
     });
 
@@ -273,6 +278,19 @@ document.addEventListener('DOMContentLoaded', () => {
         scale = parseInt(this.value) / 100;
         scaleValue.textContent = `${this.value}%`;
         drawImages();
+    }
+
+    function updateScale() {
+        // Update to new scale
+        scale = parseInt(this.value) / 100;
+        scaleValue.textContent = `${this.value}%`;
+
+        if (window.cropModule.isCropping()) {
+            window.cropModule.onScaleChange(scale);
+        } else {
+            // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
+            drawImages();
+        }
     }
 
     function setScale(newScale) {

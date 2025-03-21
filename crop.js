@@ -246,7 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // First draw the images (using the main draw function)
         window.drawImages();
-        
+
+        // Update current parameters from the most recent render
+        currentParams = window.lastRenderParams;
+
         // Calculate image dimensions and positions
         const img1Width = window.images[0].width * currentScale;
         const img1Height = window.images[0].height * currentScale;
@@ -882,6 +885,30 @@ document.addEventListener('DOMContentLoaded', () => {
         window.drawImages();
     }
 
+    function onScaleChange(newScale) {
+        if (!isCropping) return;
+        
+        // Calculate the scale ratio between old and new scale
+        const scaleRatio = newScale / currentScale;
+        
+        // Adjust both crop boxes
+        cropBoxes.left.x *= scaleRatio;
+        cropBoxes.left.y *= scaleRatio;
+        cropBoxes.left.width *= scaleRatio;
+        cropBoxes.left.height *= scaleRatio;
+        
+        cropBoxes.right.x *= scaleRatio;
+        cropBoxes.right.y *= scaleRatio;
+        cropBoxes.right.width *= scaleRatio;
+        cropBoxes.right.height *= scaleRatio;
+        
+        // Update current scale
+        currentScale = newScale;
+        
+        // Redraw with updated boxes
+        drawCropInterface();
+    }
+    
     function restorePreCropScale() {
         // Restore the pre-crop scale if it exists
         if (preCropScale !== 0) {
@@ -896,11 +923,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.images.length == 2) {
                 window.images[0] = originalImages[0].cloneNode(true);
                 window.images[1] = originalImages[1].cloneNode(true);
+                // reset scale to what it was before first crop
+                setScale(originalScale);
                 // Redraw with original images
-                if (!isCropping) {
-                    // reset scale to what it was before first crop
-                    setScale(originalScale);
-                }
                 window.drawImages();
             }
             
@@ -925,6 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCrop,
         cancelCrop,
         resetCrop,
+        onScaleChange,
         isCropping: function() { return isCropping; }
     }
 });
