@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const colorPicker = document.getElementById('color');
     const saveButton = document.getElementById('save');
     const swapButton = document.getElementById('swap');
-    const resetButton = document.getElementById('reset');
+    // const resetButton = document.getElementById('reset');
     const leftImageName = document.getElementById('leftImageName');
     const rightImageName = document.getElementById('rightImageName');
     const fileInput = document.getElementById('fileInput');
@@ -110,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+/*
     // Allow resetting to drop more images and restore default settings
     resetButton.addEventListener('click', () => {
         // Reset images
@@ -126,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset control values to defaults
         resetControlsToDefaults();
     });
+*/
 
     // Control event listeners
     scaleSlider.addEventListener('input', updateScale);
@@ -259,6 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.floor(optimalScale); // Round down to nearest integer
     }
 
+/*
     function resetControlsToDefaults() {
         // Reset scale
         setScale(DEFAULT_SCALE / 100);
@@ -273,6 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bgColor = DEFAULT_COLOR;
         colorPicker.value = DEFAULT_COLOR;
     }
+*/
 
     function updateScale() {
         scale = parseInt(this.value) / 100;
@@ -449,4 +453,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Expose necessary variables and functions to the window object for crop.js
     window.drawImages = drawImages;
     window.setScale = setScale;
+    window.calculateOptimalScale = calculateOptimalScale;
 });

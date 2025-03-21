@@ -854,9 +854,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 cropButton.style.display = 'block';
                 resetCropButton.style.display = 'block';
 
-                // Restore the pre-crop scale
-                restorePreCropScale();
-                
+                // Calculate a good scale for the cropped image
+                const optimalScale = calculateOptimalScale(images[0], images[1]);
+                setScale(optimalScale / 100);
+
                 // Redraw with cropped images
                 window.drawImages();
             };
@@ -919,7 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetCrop() {
         if (originalImages.length === 2) {
-            // Restore original images if they haven't been removed
+            // Restore original images if images are currently being displayed
             if (window.images.length == 2) {
                 window.images[0] = originalImages[0].cloneNode(true);
                 window.images[1] = originalImages[1].cloneNode(true);
