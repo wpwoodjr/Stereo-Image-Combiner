@@ -1,3 +1,9 @@
+// global variables
+var images = [];
+var lastRenderParams = null;
+var scale;
+
+// main script
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const dropzone = document.getElementById('dropzone');
@@ -27,11 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_COLOR = '#000000';
 
     // State variables
-    let images = [];
     let imageNames = [];
     let gapPercent = DEFAULT_GAP_PERCENT;
     let bgColor = DEFAULT_COLOR;
-    let scale = DEFAULT_SCALE / 100;
+    scale = DEFAULT_SCALE / 100;
     let pixelGap = 0; // Actual pixel gap calculated from percentage
 
     // =========================
@@ -64,10 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         dropzone.style.backgroundColor = '#202020';
         const files = e.dataTransfer.files;
-        if (files.length > 2) {
-            alert('Please drop only two images.');
-            return;
-        }
         processFiles(files);
     });
 
@@ -75,15 +76,10 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.addEventListener('change', (e) => {
         const files = e.target.files;
         // Add this check to prevent processing when no files are selected (cancel case)
-        if (files.length === 0) {
-            return;
-        }
-        if (files.length > 2) {
-            alert('Please select only two images.');
-        } else {
+        if (files.length > 0) {
             processFiles(files);
+            fileInput.value = '';
         }
-        fileInput.value = '';
     });
 
     // Make the canvas container also accept drag and drop to replace images
@@ -99,18 +95,15 @@ document.addEventListener('DOMContentLoaded', () => {
     canvasContainer.addEventListener('drop', (e) => {
         e.preventDefault();
         canvasContainer.style.opacity = '1';
-        
         const files = e.dataTransfer.files;
-        if (files.length > 2) {
-            alert('Please drop only two images.');
-            return;
-        }
-        
         processFiles(files);
     });
 
     // Make the canvas container clickable
     canvasContainer.addEventListener('click', (e) => {
+        if (window.cropModule && window.cropModule.isCropping()) {
+            return;
+        }
         // Prevent click from triggering on child elements
         if (e.target === canvas || e.target === canvasContainer) {
             fileInput.click();
@@ -124,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         imageNames = [];
         leftImageName.textContent = '';
         rightImageName.textContent = '';
+        if (window.cropModule) window.cropModule.resetCrop();
         
         // Reset UI display
         canvasContainer.style.display = 'none';
@@ -180,8 +174,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Process the selected files
     function processFiles(files) {
-        images = [];
-        imageNames = [];
+        if (files.length != 2) {
+            alert('Please select two images.');
+            return;
+        }
+
+        newImages = [];
+        newImageNames = [];
         Array.from(files).forEach((file) => {
             if (!file.type.startsWith('image/')) {
                 alert('Please select only image files.');
@@ -191,9 +190,14 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    images.push(img);
-                    imageNames.push(file.name);
-                    if (images.length === 2) {
+                    newImageNames.push(file.name);
+                    newImages.push(img);
+                    if (newImages.length === 2) {
+                        images = [];
+                        if (window.cropModule) window.cropModule.resetCrop();
+                        images = newImages;
+                        imageNames = newImageNames;
+
                         // Show the canvas and hide dropzone when both images are loaded
                         canvasContainer.style.display = 'block';
                         dropzone.style.display = 'none';
@@ -208,10 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // draw the images
                         drawImages();
-
-                    } else if (images.length === 1 && files.length === 1) {
-                        dropzoneMessage.textContent = 'Add one more image';
-                        updateImageNames();
                     }
                 };
                 img.src = event.target.result;
@@ -374,14 +374,17 @@ function renderCombinedImage(options = {}) {
         img2Width, img2Height                   // Destination dimensions
     );
     
-    // Return parameters used for rendering (useful for saving)
-    return {
+    // Store the last render parameters for reference by crop module
+    lastRenderParams = {
         totalWidth,
         maxHeight,
         img1Width,
         img2Width,
         renderGap
     };
+    
+    // Return parameters used for rendering (useful for saving)
+    return lastRenderParams;
 }
 
     function drawImages() {
@@ -423,4 +426,7 @@ function renderCombinedImage(options = {}) {
 
         link.click();
     }
+
+    // Expose necessary variables and functions to the window object for crop.js
+    window.drawImages = drawImages;
 });
