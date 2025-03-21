@@ -161,9 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', function() {
         if (images.length === 2) {
             const optimalScale = calculateOptimalScale(images[0], images[1]);
-            scale = optimalScale / 100;
-            scaleSlider.value = optimalScale;
-            scaleValue.textContent = `${optimalScale}%`;
+            setScale(optimalScale / 100);
             drawImages();
         }
     });
@@ -206,9 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Calculate and set optimal scale
                         calculatePixelGap(); // Calculate pixel gap based on images
                         const optimalScale = calculateOptimalScale(images[0], images[1]);
-                        scale = optimalScale / 100;
-                        scaleSlider.value = optimalScale;
-                        scaleValue.textContent = `${optimalScale}%`;
+                        setScale(optimalScale / 100);
 
                         // draw the images
                         drawImages();
@@ -260,9 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetControlsToDefaults() {
         // Reset scale
-        scale = DEFAULT_SCALE / 100;
-        scaleSlider.value = DEFAULT_SCALE;
-        scaleValue.textContent = `${DEFAULT_SCALE}%`;
+        setScale(DEFAULT_SCALE / 100);
         
         // Reset gap
         gapPercent = DEFAULT_GAP_PERCENT;
@@ -279,6 +273,13 @@ document.addEventListener('DOMContentLoaded', () => {
         scale = parseInt(this.value) / 100;
         scaleValue.textContent = `${this.value}%`;
         drawImages();
+    }
+
+    function setScale(newScale) {
+        scale = newScale;
+        const displayScale = Math.round(newScale * 100);
+        scaleSlider.value = displayScale;
+        scaleValue.textContent = `${displayScale}%`;
     }
 
     function updateGap() {
@@ -304,88 +305,88 @@ document.addEventListener('DOMContentLoaded', () => {
         rightImageName.textContent = imageNames[1] || '';
     }
 
-/**
- * Creates a combined image with the current settings
- * @param {Object} options - Options for rendering the combined image
- * @param {HTMLCanvasElement} options.targetCanvas - The canvas to draw on
- * @param {boolean} options.forSaving - Whether this is for saving (100% scale) or display
- * @returns {Object} - Parameters used for the rendering (dimensions, etc.)
- */
-function renderCombinedImage(options = {}) {
-    if (images.length !== 2) return null;
-    
-    const { targetCanvas, forSaving = false } = options;
-    const targetCtx = targetCanvas.getContext('2d');
-    
-    // Use display scale or 100% for saving
-    const renderScale = forSaving ? 1 : scale;
-    
-    // Calculate gap - either scaled for display or full size for saving
-    let renderGap;
-    if (forSaving) {
-        // For saving: calculate pixel gap based on average width
-        const avgWidth = (images[0].width + images[1].width) / 2;
-        renderGap = Math.round(avgWidth * (gapPercent / 100));
-    } else {
-        // For display: use the current pixel gap and apply scale
-        renderGap = pixelGap * renderScale;
+    /**
+     * Creates a combined image with the current settings
+     * @param {Object} options - Options for rendering the combined image
+     * @param {HTMLCanvasElement} options.targetCanvas - The canvas to draw on
+     * @param {boolean} options.forSaving - Whether this is for saving (100% scale) or display
+     * @returns {Object} - Parameters used for the rendering (dimensions, etc.)
+     */
+    function renderCombinedImage(options = {}) {
+        if (images.length !== 2) return null;
+        
+        const { targetCanvas, forSaving = false } = options;
+        const targetCtx = targetCanvas.getContext('2d');
+        
+        // Use display scale or 100% for saving
+        const renderScale = forSaving ? 1 : scale;
+        
+        // Calculate gap - either scaled for display or full size for saving
+        let renderGap;
+        if (forSaving) {
+            // For saving: calculate pixel gap based on average width
+            const avgWidth = (images[0].width + images[1].width) / 2;
+            renderGap = Math.round(avgWidth * (gapPercent / 100));
+        } else {
+            // For display: use the current pixel gap and apply scale
+            renderGap = pixelGap * renderScale;
+        }
+        
+        // Calculate dimensions
+        const img1Width = images[0].width * renderScale;
+        const img2Width = images[1].width * renderScale;
+        const totalWidth = img1Width + img2Width + renderGap;
+        
+        const img1Height = images[0].height * renderScale;
+        const img2Height = images[1].height * renderScale;
+        const maxHeight = Math.max(img1Height, img2Height);
+
+        // Set canvas dimensions
+        targetCanvas.width = totalWidth;
+        targetCanvas.height = maxHeight;
+
+        // Clear the canvas
+        targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+        
+        // Fill background with selected color (ONLY the gap)
+        targetCtx.fillStyle = bgColor;
+        targetCtx.fillRect(
+            img1Width,                 // X position (after first image)
+            0,                         // Y position (top)
+            renderGap,                 // Width (just the gap)
+            maxHeight                  // Height (full height)
+        );
+        
+        // Draw the first image
+        targetCtx.drawImage(
+            images[0],
+            0, 0,                                   // Source position
+            images[0].width, images[0].height,      // Source dimensions
+            0, 0,                                   // Destination position
+            img1Width, img1Height                   // Destination dimensions
+        );
+        
+        // Draw the second image
+        targetCtx.drawImage(
+            images[1],
+            0, 0,                                   // Source position
+            images[1].width, images[1].height,      // Source dimensions
+            img1Width + renderGap, 0,               // Destination position (after first image + gap)
+            img2Width, img2Height                   // Destination dimensions
+        );
+        
+        // Store the last render parameters for reference by crop module
+        lastRenderParams = {
+            totalWidth,
+            maxHeight,
+            img1Width,
+            img2Width,
+            renderGap
+        };
+        
+        // Return parameters used for rendering (useful for saving)
+        return lastRenderParams;
     }
-    
-    // Calculate dimensions
-    const img1Width = images[0].width * renderScale;
-    const img2Width = images[1].width * renderScale;
-    const totalWidth = img1Width + img2Width + renderGap;
-    
-    const img1Height = images[0].height * renderScale;
-    const img2Height = images[1].height * renderScale;
-    const maxHeight = Math.max(img1Height, img2Height);
-
-    // Set canvas dimensions
-    targetCanvas.width = totalWidth;
-    targetCanvas.height = maxHeight;
-
-    // Clear the canvas
-    targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-    
-    // Fill background with selected color (ONLY the gap)
-    targetCtx.fillStyle = bgColor;
-    targetCtx.fillRect(
-        img1Width,                 // X position (after first image)
-        0,                         // Y position (top)
-        renderGap,                 // Width (just the gap)
-        maxHeight                  // Height (full height)
-    );
-    
-    // Draw the first image
-    targetCtx.drawImage(
-        images[0],
-        0, 0,                                   // Source position
-        images[0].width, images[0].height,      // Source dimensions
-        0, 0,                                   // Destination position
-        img1Width, img1Height                   // Destination dimensions
-    );
-    
-    // Draw the second image
-    targetCtx.drawImage(
-        images[1],
-        0, 0,                                   // Source position
-        images[1].width, images[1].height,      // Source dimensions
-        img1Width + renderGap, 0,               // Destination position (after first image + gap)
-        img2Width, img2Height                   // Destination dimensions
-    );
-    
-    // Store the last render parameters for reference by crop module
-    lastRenderParams = {
-        totalWidth,
-        maxHeight,
-        img1Width,
-        img2Width,
-        renderGap
-    };
-    
-    // Return parameters used for rendering (useful for saving)
-    return lastRenderParams;
-}
 
     function drawImages() {
         renderCombinedImage({
@@ -429,4 +430,5 @@ function renderCombinedImage(options = {}) {
 
     // Expose necessary variables and functions to the window object for crop.js
     window.drawImages = drawImages;
+    window.setScale = setScale;
 });

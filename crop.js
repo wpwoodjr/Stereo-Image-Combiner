@@ -45,6 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
         left: { x: 0, y: 0, width: 0, height: 0 },
         right: { x: 0, y: 0, width: 0, height: 0 }
     };
+    // Original scale before any cropping
+    let originalScale = 0;
+    // Scale prior to entering crop mode
+    let preCropScale = 0;
     
     // Track which box was interacted with first (for highlighting)
     let primaryBox = null;
@@ -79,11 +83,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================
     // Functions
     // =========================
-    
+
     function startCrop() {
         if (!window.images || window.images.length !== 2) {
             alert('Please add two images before cropping.');
             return;
+        }
+        
+        // Store current scale before changing it
+        preCropScale = window.scale;
+        // Save original scale in case we reset the crop while not in crop mode
+        if (originalScale === 0) {
+            originalScale = preCropScale;
+        }
+        
+        // If we have a previous crop state, revert to that scale temporarily
+        if (lastCropState) {
+            // Update global scale
+            setScale(lastCropState.scale);
         }
         
         // Store original images if not already stored
@@ -111,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isCropping = true;
         primaryBox = null;  // Reset primary box for this crop session
         isDragging = false;
-   
+
         // Show crop controls
         cropButton.style.display = 'none';
         applyCropButton.style.display = 'block';
@@ -833,6 +850,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 cancelCropButton.style.display = 'none';
                 cropButton.style.display = 'block';
                 resetCropButton.style.display = 'block';
+
+                // Restore the pre-crop scale
+                restorePreCropScale();
                 
                 // Redraw with cropped images
                 window.drawImages();
@@ -841,7 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         newImg1.src = tempCanvas1.toDataURL();
     }
-    
+
     function cancelCrop() {
         isCropping = false;
         applyCropButton.style.display = 'none';
@@ -855,11 +875,21 @@ document.addEventListener('DOMContentLoaded', () => {
             tempCroppedImages = null;
         }
 
+        // Restore the pre-crop scale
+        restorePreCropScale();
+
         // Redraw the images without crop overlay
         window.drawImages();
     }
-    // reset crop not doing all it should, leaves button when pressed during crop,
-    // window.images not propageating properly from main window
+
+    function restorePreCropScale() {
+        // Restore the pre-crop scale if it exists
+        if (preCropScale !== 0) {
+            setScale(preCropScale);
+            preCropScale = 0;
+        }
+    }
+
     function resetCrop() {
         if (originalImages.length === 2) {
             // Restore original images if they haven't been removed
@@ -867,11 +897,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.images[0] = originalImages[0].cloneNode(true);
                 window.images[1] = originalImages[1].cloneNode(true);
                 // Redraw with original images
+                if (!isCropping) {
+                    // reset scale to what it was before first crop
+                    setScale(originalScale);
+                }
                 window.drawImages();
             }
             
             // Reset original images array and last crop state
             originalImages = [];
+            originalScale = 0;
             lastCropState = null;
             
             // Hide reset crop button
