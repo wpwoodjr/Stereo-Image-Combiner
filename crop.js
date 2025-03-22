@@ -2,8 +2,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const canvas = document.getElementById('canvas');
-    const canvasContainer = document.getElementById('canvasContainer');
-    const ctx = canvas.getContext('2d');
     
     // Get the control group to insert the crop buttons
     const controlGroups = document.querySelectorAll('.control-group');
@@ -65,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Current parameters from main script
     let currentScale = 0.5; // Default 50%
-    let currentGap = 0;
     let currentParams = null;
     
     // =========================
@@ -111,8 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ];
         } else {
             // For subsequent crops, temporarily restore original images for display
-            // but keep the currently cropped images for later restoration
-            const currentImages = [
+            // but keep the currently cropped images for later restoration in cae of a cancel
+            tempCroppedImages = [
                 window.images[0].cloneNode(true),
                 window.images[1].cloneNode(true)
             ];
@@ -120,9 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Restore original images for display during cropping
             window.images[0] = originalImages[0].cloneNode(true);
             window.images[1] = originalImages[1].cloneNode(true);
-            
-            // Store current cropped state for restoration if user cancels
-            tempCroppedImages = currentImages;
         }
         
         isCropping = true;
@@ -137,8 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Get current scale and parameters
         currentScale = window.scale || 0.5;
         // Redraw images to get parameters for original images
-        window.drawImages();
-        currentParams = window.lastRenderParams;
+        currentParams = window.drawImages();
         
         // Always initialize crop boxes
         initCropBoxes();
@@ -245,10 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctx = canvas.getContext('2d');
         
         // First draw the images (using the main draw function)
-        window.drawImages();
-
-        // Update current parameters from the most recent render
-        currentParams = window.lastRenderParams;
+        currentParams = window.drawImages();
 
         // Calculate image dimensions and positions
         const img1Width = window.images[0].width * currentScale;
@@ -259,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Draw semi-transparent overlay for areas outside the crop boxes
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        
+
         const leftBox = cropBoxes.left;
         const rightBox = cropBoxes.right;
         
@@ -289,15 +279,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Left crop box border (green if movable, orange otherwise)
         ctx.strokeStyle = movableBoxes.left ? '#33cc33' : '#ff9900';
         ctx.strokeRect(leftBox.x, leftBox.y, leftBox.width, leftBox.height);
-        drawHandles(leftBox);
+        drawHandles(ctx, leftBox);
         
         // Right crop box border (green if movable, orange otherwise)
         ctx.strokeStyle = movableBoxes.right ? '#33cc33' : '#ff9900';
         ctx.strokeRect(rightBox.x, rightBox.y, rightBox.width, rightBox.height);
-        drawHandles(rightBox);
+        drawHandles(ctx, rightBox);
     }
     
-    function drawHandles(box) {
+    function drawHandles(ctx, box) {
         // Define handle positions
         const handlePositions = [
             { id: 'topLeft', x: box.x, y: box.y },
@@ -886,6 +876,11 @@ document.addEventListener('DOMContentLoaded', () => {
         window.drawImages();
     }
 
+    function onGapChange(oldGap, newGap) {
+        cropBoxes.right.x += (newGap - oldGap)*currentScale;
+        drawCropInterface();
+    }
+
     function onScaleChange(newScale) {
         if (!isCropping) return;
         
@@ -934,6 +929,7 @@ document.addEventListener('DOMContentLoaded', () => {
             originalImages = [];
             originalScale = 0;
             lastCropState = null;
+            tempCroppedImages = null
             
             // Hide reset crop button
             resetCropButton.style.display = 'none';
@@ -947,11 +943,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Expose functions to global scope and the isCropping flag
     window.cropModule = {
-        startCrop,
-        applyCrop,
-        cancelCrop,
+        // startCrop,
+        // applyCrop,
+        // cancelCrop,
         resetCrop,
         onScaleChange,
+        onGapChange,
         isCropping: function() { return isCropping; }
     }
 });

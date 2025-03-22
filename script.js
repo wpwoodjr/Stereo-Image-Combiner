@@ -1,16 +1,14 @@
 // global variables
 var images = [];
-var lastRenderParams = null;
 var scale;
 
-// main script
+// main script 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const dropzone = document.getElementById('dropzone');
     const dropzoneMessage = document.getElementById('dropzoneMessage');
     const canvas = document.getElementById('canvas');
     const canvasContainer = document.getElementById('canvasContainer');
-    const ctx = canvas.getContext('2d');
     const scaleSlider = document.getElementById('scale');
     const scaleValue = document.getElementById('scaleValue');
     const gapSlider = document.getElementById('gap');
@@ -31,13 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_SCALE = 50;
     const DEFAULT_GAP_PERCENT = 7.5; // Gap as percentage (7.5%)
     const DEFAULT_COLOR = '#000000';
+    const DEFAULT_FORMAT = 'image/jpeg';
+    const DEFAULT_JPG_QUALITY = 90;
+    const DEFAULT_JPG_QUALITY_VISIBILITY = 'block';
+    // Delay resetting controls in case of "duplicate tab"
+    // Otherwise slider values and slider text don't match up
+    setTimeout(resetControlsToDefaults, 100);
 
     // State variables
     let imageNames = [];
-    let gapPercent = DEFAULT_GAP_PERCENT;
-    let bgColor = DEFAULT_COLOR;
-    scale = DEFAULT_SCALE / 100;
-    let pixelGap = 0; // Actual pixel gap calculated from percentage
 
     // =========================
     // Event Listeners
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Make the canvas container clickable
     canvasContainer.addEventListener('click', (e) => {
-        if (window.cropModule && window.cropModule.isCropping()) {
+        if (window.cropModule.isCropping()) {
             return;
         }
         // Prevent click from triggering on child elements
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         imageNames = [];
         leftImageName.textContent = '';
         rightImageName.textContent = '';
-        if (window.cropModule) window.cropModule.resetCrop();
+        window.cropModule.resetCrop();
         
         // Reset UI display
         canvasContainer.style.display = 'none';
@@ -128,6 +128,26 @@ document.addEventListener('DOMContentLoaded', () => {
         resetControlsToDefaults();
     });
 */
+
+    function resetControlsToDefaults() {
+        // Reset scale
+        setScale(DEFAULT_SCALE / 100);
+        
+        // Reset gap
+        gapPercent = DEFAULT_GAP_PERCENT;
+        gapSlider.value = DEFAULT_GAP_PERCENT * 10;
+        gapValue.textContent = `${DEFAULT_GAP_PERCENT}%`;
+        
+        // Reset color
+        bgColor = DEFAULT_COLOR;
+        colorPicker.value = DEFAULT_COLOR;
+
+        // Reset format and jpg quality
+        qualitySlider.value = DEFAULT_JPG_QUALITY;
+        qualityValue.textContent = `${DEFAULT_JPG_QUALITY}%`;
+        formatSelect.value = DEFAULT_FORMAT;
+        qualityContainer.style.display = DEFAULT_JPG_QUALITY_VISIBILITY;
+    }
 
     // Control event listeners
     scaleSlider.addEventListener('input', updateScale);
@@ -199,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     newImages.push(img);
                     if (newImages.length === 2) {
                         images = [];
-                        if (window.cropModule) window.cropModule.resetCrop();
+                        window.cropModule.resetCrop();
                         images = newImages;
                         imageNames = newImageNames;
 
@@ -209,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateImageNames();
 
                         // Calculate and set optimal scale
-                        calculatePixelGap(); // Calculate pixel gap based on images
                         const optimalScale = calculateOptimalScale(images[0], images[1]);
                         setScale(optimalScale / 100);
 
@@ -221,19 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             reader.readAsDataURL(file);
         });
-    }
-
-    // Calculate pixel gap based on percentage of average image width
-    function calculatePixelGap() {
-        if (images.length !== 2) return 0;
-        
-        const avgWidth = (images[0].width + images[1].width) / 2;
-        pixelGap = Math.round(avgWidth * (gapPercent / 100));
-        
-        // Update slider based on percentage (scaled to 0-200 range)
-        gapSlider.value = gapPercent * 10;
-        
-        return pixelGap;
     }
 
     // Calculate the optimal scale
@@ -250,7 +256,8 @@ document.addEventListener('DOMContentLoaded', () => {
             : window.innerWidth - leftPanelWidth - 50;
         
         // Calculate total width at 100% scale (using the current pixel gap)
-        const totalWidthAt100 = img1.width + img2.width + pixelGap;
+        const gapWidthAt100 = pixelGap(img1, img2);
+        const totalWidthAt100 = img1.width + img2.width + gapWidthAt100;
         
         // Calculate the scale percentage needed to fit
         let optimalScale = (viewportWidth / totalWidthAt100) * 100;
@@ -260,23 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return Math.floor(optimalScale); // Round down to nearest integer
     }
-
-/*
-    function resetControlsToDefaults() {
-        // Reset scale
-        setScale(DEFAULT_SCALE / 100);
-        
-        // Reset gap
-        gapPercent = DEFAULT_GAP_PERCENT;
-        gapSlider.value = DEFAULT_GAP_PERCENT * 10;
-        gapValue.textContent = `${DEFAULT_GAP_PERCENT}%`;
-        pixelGap = 0;
-        
-        // Reset color
-        bgColor = DEFAULT_COLOR;
-        colorPicker.value = DEFAULT_COLOR;
-    }
-*/
 
     function updateScale() {
         scale = parseInt(this.value) / 100;
@@ -305,6 +295,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateGap() {
+        const oldPixelGap = pixelGap(images[0], images[1]);
+
         // Convert slider value (0-200) to percentage (0-20)
         const sliderValue = parseInt(this.value);
         gapPercent = sliderValue / 10;
@@ -312,9 +304,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update gap value display with percentage
         gapValue.textContent = `${gapPercent.toFixed(1)}%`;
 
-        // Recalculate pixel gap
-        calculatePixelGap();
-        drawImages();
+        // redraw
+        if (window.cropModule.isCropping()) {
+            const newPixelGap = pixelGap(images[0], images[1]);
+            window.cropModule.onGapChange(oldPixelGap, newPixelGap);
+        } else {
+            // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
+            drawImages();
+        }
+    }
+
+    function pixelGap(img1, img2) {
+        if (img1 === undefined || img2 === undefined) return 0;
+
+        const avgWidth = (img1.width + img2.width) / 2;
+        return Math.round(avgWidth * (gapPercent / 100));
     }
 
     function updateColor() {
@@ -344,15 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const renderScale = forSaving ? 1 : scale;
         
         // Calculate gap - either scaled for display or full size for saving
-        let renderGap;
-        if (forSaving) {
-            // For saving: calculate pixel gap based on average width
-            const avgWidth = (images[0].width + images[1].width) / 2;
-            renderGap = Math.round(avgWidth * (gapPercent / 100));
-        } else {
-            // For display: use the current pixel gap and apply scale
-            renderGap = pixelGap * renderScale;
-        }
+        let renderGap = pixelGap(images[0], images[1]) * renderScale;
         
         // Calculate dimensions
         const img1Width = images[0].width * renderScale;
@@ -411,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawImages() {
-        renderCombinedImage({
+        return renderCombinedImage({
             targetCanvas: canvas,
             forSaving: false
         });
