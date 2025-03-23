@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Crop state
     let isCropping = false;
-    let originalImages = [];
+    let originalImages = null;
     let tempCroppedImages = null; // Store temporarily during crop operations
     let lastCropState = null;
     let cropBoxes = {
@@ -97,18 +97,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // If we have a previous crop state, revert to that scale temporarily
         if (lastCropState) {
             // Update global scale
-            setScale(lastCropState.scale);
+            window.setScale(lastCropState.scale);
         }
         
         // Store original images if not already stored
-        if (originalImages.length === 0) {
+        if (!originalImages) {
             originalImages = [
                 window.images[0].cloneNode(true),
                 window.images[1].cloneNode(true)
             ];
         } else {
             // For subsequent crops, temporarily restore original images for display
-            // but keep the currently cropped images for later restoration in cae of a cancel
+            // but keep the currently cropped images for later restoration in case of a cancel
             tempCroppedImages = [
                 window.images[0].cloneNode(true),
                 window.images[1].cloneNode(true)
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelCropButton.style.display = 'block';
         
         // Get current scale and parameters
-        currentScale = window.scale || 0.5;
+        currentScale = window.scale;
         // Redraw images to get parameters for original images
         currentParams = window.drawImages();
         
@@ -234,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function drawCropInterface() {
+        // console.trace("Call stack:");
         // Get the main canvas context
         const ctx = canvas.getContext('2d');
         
@@ -845,8 +846,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetCropButton.style.display = 'block';
 
                 // Calculate a good scale for the cropped image
-                const optimalScale = calculateOptimalScale(images[0], images[1]);
-                setScale(optimalScale / 100);
+                const optimalScale = window.calculateOptimalScale(window.images[0], window.images[1]);
+                window.setScale(optimalScale / 100);
 
                 // Redraw with cropped images
                 window.drawImages();
@@ -874,6 +875,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Redraw the images without crop overlay
         window.drawImages();
+    }
+
+    function onSwap() {
+        if (originalImages) {
+            [originalImages[0], originalImages[1]] = [originalImages[1], originalImages[0]];
+        }
+        if (tempCroppedImages) {
+            [tempCroppedImages[0], tempCroppedImages[1]] = [tempCroppedImages[1], tempCroppedImages[0]];
+        }
+
+        if (isCropping) {
+            const rightImgStart = currentParams.img1Width + currentParams.renderGap;
+            [cropBoxes.left, cropBoxes.right] = [cropBoxes.right, cropBoxes.left];
+            cropBoxes.left.x -= rightImgStart;
+            cropBoxes.right.x += rightImgStart;
+            drawCropInterface();
+        } else {
+            if (lastCropState) {
+                [lastCropState.leftBox, lastCropState.rightBox] = [lastCropState.rightBox, lastCropState.leftBox];
+                lastCropState.leftBox.x -= lastCropState.rightImgStart;
+                lastCropState.rightBox.x += lastCropState.rightImgStart;
+            }
+            drawImages();
+        }
     }
 
     function onGapChange(oldGap, newGap) {
@@ -908,25 +933,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function restorePreCropScale() {
         // Restore the pre-crop scale if it exists
         if (preCropScale !== 0) {
-            setScale(preCropScale);
+            window.setScale(preCropScale);
             preCropScale = 0;
         }
     }
 
     function resetCrop() {
-        if (originalImages.length === 2) {
+        if (originalImages) {
             // Restore original images if images are currently being displayed
             if (window.images.length == 2) {
                 window.images[0] = originalImages[0].cloneNode(true);
                 window.images[1] = originalImages[1].cloneNode(true);
                 // reset scale to what it was before first crop
-                setScale(originalScale);
+                window.setScale(originalScale);
                 // Redraw with original images
                 window.drawImages();
             }
             
             // Reset original images array and last crop state
-            originalImages = [];
+            originalImages = null;
             originalScale = 0;
             lastCropState = null;
             tempCroppedImages = null
@@ -949,6 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetCrop,
         onScaleChange,
         onGapChange,
+        onSwap,
         isCropping: function() { return isCropping; }
     }
 });

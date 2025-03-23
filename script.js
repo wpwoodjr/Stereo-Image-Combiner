@@ -155,11 +155,13 @@ document.addEventListener('DOMContentLoaded', () => {
     colorPicker.addEventListener('input', updateColor);
 
     swapButton.addEventListener('click', () => {
-        if (images.length === 2) {
+        if (images.length !== 2) {
+            alert('Please add two images before swapping.');
+        } else {
             [images[0], images[1]] = [images[1], images[0]];
             [imageNames[0], imageNames[1]] = [imageNames[1], imageNames[0]];
             updateImageNames();
-            drawImages();
+            window.cropModule.onSwap();
         }
     });
 
@@ -407,6 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawImages() {
+        // console.trace("Call stack:");
         return renderCombinedImage({
             targetCanvas: canvas,
             forSaving: false
