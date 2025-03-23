@@ -53,8 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let isDragging = false;
 
     // Handle sizes
-    const handleSize = 14;
-    
+    let handleSize = 14;
+
     // Selected handle
     let selectedHandle = null;
     let activeCropBox = null;
@@ -76,10 +76,178 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
-    
+
+    // Touch event handlers
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
+
+    // Touch indicator element
+    const touchIndicator = document.createElement('div');
+    touchIndicator.id = 'touchIndicator';
+    touchIndicator.style.cssText = `
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.5);
+        border: 2px solid #ffffff;
+        pointer-events: none;
+        display: none;
+        z-index: 1000;
+        transform: translate(-50%, -50%);
+    `;
+    document.body.appendChild(touchIndicator);
+
+    // Additional considerations for touch devices
+    if (isTouch()) {
+        handleSize = 20;
+        cropButton.title = 'Tap and drag handles to crop images';
+    }
+
     // =========================
     // Functions
     // =========================
+
+    // Touch handlers
+
+    /**
+     * Detects if the current device supports touch input
+     * Uses multiple detection methods for reliability across browsers
+     * @returns {boolean} True if the device supports touch, false otherwise
+     */
+    function isTouch() {
+        // Primary checks for touch support
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            return true;
+        }
+        
+        // Secondary check for Windows Touch devices or special browsers
+        if (navigator.msMaxTouchPoints > 0) {
+            return true;
+        }
+        
+        // Check for touch via media query (most reliable for modern browsers)
+        if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+            return true;
+        }
+        
+        // Check for touch via pointer media query (Windows-friendly alternative)
+        if (window.matchMedia && window.matchMedia('(any-pointer: coarse)').matches) {
+            return true;
+        }
+        
+        // Fall back to user agent sniffing as a last resort
+        // Less reliable but catches some edge cases
+        const userAgent = navigator.userAgent.toLowerCase();
+        if (userAgent.includes('android') || 
+            userAgent.includes('iphone') || 
+            userAgent.includes('ipad') || 
+            userAgent.includes('ipod') || 
+            userAgent.includes('windows phone')) {
+            return true;
+        }
+        
+        // Not a touch device
+        return false;
+    }
+
+    function onTouchStart(e) {
+        if (!isCropping) return;
+        
+        // Prevent default to avoid scrolling/zooming while cropping
+        e.preventDefault();
+        
+        // Get the touch position relative to canvas
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        // Show touch indicator
+        updateTouchIndicator(touch.clientX, touch.clientY, true);
+        
+        // Check if a handle is selected
+        const handleInfo = getHandle(x, y);
+        
+        if (handleInfo) {
+            selectedHandle = handleInfo.handle;
+            activeCropBox = handleInfo.box;
+            otherCropBox = handleInfo.otherBox;
+            dragStartX = x;
+            dragStartY = y;
+            isDragging = true;
+            
+            // Set primary box if this is the first inside drag operation
+            if (primaryBox === null && selectedHandle === 'inside') {
+                // only set the primary box if both boxes can move
+                if (movableBoxes.left && movableBoxes.right) {
+                    primaryBox = activeCropBox;
+                }
+            }
+            
+            // Update movable boxes state
+            updatemovableBoxes();
+            
+            // Redraw to show updated state
+            drawCropInterface();
+        } else {
+            // Touched outside of any handle - deselect
+            selectedHandle = null;
+            activeCropBox = null;
+        }
+    }
+
+    function onTouchMove(e) {
+        if (!isCropping || !isDragging) return;
+        
+        // Prevent default to avoid scrolling/zooming while cropping
+        e.preventDefault();
+
+        // Get the touch position
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        // Update touch indicator
+        updateTouchIndicator(touch.clientX, touch.clientY, true);
+        
+        // Calculate delta from last position
+        const deltaX = x - dragStartX;
+        const deltaY = y - dragStartY;
+        
+        // Update crop boxes
+        if (activeCropBox) {
+            updateCropBoxes(selectedHandle, activeCropBox, deltaX, deltaY);
+            
+            // Update drag start position
+            dragStartX = x;
+            dragStartY = y;
+        }
+        
+        // Redraw the crop interface
+        drawCropInterface();
+    }
+
+    function onTouchEnd(e) {
+        isDragging = false;
+        selectedHandle = null;
+        activeCropBox = null;
+        
+        // Hide touch indicator
+        updateTouchIndicator(0, 0, false);
+    }
+
+    // Helper function to show/hide touch indicator
+    function updateTouchIndicator(x, y, visible) {
+        touchIndicator.style.display = visible ? 'block' : 'none';
+        if (visible) {
+            touchIndicator.style.left = `${x}px`;
+            touchIndicator.style.top = `${y}px`;
+        }
+    }
 
     function startCrop() {
         if (!window.images || window.images.length !== 2) {
@@ -367,6 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateCursor(handleInfo) {
+        if (isTouch()) return;
         if (!handleInfo) {
             canvas.style.cursor = 'default';
             return;
@@ -473,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dragStartX = x;
             dragStartY = y;
         }
-            
+
         // Redraw the crop interface
         drawCropInterface();
     }
