@@ -30,7 +30,8 @@ No server processing or uploading is required - all operations happen directly i
 
 ## Usage
 
-1. Browse to https://wpwoodjr.github.io/Stereo-Image-Combiner/ (not to worry, your images are all handled locally in your browser)
+1. Browse to https://wpwoodjr.github.io/Stereo-Image-Combiner/
+   - Images are not uploaded anywhere and all operations are handled locally in your browser
 2. Drag and drop two images onto the designated drop zone
 3. Use the controls to adjust:
    - Scale (for preview only)
