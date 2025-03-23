@@ -30,7 +30,7 @@ No server processing or uploading is required - all operations happen directly i
 
 ## Usage
 
-1. Open `index.html` in any modern web browser, or browse to https://wpwoodjr.github.io/Stereo-Image-Combiner/
+1. Browse to https://wpwoodjr.github.io/Stereo-Image-Combiner/ (not to worry, your images are all handled locally in your browser)
 2. Drag and drop two images onto the designated drop zone
 3. Use the controls to adjust:
    - Scale (for preview only)
@@ -65,7 +65,7 @@ Works in all modern browsers that support:
 
 ## Installation
 
-No installation required! Simply download the HTML file and open it in your browser.
+To run it locally, download the repository and point your browser at index.html
 
 ## License
 
