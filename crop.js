@@ -103,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Additional considerations for touch devices
     if (isTouch()) {
         handleSize = 20;
-        cropButton.title = 'Tap and drag handles to crop images';
     }
 
     // =========================
@@ -179,6 +178,9 @@ document.addEventListener('DOMContentLoaded', () => {
             dragStartY = y;
             isDragging = true;
             
+            // Update movable boxes state
+            updatemovableBoxes();
+
             // Set primary box if this is the first inside drag operation
             if (primaryBox === null && selectedHandle === 'inside') {
                 // only set the primary box if both boxes can move
@@ -186,10 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     primaryBox = activeCropBox;
                 }
             }
-            
-            // Update movable boxes state
-            updatemovableBoxes();
-            
+
             // Redraw to show updated state
             drawCropInterface();
         } else {
@@ -200,8 +199,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onTouchMove(e) {
-        if (!isCropping || !isDragging) return;
-        
+        if (!isCropping) return;
+
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
 
@@ -210,16 +209,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const touch = e.touches[0];
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
-        
+
         // Update touch indicator
         updateTouchIndicator(touch.clientX, touch.clientY, true);
-        
-        // Calculate delta from last position
-        const deltaX = x - dragStartX;
-        const deltaY = y - dragStartY;
-        
+        if (!isDragging) return;
+
         // Update crop boxes
         if (activeCropBox) {
+            // Calculate delta from last position
+            const deltaX = x - dragStartX;
+            const deltaY = y - dragStartY;
+            
             updateCropBoxes(selectedHandle, activeCropBox, deltaX, deltaY);
             
             // Update drag start position
@@ -232,12 +232,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onTouchEnd(e) {
+        if (!isCropping) return;
+        // Hide touch indicator
+        updateTouchIndicator(0, 0, false);
+
+        if (!isDragging) return;
         isDragging = false;
         selectedHandle = null;
         activeCropBox = null;
-        
-        // Hide touch indicator
-        updateTouchIndicator(0, 0, false);
+        movableBoxes = { left: false, right: false };
+        drawCropInterface();
     }
 
     // Helper function to show/hide touch indicator
@@ -535,7 +539,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateCursor(handleInfo) {
-        if (isTouch()) return;
         if (!handleInfo) {
             canvas.style.cursor = 'default';
             return;
@@ -592,13 +595,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     primaryBox = activeCropBox;
                 }
             }
+
+            // Redraw to reflect movable boxes
+            drawCropInterface();
         } else {
             // Clicked outside of any handle - deselect
             selectedHandle = null;
             activeCropBox = null;
         }
-        // Redraw to reflect movable boxes
-        drawCropInterface();
     }
     
     function onMouseUp(e) {
@@ -634,8 +638,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (activeCropBox) {
             const deltaX = x - dragStartX;
             const deltaY = y - dragStartY;
-            
-            // Update crop boxes
+
             updateCropBoxes(selectedHandle, activeCropBox, deltaX, deltaY);
             
             // Update drag start position
@@ -1134,7 +1137,151 @@ document.addEventListener('DOMContentLoaded', () => {
             cropButton.style.display = 'block';
         }
     }
-    
+
+    // Add a fullscreen toggle option for mobile devices
+    // Add this code to the end of the DOMContentLoaded event listener in script.js
+
+    function addFullscreenOption() {
+        if (isTouch()) {
+            // Create fullscreen button
+            const fullscreenButton = document.createElement('button');
+            fullscreenButton.id = 'fullscreenToggle';
+            fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
+            fullscreenButton.title = 'Toggle fullscreen';
+            fullscreenButton.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                z-index: 1000;
+                background-color: rgba(0, 0, 0, 0.5);
+                border-radius: 50%;
+                padding: 8px;
+                display: none;
+                width: 36px;
+                height: 36px;
+                align-items: center;
+                justify-content: center;
+            `;
+            
+            // Find the appropriate container to append the button
+            const canvasContainer = document.getElementById('canvasContainer');
+            canvasContainer.style.position = 'relative';
+            canvasContainer.appendChild(fullscreenButton);
+            
+            // Show button when canvas is displayed
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.attributeName === 'style' && 
+                        canvasContainer.style.display !== 'none') {
+                        fullscreenButton.style.display = 'flex';
+                    }
+                });
+            });
+            
+            observer.observe(canvasContainer, { attributes: true });
+            
+            // Toggle fullscreen mode
+            fullscreenButton.addEventListener('click', function() {
+                toggleFullscreen(canvasContainer);
+            });
+            
+            // Fullscreen toggle function
+            function toggleFullscreen(element) {
+                if (!document.fullscreenElement && 
+                    !document.mozFullScreenElement && 
+                    !document.webkitFullscreenElement && 
+                    !document.msFullscreenElement) {
+                    // Enter fullscreen
+                    if (element.requestFullscreen) {
+                        element.requestFullscreen();
+                    } else if (element.msRequestFullscreen) {
+                        element.msRequestFullscreen();
+                    } else if (element.mozRequestFullScreen) {
+                        element.mozRequestFullScreen();
+                    } else if (element.webkitRequestFullscreen) {
+                        element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+                    }
+                    fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
+                } else {
+                    // Exit fullscreen
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    }
+                    fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
+                }
+            }
+            
+            // Listen for fullscreen change events to update button
+            document.addEventListener('fullscreenchange', updateFullscreenButton);
+            document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+            document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+            document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+            
+            function updateFullscreenButton() {
+                if (document.fullscreenElement || 
+                    document.webkitFullscreenElement || 
+                    document.mozFullScreenElement || 
+                    document.msFullscreenElement) {
+                    // In fullscreen mode
+                    fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
+                } else {
+                    // Not in fullscreen mode
+                    fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
+                }
+            }
+            
+            // Add fullscreen styles
+            const style = document.createElement('style');
+            style.textContent = `
+                #canvasContainer:fullscreen {
+                    background-color: #121212;
+                    padding: 20px;
+                    display: flex !important;
+                    align-items: center;
+                    justify-content: center;
+                    overflow: auto;
+                }
+                #canvasContainer:fullscreen #canvas {
+                    max-height: 95vh !important;
+                    object-fit: contain;
+                }
+                
+                /* Vendor prefixed versions */
+                #canvasContainer:-webkit-full-screen {
+                    background-color: #121212;
+                    padding: 20px;
+                    display: flex !important;
+                    align-items: center;
+                    justify-content: center;
+                }
+                #canvasContainer:-moz-full-screen {
+                    background-color: #121212;
+                    padding: 20px;
+                    display: flex !important;
+                    align-items: center;
+                    justify-content: center;
+                }
+                #canvasContainer:-ms-fullscreen {
+                    background-color: #121212;
+                    padding: 20px;
+                    display: flex !important;
+                    align-items: center;
+                    justify-content: center;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    // Initialize fullscreen option
+    addFullscreenOption();
+
     // Expose functions to global scope and the isCropping flag
     window.cropModule = {
         // startCrop,
