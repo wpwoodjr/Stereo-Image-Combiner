@@ -1,6 +1,6 @@
 # Stereo Image Combiner
 
-A simple web-based tool for combining two images side by side with customizable options.  Particularly useful for stereo slide pairs.
+A simple web-based tool for combining two images side by side with customizable options. Particularly useful for stereo slide pairs.
 
 ![image](https://github.com/user-attachments/assets/f5726ce8-f46b-4a50-a4db-27461eb6d69a)
 
@@ -8,6 +8,7 @@ A simple web-based tool for combining two images side by side with customizable 
 
 Image Combiner is a lightweight browser-based application that allows users to:
 - Combine two images side by side into a single image
+- Crop both images simultaneously with synchronized dimensions
 - Adjust the gap between images
 - Change the color of the gap between images
 - Scale the preview display
@@ -20,7 +21,8 @@ No server processing or uploading is required - all operations happen directly i
 
 - **Drag and Drop Interface**: Simply drag and drop your images onto the application, or use the file browser
 - **Live Preview**: See how your combined image will look as you adjust settings
-- **Customizable Gap**: Adjust the space between images from 0 to 200 pixels
+- **Image Cropping**: Precisely crop both images with synchronized dimensions to focus on specific areas
+- **Customizable Gap**: Adjust the space between images from 0 to 20% of average image width
 - **Gap Color Selection**: Choose any color for the space between your images
 - **Image Swapping**: Easily change the order of images with a single click
 - **Scalable Preview**: Adjust the preview size without affecting the final output
@@ -34,9 +36,17 @@ No server processing or uploading is required - all operations happen directly i
    - Scale (for preview only)
    - Gap between images
    - Gap color
-4. Click "Swap Images" to change their order, for instance to switch from cross-eyed viewing to parallel viewing of a stero image
-5. Click "Save Image" to download the combined image
-6. Use "Reset Images" to clear current images and start over with default settings
+4. Click "Swap Images" to change their order, for instance to switch from cross-eyed viewing to parallel viewing of a stereo image
+5. Click "Crop Images" to enter crop mode, where you can select matching regions from both images:
+   - Adjust crop box dimensions by dragging resize handles
+   - Click inside a box to move the entire box
+   - When you first drag inside a crop box, it becomes the primary box and dragging it will move both boxes simultaneously
+   - The other crop box may be moved independently of the primary box
+   - Crop dimensions are synchronized between both images
+   - Click "Apply Crop" to confirm or "Cancel" to exit crop mode
+   - After applying, you may enter crop mode again to continue where you left off
+   - Click "Reset Crop" to restore original images
+6. Click "Save Image" to download the combined image in PNG or JPG format
 
 ## Technical Details
 
