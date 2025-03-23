@@ -39,6 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // State variables
     let imageNames = [];
 
+    // dropzone message
+    let dropzoneMessageText = "Drag and drop two images here or click to browse"
+    if (window.matchMedia('(pointer: fine)').matches) {
+        dropzoneMessageText += "<br><small>(Hold Ctrl or ⌘ while clicking to select both images)</small>";
+    }
+    dropzoneMessage.innerHTML = dropzoneMessageText;
+
     // =========================
     // Event Listeners
     // =========================
@@ -61,11 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
     dropzone.addEventListener('dragleave', () => {
         dropzone.style.backgroundColor = '#202020';
         // Update the dropzone message
-        dropzoneMessage.textContent = 'Drag and drop two images here or click to browse';
+        dropzoneMessage.innerHTML = dropzoneMessageText;
     });
 
     dropzone.addEventListener('drop', (e) => {
-        dropzoneMessage.textContent = 'Drag and drop two images here or click to browse';
+        dropzoneMessage.innerHTML = dropzoneMessageText;
         e.preventDefault();
         dropzone.style.backgroundColor = '#202020';
         const files = e.dataTransfer.files;
