@@ -1019,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Calculate a good scale for the cropped image
                 const optimalScale = window.calculateOptimalScale(window.images[0], window.images[1]);
-                window.setScale(optimalScale / 100);
+                window.setScale(optimalScale);
 
                 // Redraw with cropped images
                 window.drawImages();

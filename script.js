@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // State variables
     let imageNames = [];
+    let maxScale = 1;
 
     // dropzone message
     let dropzoneMessageText = "Drag and drop two images here or click to browse"
@@ -138,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetControlsToDefaults() {
         // Reset scale
+        maxScale = 1;
         setScale(DEFAULT_SCALE / 100);
         
         // Reset gap
@@ -192,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', function() {
         if (images.length === 2) {
             const optimalScale = calculateOptimalScale(images[0], images[1]);
-            setScale(optimalScale / 100);
+            setScale(optimalScale);
             if (window.cropModule.isCropping()) {
                 window.cropModule.onScaleChange(scale);
             } else {
@@ -239,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // Calculate and set optimal scale
                         const optimalScale = calculateOptimalScale(images[0], images[1]);
-                        setScale(optimalScale / 100);
+                        setScale(optimalScale);
 
                         // draw the images
                         drawImages();
@@ -269,27 +271,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalWidthAt100 = img1.width + img2.width + gapWidthAt100;
         
         // Calculate the scale percentage needed to fit
-        let optimalScale = (viewportWidth / totalWidthAt100) * 100;
-        
-        // Cap the scale between the min and max values of the slider
-        optimalScale = Math.min(Math.max(optimalScale, 1), 100);
-        
-        return Math.floor(optimalScale); // Round down to nearest integer
-    }
-
-    function updateScale() {
-        scale = parseInt(this.value) / 100;
-        scaleValue.textContent = `${this.value}%`;
-        drawImages();
+        maxScale = viewportWidth / totalWidthAt100;
+        return maxScale;
     }
 
     function updateScale() {
         // Update to new scale
-        scale = parseInt(this.value) / 100;
-        scaleValue.textContent = `${this.value}%`;
+        const newScale = Math.min(maxScale, parseInt(this.value) / 100);
+        setScale(newScale);
 
         if (window.cropModule.isCropping()) {
-            window.cropModule.onScaleChange(scale);
+            window.cropModule.onScaleChange(newScale);
         } else {
             // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
             drawImages();
@@ -299,6 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setScale(newScale) {
         scale = newScale;
         const displayScale = Math.round(newScale * 100);
+        scaleSlider.max = Math.max(1, Math.max(100, Math.round(maxScale * 100)));
         scaleSlider.value = displayScale;
         scaleValue.textContent = `${displayScale}%`;
     }
