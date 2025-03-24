@@ -27,6 +27,7 @@ No server processing or uploading is required - all operations happen directly i
 - **Image Swapping**: Easily change the order of images with a single click
 - **Scalable Preview**: Adjust the preview size without affecting the final output
 - **High-Quality Export**: Save the combined image in PNG format at full resolution or JPG at your selected quality
+- **Optimized for desktop and mobile**
 
 ## Usage
 
