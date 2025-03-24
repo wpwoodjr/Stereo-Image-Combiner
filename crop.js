@@ -79,26 +79,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Touch event handlers
     canvas.addEventListener('touchstart', onTouchStart, { passive: false });
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd);
-    window.addEventListener('touchcancel', onTouchEnd);
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd);
+    canvas.addEventListener('touchcancel', onTouchEnd);
 
-    // Touch indicator element
-    const touchIndicator = document.createElement('div');
-    touchIndicator.id = 'touchIndicator';
-    touchIndicator.style.cssText = `
-        position: absolute;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background-color: rgba(255, 255, 255, 0.5);
-        border: 2px solid #ffffff;
-        pointer-events: none;
-        display: none;
-        z-index: 1000;
-        transform: translate(-50%, -50%);
-    `;
-    document.body.appendChild(touchIndicator);
+    // // Touch indicator element
+    // const touchIndicator = document.createElement('div');
+    // touchIndicator.id = 'touchIndicator';
+    // touchIndicator.style.cssText = `
+    //     position: absolute;
+    //     width: 30px;
+    //     height: 30px;
+    //     border-radius: 50%;
+    //     background-color: rgba(255, 255, 255, 0.5);
+    //     border: 2px solid #ffffff;
+    //     pointer-events: none;
+    //     display: none;
+    //     z-index: 1000;
+    //     transform: translate(-50%, -50%);
+    // `;
+    // document.body.appendChild(touchIndicator);
 
     // Additional considerations for touch devices
     if (isTouch()) {
@@ -164,8 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
         
-        // Show touch indicator
-        updateTouchIndicator(touch.clientX, touch.clientY, true);
+        // // Show touch indicator
+        // updateTouchIndicator(touch.clientX, touch.clientY, true);
         
         // Check if a handle is selected
         const handleInfo = getHandle(x, y);
@@ -210,8 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
 
-        // Update touch indicator
-        updateTouchIndicator(touch.clientX, touch.clientY, true);
+        // // Update touch indicator
+        // updateTouchIndicator(touch.clientX, touch.clientY, true);
         if (!isDragging) return;
 
         // Update crop boxes
@@ -233,8 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onTouchEnd(e) {
         if (!isCropping) return;
-        // Hide touch indicator
-        updateTouchIndicator(0, 0, false);
+        // // Hide touch indicator
+        // updateTouchIndicator(0, 0, false);
 
         if (!isDragging) return;
         isDragging = false;
@@ -244,14 +244,14 @@ document.addEventListener('DOMContentLoaded', () => {
         drawCropInterface();
     }
 
-    // Helper function to show/hide touch indicator
-    function updateTouchIndicator(x, y, visible) {
-        touchIndicator.style.display = visible ? 'block' : 'none';
-        if (visible) {
-            touchIndicator.style.left = `${x}px`;
-            touchIndicator.style.top = `${y}px`;
-        }
-    }
+    // // Helper function to show/hide touch indicator
+    // function updateTouchIndicator(x, y, visible) {
+    //     touchIndicator.style.display = visible ? 'block' : 'none';
+    //     if (visible) {
+    //         touchIndicator.style.left = `${x}px`;
+    //         touchIndicator.style.top = `${y}px`;
+    //     }
+    // }
 
     function startCrop() {
         if (!window.images || window.images.length !== 2) {
