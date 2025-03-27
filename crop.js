@@ -152,8 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentHandle = handleInfo.handle;
         activeCropBox = handleInfo.box;
 
+        // check if green highlights should be shown and draw crop interface
+        const wasMovable = movableBoxes;
         updatemovableBoxes(currentHandle);
-        drawCropInterface();
+        drawCropInterface(movableBoxHighlights(wasMovable));
     }
 
     function onTouchStart(e) {
@@ -520,13 +522,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update cursor based on handle
             updateCursor(currentHandle);
 
-            // check if green highlight should be shown
+            // check if green highlights should be shown and draw crop interface
             const wasMovable = movableBoxes;
             updatemovableBoxes(currentHandle);
-            const changeActive = movableBoxes.left !== wasMovable.left || movableBoxes.right !== wasMovable.right;
-            const leftBoxHighlight = (movableBoxes.left && changeActive);
-            const rightBoxHighlight = (movableBoxes.right && changeActive);
-            drawCropInterface(leftBoxHighlight, rightBoxHighlight);
+            drawCropInterface(movableBoxHighlights(wasMovable));
         } else {
             const deltaX = x - dragStartX;
             const deltaY = y - dragStartY;
@@ -580,7 +579,15 @@ document.addEventListener('DOMContentLoaded', () => {
             movableBoxes.right = true;
         }
     }
-    
+
+    // Detect which crop boxes should have green glowing highlights
+    function movableBoxHighlights(wasMovable) {
+        const changeToMovableBoxes = movableBoxes.left !== wasMovable.left || movableBoxes.right !== wasMovable.right;
+        const leftBoxHighlight = (movableBoxes.left && changeToMovableBoxes);
+        const rightBoxHighlight = (movableBoxes.right && changeToMovableBoxes);
+        return [ leftBoxHighlight, rightBoxHighlight ];
+    }
+
     function updateCropBoxes(handle, activeBox, deltaX, deltaY) {
         const img1Width = window.images[0].width * currentScale;
         const img1Height = window.images[0].height * currentScale;
@@ -1252,10 +1259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         nextTab();
                     }
                 }
-                const changeActive = movableBoxes.left !== wasMovable.left || movableBoxes.right !== wasMovable.right;
-                const leftBoxHighlight = (movableBoxes.left && changeActive);
-                const rightBoxHighlight = (movableBoxes.right && changeActive);
-                drawCropInterface(leftBoxHighlight, rightBoxHighlight);
+                drawCropInterface(movableBoxHighlights(wasMovable));
                 return;
             default:
                 return; // Ignore other keys
@@ -1329,7 +1333,8 @@ let glowAnimationActive = false;
 let glowAnimationFrameId = null;
 
 // Modified drawCropInterface function that accepts activation flags
-function drawCropInterface(leftBoxHighlight = false, rightBoxHighlight = false) {
+function drawCropInterface(highlights = [ false, false ]) {
+    const [ leftBoxHighlight, rightBoxHighlight ] = highlights;
     // Start glow animation if any box went active
     if (leftBoxHighlight || rightBoxHighlight) {
         startGlowAnimation();
@@ -1506,13 +1511,13 @@ function animateGlow() {
         glowAnimationFrameId = requestAnimationFrame(animateGlow);
         
         // Call drawCropInterface without activation flags
-        drawCropInterface(false, false);
+        drawCropInterface();
     } else {
         // Stop the animation
         stopGlowAnimation();
         
         // Final render with no glow
-        drawCropInterface(false, false);
+        drawCropInterface();
     }
 }
 
