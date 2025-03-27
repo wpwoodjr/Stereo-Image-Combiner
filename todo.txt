@@ -5,4 +5,5 @@ some indication that the other box will move, like dotted green lines?
 check if other places for highlights needed
 check highlighting code
 update draw fn from new one
-mobile crop box up left cornere not working
+can't reproduce: mobile crop box up left cornere not working
+does startcrop init activecropbox and currentHandle and movableboxes

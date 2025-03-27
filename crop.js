@@ -148,9 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dragStartY = y;
 
         // Check if a handle is selected
-        const handleInfo = getHandle(x, y);        
-        currentHandle = handleInfo.handle;
-        activeCropBox = handleInfo.box;
+        [ currentHandle, activeCropBox ] = getHandle(x, y);
 
         // check if green highlights should be shown and draw crop interface
         const wasMovable = movableBoxes;
@@ -426,17 +424,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const leftBox = cropBoxes.left;
         const leftHandle = getHandleForBox(leftBox, x, y);
         if (leftHandle) {
-            return { handle: leftHandle, box: 'left' };
+            return [ leftHandle, 'left' ];
         }
         
         // Check if the mouse is over any handle of the right crop box
         const rightBox = cropBoxes.right;
         const rightHandle = getHandleForBox(rightBox, x, y);
         if (rightHandle) {
-            return { handle: rightHandle, box: 'right' };
+            return [ rightHandle, 'right' ];
         }
         
-        return { handle: 'outside', box: 'left' };
+        return [ 'outside', 'left' ];
     }
     
     function getHandleForBox(box, x, y) {
@@ -515,9 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const [x, y] = getXY(e);
 
         if (!isDragging) {
-            const handleInfo = getHandle(x, y);
-            currentHandle = handleInfo.handle;
-            activeCropBox = handleInfo.box;
+            [ currentHandle, activeCropBox ] = getHandle(x, y);
 
             // Update cursor based on handle
             updateCursor(currentHandle);
@@ -529,12 +525,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const deltaX = x - dragStartX;
             const deltaY = y - dragStartY;
-            dragStartX = x;
-            dragStartY = y;
 
             updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
             drawCropInterface();
         }
+        dragStartX = x;
+        dragStartY = y;
     }
 
     function onMouseUp(e) {
@@ -948,15 +944,16 @@ document.addEventListener('DOMContentLoaded', () => {
             [tempCroppedImages[0], tempCroppedImages[1]] = [tempCroppedImages[1], tempCroppedImages[0]];
         }
 
-        [movableBoxes.left, movableBoxes.right] = [movableBoxes.right, movableBoxes.left];
-        if (activeCropBox !== null ) activeCropBox = activeCropBox === 'left' ? 'right' : 'left';
-
         if (isCropping) {
             const rightImgStart = currentParams.img1Width + currentParams.renderGap;
             [cropBoxes.left, cropBoxes.right] = [cropBoxes.right, cropBoxes.left];
             cropBoxes.left.x -= rightImgStart;
             cropBoxes.right.x += rightImgStart;
-            drawCropInterface();
+
+            [ currentHandle, activeCropBox ] = getHandle(dragStartX, dragStartY);
+            const wasMovable = movableBoxes;
+            updatemovableBoxes(currentHandle);
+            drawCropInterface(movableBoxHighlights(wasMovable));
         } else {
             if (lastCropState) {
                 [lastCropState.leftBox, lastCropState.rightBox] = [lastCropState.rightBox, lastCropState.leftBox];
