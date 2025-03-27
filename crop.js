@@ -43,20 +43,16 @@ document.addEventListener('DOMContentLoaded', () => {
         left: { x: 0, y: 0, width: 0, height: 0 },
         right: { x: 0, y: 0, width: 0, height: 0 }
     };
+    let handleSize = 14;
+
     // Original scale before any cropping
     let originalScale = 0;
     // Scale prior to entering crop mode
     let preCropScale = 0;
     
-    // Track which box was interacted with first (for highlighting)
-    let primaryBox = null;
+    // Track crop state
     let isDragging = false;
-
-    // Handle sizes
-    let handleSize = 14;
-
-    // Selected handle
-    let selectedHandle = null;
+    let currentHandle = null;
     let activeCropBox = null;
     let dragStartX = 0;
     let dragStartY = 0;
@@ -82,23 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('touchmove', onTouchMove, { passive: false });
     canvas.addEventListener('touchend', onTouchEnd);
     canvas.addEventListener('touchcancel', onTouchEnd);
-
-    // // Touch indicator element
-    // const touchIndicator = document.createElement('div');
-    // touchIndicator.id = 'touchIndicator';
-    // touchIndicator.style.cssText = `
-    //     position: absolute;
-    //     width: 30px;
-    //     height: 30px;
-    //     border-radius: 50%;
-    //     background-color: rgba(255, 255, 255, 0.5);
-    //     border: 2px solid #ffffff;
-    //     pointer-events: none;
-    //     display: none;
-    //     z-index: 1000;
-    //     transform: translate(-50%, -50%);
-    // `;
-    // document.body.appendChild(touchIndicator);
 
     // Additional considerations for touch devices
     if (isTouch()) {
@@ -152,106 +131,60 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     }
 
+    // Get the x, y position relative to canvas
+    function getXY(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        return [x, y];
+    }
+
+    // start mouse or touch drag
+    function startDrag(e) {
+        isDragging = true;
+
+        const [x, y] = getXY(e);
+        dragStartX = x;
+        dragStartY = y;
+
+        // Check if a handle is selected
+        const handleInfo = getHandle(x, y);        
+        currentHandle = handleInfo.handle;
+        activeCropBox = handleInfo.box;
+
+        updatemovableBoxes(currentHandle);
+        drawCropInterface();
+    }
+
     function onTouchStart(e) {
         if (!isCropping) return;
-        
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
-        
-        // Get the touch position relative to canvas
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        
-        // // Show touch indicator
-        // updateTouchIndicator(touch.clientX, touch.clientY, true);
-        
-        // Check if a handle is selected
-        const handleInfo = getHandle(x, y);
-        
-        if (handleInfo) {
-            selectedHandle = handleInfo.handle;
-            activeCropBox = handleInfo.box;
-            otherCropBox = handleInfo.otherBox;
-            dragStartX = x;
-            dragStartY = y;
-            isDragging = true;
-            
-            // Update movable boxes state
-            updatemovableBoxes();
-
-            // Set primary box if this is the first inside drag operation
-            if (primaryBox === null && selectedHandle === 'inside') {
-                // only set the primary box if both boxes can move
-                if (movableBoxes.left && movableBoxes.right) {
-                    primaryBox = activeCropBox;
-                }
-            }
-
-            // Redraw to show updated state
-            drawCropInterface();
-        } else {
-            // Touched outside of any handle - deselect
-            selectedHandle = null;
-            activeCropBox = null;
-        }
+        startDrag(e.touches[0]);
     }
 
     function onTouchMove(e) {
         if (!isCropping) return;
-
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
-
-        // Get the touch position
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-
-        // // Update touch indicator
-        // updateTouchIndicator(touch.clientX, touch.clientY, true);
         if (!isDragging) return;
 
-        // Update crop boxes
-        if (activeCropBox) {
-            // Calculate delta from last position
-            const deltaX = x - dragStartX;
-            const deltaY = y - dragStartY;
-            
-            updateCropBoxes(selectedHandle, activeCropBox, deltaX, deltaY);
-            
-            // Update drag start position
-            dragStartX = x;
-            dragStartY = y;
-        }
+        const [x, y] = getXY(e.touches[0]);
+        const deltaX = x - dragStartX;
+        const deltaY = y - dragStartY;
+        dragStartX = x;
+        dragStartY = y;
         
-        // Redraw the crop interface
+        updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
         drawCropInterface();
     }
 
     function onTouchEnd(e) {
         if (!isCropping) return;
-        // // Hide touch indicator
-        // updateTouchIndicator(0, 0, false);
-
-        if (!isDragging) return;
+        // Prevent default to avoid scrolling/zooming while cropping
+        e.preventDefault();
         isDragging = false;
-        selectedHandle = null;
-        activeCropBox = null;
-        movableBoxes = { left: false, right: false };
-        drawCropInterface();
     }
-
-    // // Helper function to show/hide touch indicator
-    // function updateTouchIndicator(x, y, visible) {
-    //     touchIndicator.style.display = visible ? 'block' : 'none';
-    //     if (visible) {
-    //         touchIndicator.style.left = `${x}px`;
-    //         touchIndicator.style.top = `${y}px`;
-    //     }
-    // }
 
     function startCrop() {
         if (!window.images || window.images.length !== 2) {
@@ -292,7 +225,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         isCropping = true;
-        primaryBox = null;  // Reset primary box for this crop session
         isDragging = false;
 
         // Show crop controls
@@ -335,11 +267,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Make sure boxes stay in bounds
             validateCropBoxes();
         }
-        
+
         // Draw crop interface
+        updatemovableBoxes('outside');
         drawCropInterface();
     }
-    
+
+    // make sure box dimensions are valid and the same
     function validateCropBoxes() {
         // Get current image dimensions
         const img1Width = window.images[0].width * currentScale;
@@ -370,8 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
         cropBoxes.right.height = minHeight;
         cropBoxes.left.width = minWidth;
         cropBoxes.right.width = minWidth;
-        
-        // No longer forcing Y positions to match
     }
     
     function initCropBoxes() {
@@ -492,17 +424,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const leftBox = cropBoxes.left;
         const leftHandle = getHandleForBox(leftBox, x, y);
         if (leftHandle) {
-            return { handle: leftHandle, box: 'left', otherBox: 'right' };
+            return { handle: leftHandle, box: 'left' };
         }
         
         // Check if the mouse is over any handle of the right crop box
         const rightBox = cropBoxes.right;
         const rightHandle = getHandleForBox(rightBox, x, y);
         if (rightHandle) {
-            return { handle: rightHandle, box: 'right', otherBox: 'left' };
+            return { handle: rightHandle, box: 'right' };
         }
         
-        return null;
+        return { handle: 'outside', box: 'left' };
     }
     
     function getHandleForBox(box, x, y) {
@@ -538,13 +470,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
     
-    function updateCursor(handleInfo) {
-        if (!handleInfo) {
-            canvas.style.cursor = 'default';
-            return;
-        }
-        
-        switch (handleInfo.handle) {
+    function updateCursor(handle) {
+        switch (handle) {
             case 'topLeft':
             case 'bottomRight':
                 canvas.style.cursor = 'nwse-resize';
@@ -562,7 +489,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 canvas.style.cursor = 'ew-resize';
                 break;
             case 'inside':
-                canvas.style.cursor = 'move';
+                canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
+                break;
+            case 'outside':
+                canvas.style.cursor = isDragging ? 'grabbing' : 'move';
                 break;
             default:
                 canvas.style.cursor = 'default';
@@ -571,118 +501,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onMouseDown(e) {
         if (!isCropping) return;
-        
-        // Get mouse position relative to canvas
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        // Check if a handle is selected
-        const handleInfo = getHandle(x, y);
-        
-        if (handleInfo) {
-            selectedHandle = handleInfo.handle;
-            activeCropBox = handleInfo.box;
-            otherCropBox = handleInfo.otherBox;
-            dragStartX = x;
-            dragStartY = y;
-            isDragging = true;
-            
-            // Set primary box if this is the first inside drag operation
-            if (primaryBox === null && selectedHandle === 'inside') {
-                // only set the primary box if both boxes can move
-                if (movableBoxes.left && movableBoxes.right) {
-                    primaryBox = activeCropBox;
-                }
-            }
+        startDrag(e);
 
-            // Redraw to reflect movable boxes
-            drawCropInterface();
-        } else {
-            // Clicked outside of any handle - deselect
-            selectedHandle = null;
-            activeCropBox = null;
-        }
-    }
-    
-    function onMouseUp(e) {
-        isDragging = false;
-        selectedHandle = null;
-        activeCropBox = null;
+        updateCursor(currentHandle);
+        document.documentElement.style.cursor = canvas.style.cursor;
     }
 
     function onMouseMove(e) {
         if (!isCropping) return;
 
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        // Update cursor based on handle
+        const [x, y] = getXY(e);
+
         if (!isDragging) {
             const handleInfo = getHandle(x, y);
-            updateCursor(handleInfo);
-            
-            // Update movable boxes for hover state
-            if (handleInfo) {
-                selectedHandle = handleInfo.handle;
-                activeCropBox = handleInfo.box;
-                updatemovableBoxes();
-            } else {
-                selectedHandle = null;
-                activeCropBox = null;
-                movableBoxes = { left: false, right: false };
-            }
+            currentHandle = handleInfo.handle;
+            activeCropBox = handleInfo.box;
 
-        // If dragging, update crop boxes
-        } else if (activeCropBox) {
+            // Update cursor based on handle
+            updateCursor(currentHandle);
+            updatemovableBoxes(currentHandle);
+        } else {
             const deltaX = x - dragStartX;
             const deltaY = y - dragStartY;
-
-            updateCropBoxes(selectedHandle, activeCropBox, deltaX, deltaY);
-            
-            // Update drag start position
             dragStartX = x;
             dragStartY = y;
+
+            updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
         }
 
-        // Redraw the crop interface
         drawCropInterface();
     }
-    
+
+    function onMouseUp(e) {
+        if (isCropping && isDragging) {
+            isDragging = false;
+            // update cursor and cropbox movable state
+            onMouseMove(e);
+            document.documentElement.style.cursor = 'default';
+        }
+    }
+
+
     // Track which boxes can move with current crop boundaries
     let movableBoxes = { left: false, right: false };
 
-    function updatemovableBoxes() {
+    function updatemovableBoxes(handle) {
         // Reset movable boxes
         movableBoxes = { left: false, right: false };
-        
-        if (!activeCropBox || !selectedHandle) return;
-        
-        if (selectedHandle === 'inside') {
-            // For inside moves, we need to check if boxes can actually move
+
+        if (handle === 'inside' || handle == 'outside') {
+            // For moves, we need to check if boxes can actually move
             const leftCanMove = canBoxMove(cropBoxes.left, 'left');
             const rightCanMove = canBoxMove(cropBoxes.right, 'right');
             const bothCanMove = leftCanMove.canMoveHorizontally && rightCanMove.canMoveHorizontally
                                 || leftCanMove.canMoveVertically && rightCanMove.canMoveVertically;
 
-            if (primaryBox === null) {
-                // If no primary box is set, check if both boxes can move, or just the active one
+            if (handle === 'inside') {
+                // Check if the active box can move
                 if (activeCropBox === 'left') {
-                    movableBoxes.left = leftCanMove.canMove;
-                    movableBoxes.right = bothCanMove;
+                    movableBoxes = { left: leftCanMove.canMove, right: false };
                 } else {
-                    movableBoxes.left = bothCanMove;
-                    movableBoxes.right = rightCanMove.canMove;
+                    movableBoxes = { left: false, right: rightCanMove.canMove };
                 }
-            } else if (activeCropBox === primaryBox) {
-                // If moving primary box, both boxes are movable only if they both can move
+            } else if (handle = 'outside') {
+                // Check if both boxes are movable
                 movableBoxes = { left: bothCanMove, right: bothCanMove };
-                // Reset primary box if we get back to a no-move situation
-                if (!bothCanMove) primaryBox = null;
-            } else {
-                // If moving non-primary box, it is movable if it can move horizontally or vertically
-                movableBoxes[activeCropBox] = activeCropBox === 'left' ? leftCanMove.canMove : rightCanMove.canMove;
             }
         } else {
             // For resize operations, both boxes are always movable
@@ -702,55 +585,51 @@ document.addEventListener('DOMContentLoaded', () => {
         const rightImgStart = img1Width + (currentParams ? currentParams.renderGap : 0);
         
         // Store original values before modifications
-        const originalLeft = { ...cropBoxes.left };
-        const originalRight = { ...cropBoxes.right };
         const otherBox = activeBox === 'left' ? 'right' : 'left';
         
         // Create copies to simulate changes without affecting the actual boxes yet
         const testActiveBox = { ...cropBoxes[activeBox] };
         const testOtherBox = { ...cropBoxes[otherBox] };
         
-        if (handle === 'inside') {
-            // If moving the primary box, move both boxes and enforce limits
-            if (activeBox === primaryBox) {
-                // First try moving the active box and get actual deltas (might be limited by boundaries)
-                const activeResult = moveBox(testActiveBox, deltaX, deltaY, 
-                        activeBox === 'left' ? 0 : rightImgStart,
-                        activeBox === 'left' ? img1Width : img2Width,
-                        activeBox === 'left' ? img1Height : img2Height);
+        if (handle === 'outside') {
+            // If moving both boxes, enforce limits of both boxes
+            // First try moving the active box and get actual deltas (might be limited by boundaries)
+            const activeResult = moveBox(testActiveBox, deltaX, deltaY, 
+                    activeBox === 'left' ? 0 : rightImgStart,
+                    activeBox === 'left' ? img1Width : img2Width,
+                    activeBox === 'left' ? img1Height : img2Height);
+            
+            // Now try moving the other box by the same actual deltas
+            const otherResult = moveBox(testOtherBox, activeResult.x, activeResult.y, 
+                    otherBox === 'left' ? 0 : rightImgStart,
+                    otherBox === 'left' ? img1Width : img2Width,
+                    otherBox === 'left' ? img1Height : img2Height);
+            
+            // If other box couldn't move the full amount, we need to limit both boxes
+            // Move active box only by the amount the other box could move
+            if (otherResult.x !== activeResult.x || otherResult.y !== activeResult.y) {
+                // Reset test active box
+                testActiveBox.x = cropBoxes[activeBox].x;
+                testActiveBox.y = cropBoxes[activeBox].y;
                 
-                // Now try moving the other box by the same actual deltas
-                const otherResult = moveBox(testOtherBox, activeResult.x, activeResult.y, 
-                        otherBox === 'left' ? 0 : rightImgStart,
-                        otherBox === 'left' ? img1Width : img2Width,
-                        otherBox === 'left' ? img1Height : img2Height);
-                
-                // If other box couldn't move the full amount, we need to limit both boxes
                 // Move active box only by the amount the other box could move
-                if (otherResult.x !== activeResult.x || otherResult.y !== activeResult.y) {
-                    // Reset test active box
-                    testActiveBox.x = cropBoxes[activeBox].x;
-                    testActiveBox.y = cropBoxes[activeBox].y;
-                    
-                    // Move active box only by the amount the other box could move
-                    moveBox(testActiveBox, otherResult.x, otherResult.y,
-                            activeBox === 'left' ? 0 : rightImgStart,
-                            activeBox === 'left' ? img1Width : img2Width,
-                            activeBox === 'left' ? img1Height : img2Height);
-                }
-                
-                // Apply changes to both real boxes
-                cropBoxes[activeBox].x = testActiveBox.x;
-                cropBoxes[activeBox].y = testActiveBox.y;
-                cropBoxes[otherBox].x = testOtherBox.x;
-                cropBoxes[otherBox].y = testOtherBox.y;
-            } else {
-                // Only move the active box
-                moveBox(cropBoxes[activeBox], deltaX, deltaY, 
+                moveBox(testActiveBox, otherResult.x, otherResult.y,
                         activeBox === 'left' ? 0 : rightImgStart,
                         activeBox === 'left' ? img1Width : img2Width,
                         activeBox === 'left' ? img1Height : img2Height);
             }
+            
+            // Apply changes to both real boxes
+            cropBoxes[activeBox].x = testActiveBox.x;
+            cropBoxes[activeBox].y = testActiveBox.y;
+            cropBoxes[otherBox].x = testOtherBox.x;
+            cropBoxes[otherBox].y = testOtherBox.y;
+        } else if (handle == 'inside') {
+            // Only move the active box
+            moveBox(cropBoxes[activeBox], deltaX, deltaY, 
+                    activeBox === 'left' ? 0 : rightImgStart,
+                    activeBox === 'left' ? img1Width : img2Width,
+                    activeBox === 'left' ? img1Height : img2Height);
         } else {
             // Resize operation
             
@@ -816,18 +695,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Final validation to ensure boxes stay within bounds
         validateCropBoxes();
     }
-    
+
+    // Small tolerance value
+    const epsilon = 0.001;
     // Helper function to check if a box is within bounds
     function isBoxInBounds(box, minX, maxWidth, maxHeight) {
         const minSize = handleSize * 2;
         
         // Check all constraints
-        if (box.x < minX) return false;
-        if (box.y < 0) return false;
-        if (box.width < minSize) return false;
-        if (box.height < minSize) return false;
-        if (box.x + box.width > minX + maxWidth) return false;
-        if (box.y + box.height > maxHeight) return false;
+        if (box.x < minX - epsilon) return false;
+        if (box.y < -epsilon) return false;
+        if (box.width < minSize - epsilon) return false;
+        if (box.height < minSize - epsilon) return false;
+        if (box.x + box.width > minX + maxWidth + epsilon) return false;
+        if (box.y + box.height > maxHeight + epsilon) return false;
         
         return true;
     }
@@ -850,8 +731,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function canBoxMove(box, boxType) {
-        const epsilon = 0.001; // Small tolerance value
-
         // Determine if a box has any room to move in any direction
         const minX = boxType === 'left' ? 0 : (currentParams ? currentParams.img1Width + currentParams.renderGap : 0);
         const maxWidth = boxType === 'left' ? 
@@ -1057,6 +936,9 @@ document.addEventListener('DOMContentLoaded', () => {
             [tempCroppedImages[0], tempCroppedImages[1]] = [tempCroppedImages[1], tempCroppedImages[0]];
         }
 
+        [movableBoxes.left, movableBoxes.right] = [movableBoxes.right, movableBoxes.left];
+        if (activeCropBox !== null ) activeCropBox = activeCropBox === 'left' ? 'right' : 'left';
+
         if (isCropping) {
             const rightImgStart = currentParams.img1Width + currentParams.renderGap;
             [cropBoxes.left, cropBoxes.right] = [cropBoxes.right, cropBoxes.left];
@@ -1112,6 +994,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetCrop() {
         if (originalImages) {
+            isCropping = false;
+
             // Restore original images if images are currently being displayed
             if (window.images.length == 2) {
                 window.images[0] = originalImages[0].cloneNode(true);
@@ -1126,161 +1010,307 @@ document.addEventListener('DOMContentLoaded', () => {
             originalImages = null;
             originalScale = 0;
             lastCropState = null;
-            tempCroppedImages = null
-            
+            tempCroppedImages = null;
+            activeCropBox = null;
+            movableBoxes = { left: false, right: false };
+
             // Hide reset crop button
             resetCropButton.style.display = 'none';
-
-            isCropping = false;
             applyCropButton.style.display = 'none';
             cancelCropButton.style.display = 'none';
             cropButton.style.display = 'block';
         }
     }
 
-    // Add a fullscreen toggle option for mobile devices
-    // Add this code to the end of the DOMContentLoaded event listener in script.js
-
+    // Add a fullscreen toggle
     function addFullscreenOption() {
-        if (isTouch()) {
-            // Create fullscreen button
-            const fullscreenButton = document.createElement('button');
-            fullscreenButton.id = 'fullscreenToggle';
-            fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
-            fullscreenButton.title = 'Toggle fullscreen';
-            fullscreenButton.style.cssText = `
-                position: absolute;
-                top: 10px;
-                right: 10px;
-                z-index: 1000;
-                background-color: rgba(0, 0, 0, 0.5);
-                border-radius: 50%;
-                padding: 8px;
-                display: none;
-                width: 36px;
-                height: 36px;
+        // Create fullscreen button
+        const fullscreenButton = document.createElement('button');
+        fullscreenButton.id = 'fullscreenToggle';
+        fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
+        fullscreenButton.title = 'Toggle fullscreen';
+        fullscreenButton.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            padding: 8px;
+            display: none;
+            width: 36px;
+            height: 36px;
+            align-items: center;
+            justify-content: center;
+        `;
+        
+        // Find the appropriate container to append the button
+        const canvasContainer = document.getElementById('canvasContainer');
+        canvasContainer.style.position = 'relative';
+        canvasContainer.appendChild(fullscreenButton);
+        
+        // Show button when canvas is displayed
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.attributeName === 'style' && 
+                    canvasContainer.style.display !== 'none') {
+                    fullscreenButton.style.display = 'flex';
+                }
+            });
+        });
+        
+        observer.observe(canvasContainer, { attributes: true });
+        
+        // Toggle fullscreen mode
+        fullscreenButton.addEventListener('click', function() {
+            toggleFullscreen(canvasContainer);
+        });
+        
+        // Fullscreen toggle function
+        function toggleFullscreen(element) {
+            if (!document.fullscreenElement && 
+                !document.mozFullScreenElement && 
+                !document.webkitFullscreenElement && 
+                !document.msFullscreenElement) {
+                // Enter fullscreen
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if (element.msRequestFullscreen) {
+                    element.msRequestFullscreen();
+                } else if (element.mozRequestFullScreen) {
+                    element.mozRequestFullScreen();
+                } else if (element.webkitRequestFullscreen) {
+                    element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+                }
+                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
+                setTimeout(() => {
+                    // console.log("tfs");
+                    window.onResize();
+                }, 250);            
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
+                setTimeout(() => {
+                    // console.log("ffs");
+                    window.onResize();
+                }, 250);            
+            }
+        }
+        
+        // Listen for fullscreen change events to update button
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+        document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+        
+        function updateFullscreenButton() {
+            if (document.fullscreenElement || 
+                document.webkitFullscreenElement || 
+                document.mozFullScreenElement || 
+                document.msFullscreenElement) {
+                // In fullscreen mode
+                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
+            } else {
+                // Not in fullscreen mode
+                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
+            }
+        }
+        
+        // Add fullscreen styles
+        const style = document.createElement('style');
+        style.textContent = `
+            #canvasContainer:fullscreen {
+                background-color: #121212;
+                padding: 20px;
+                display: flex !important;
                 align-items: center;
                 justify-content: center;
-            `;
-            
-            // Find the appropriate container to append the button
-            const canvasContainer = document.getElementById('canvasContainer');
-            canvasContainer.style.position = 'relative';
-            canvasContainer.appendChild(fullscreenButton);
-            
-            // Show button when canvas is displayed
-            const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    if (mutation.attributeName === 'style' && 
-                        canvasContainer.style.display !== 'none') {
-                        fullscreenButton.style.display = 'flex';
-                    }
-                });
-            });
-            
-            observer.observe(canvasContainer, { attributes: true });
-            
-            // Toggle fullscreen mode
-            fullscreenButton.addEventListener('click', function() {
-                toggleFullscreen(canvasContainer);
-            });
-            
-            // Fullscreen toggle function
-            function toggleFullscreen(element) {
-                if (!document.fullscreenElement && 
-                    !document.mozFullScreenElement && 
-                    !document.webkitFullscreenElement && 
-                    !document.msFullscreenElement) {
-                    // Enter fullscreen
-                    if (element.requestFullscreen) {
-                        element.requestFullscreen();
-                    } else if (element.msRequestFullscreen) {
-                        element.msRequestFullscreen();
-                    } else if (element.mozRequestFullScreen) {
-                        element.mozRequestFullScreen();
-                    } else if (element.webkitRequestFullscreen) {
-                        element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-                    }
-                    fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
-                } else {
-                    // Exit fullscreen
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                    } else if (document.msExitFullscreen) {
-                        document.msExitFullscreen();
-                    } else if (document.mozCancelFullScreen) {
-                        document.mozCancelFullScreen();
-                    } else if (document.webkitExitFullscreen) {
-                        document.webkitExitFullscreen();
-                    }
-                    fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
-                }
+                overflow: auto;
+            }
+            #canvasContainer:fullscreen #canvas {
+                // max-height: 95vh !important;
+                object-fit: contain;
             }
             
-            // Listen for fullscreen change events to update button
-            document.addEventListener('fullscreenchange', updateFullscreenButton);
-            document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
-            document.addEventListener('mozfullscreenchange', updateFullscreenButton);
-            document.addEventListener('MSFullscreenChange', updateFullscreenButton);
-            
-            function updateFullscreenButton() {
-                if (document.fullscreenElement || 
-                    document.webkitFullscreenElement || 
-                    document.mozFullScreenElement || 
-                    document.msFullscreenElement) {
-                    // In fullscreen mode
-                    fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
-                } else {
-                    // Not in fullscreen mode
-                    fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
-                }
+            /* Vendor prefixed versions */
+            #canvasContainer:-webkit-full-screen {
+                background-color: #121212;
+                padding: 20px;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
             }
-            
-            // Add fullscreen styles
-            const style = document.createElement('style');
-            style.textContent = `
-                #canvasContainer:fullscreen {
-                    background-color: #121212;
-                    padding: 20px;
-                    display: flex !important;
-                    align-items: center;
-                    justify-content: center;
-                    overflow: auto;
-                }
-                #canvasContainer:fullscreen #canvas {
-                    max-height: 95vh !important;
-                    object-fit: contain;
-                }
-                
-                /* Vendor prefixed versions */
-                #canvasContainer:-webkit-full-screen {
-                    background-color: #121212;
-                    padding: 20px;
-                    display: flex !important;
-                    align-items: center;
-                    justify-content: center;
-                }
-                #canvasContainer:-moz-full-screen {
-                    background-color: #121212;
-                    padding: 20px;
-                    display: flex !important;
-                    align-items: center;
-                    justify-content: center;
-                }
-                #canvasContainer:-ms-fullscreen {
-                    background-color: #121212;
-                    padding: 20px;
-                    display: flex !important;
-                    align-items: center;
-                    justify-content: center;
-                }
-            `;
-            document.head.appendChild(style);
-        }
+            #canvasContainer:-moz-full-screen {
+                background-color: #121212;
+                padding: 20px;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+            }
+            #canvasContainer:-ms-fullscreen {
+                background-color: #121212;
+                padding: 20px;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     // Initialize fullscreen option
     addFullscreenOption();
+
+
+    // Arrow key navigation state
+    let arrowKeyMultiplier = 1;     // Default step size multiplier
+
+    // Arrow key navigation handlers
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+
+    function nextTab() {
+        if (currentHandle === 'outside') {
+            currentHandle = 'inside';
+            activeCropBox = 'left';
+        } else if (activeCropBox === 'left') {
+            activeCropBox = 'right';
+        } else {
+            currentHandle = 'outside';
+            activeCropBox = 'left';
+        }
+        updatemovableBoxes(currentHandle);
+    }
+
+    function onKeyDown(e) {
+        // Check if an input element is focused
+        if (document.activeElement.tagName === 'INPUT' || 
+            document.activeElement.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        if (e.key === 'x') {
+            window.updateSwap();
+            e.preventDefault();
+            return;
+        }
+
+        if (!isCropping) return;
+
+        if (activeCropBox === null) {
+            activeCropBox = 'left'
+        }
+        let deltaX = 0;
+        let deltaY = 0;
+        
+        // Set multiplier for Shift key (faster movement)
+        arrowKeyMultiplier = e.shiftKey ? 5 : 1;
+        
+        // Handle arrow keys
+        switch (e.key) {
+            case 'ArrowLeft':
+                deltaX = -1 * arrowKeyMultiplier;
+                e.preventDefault();
+                break;
+            case 'ArrowRight':
+                deltaX = 1 * arrowKeyMultiplier;
+                e.preventDefault();
+                break;
+            case 'ArrowUp':
+                deltaY = -1 * arrowKeyMultiplier;
+                e.preventDefault();
+                break;
+            case 'ArrowDown':
+                deltaY = 1 * arrowKeyMultiplier;
+                e.preventDefault();
+                break;
+            case 'Tab':
+                // Toggle between left, right, and both boxes
+                e.preventDefault();
+
+                nextTab();
+                if (!movableBoxes.left && !movableBoxes.right) {
+                    nextTab();
+                    if (!movableBoxes.left && !movableBoxes.right) {
+                        nextTab();
+                    }
+                }
+                drawCropInterface();
+                return;
+            default:
+                return; // Ignore other keys
+        }
+        
+        // If we have movement, apply it
+        if (deltaX !== 0 || deltaY !== 0) {
+            // Set up for movement
+            updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
+            
+            // Redraw the interface
+            drawCropInterface();
+        }
+    }
+
+    function onKeyUp(e) {
+        if (!isCropping) return;
+        
+        // Reset multiplier on Shift key release
+        if (e.key === 'Shift') {
+            arrowKeyMultiplier = 1;
+        }
+    }
+
+// // For the arrow key active box, highlight it differently
+// const leftStrokeStyle = arrowKeyBox === 'left' 
+//     ? (movableBoxes.left ? '#33ff33' : '#ffcc00') // Brighter when active
+//     : (movableBoxes.left ? '#33cc33' : '#ff9900');
+    
+// const rightStrokeStyle = arrowKeyBox === 'right'
+//     ? (movableBoxes.right ? '#33ff33' : '#ffcc00') // Brighter when active
+//     : (movableBoxes.right ? '#33cc33' : '#ff9900');
+
+// // Add arrow key instructions if in crop mode
+// if (isCropping) {
+//     ctx.font = '12px Arial';
+//     ctx.fillStyle = 'white';
+//     ctx.textAlign = 'left';
+//     ctx.fillText('Arrow keys: Move box 1px', 10, canvas.height - 50);
+//     ctx.fillText('Shift+Arrow: Move box 5px', 10, canvas.height - 35);
+//     ctx.fillText('Tab: Switch active box', 10, canvas.height - 20);
+    
+//     // Show which box is active for arrow keys
+//     ctx.textAlign = 'right';
+//     ctx.fillText(`Active: ${arrowKeyBox.toUpperCase()} box`, canvas.width - 10, canvas.height - 20);
+// }
+
+// // Reset arrow key state
+// arrowKeyBox = 'left';
+// arrowKeyMultiplier = 1;
+
+// function addKeyboardHelpMessage() {
+//     const helpDiv = document.createElement('div');
+//     helpDiv.id = 'cropKeyboardHelp';
+//     helpDiv.className = 'crop-help';
+//     helpDiv.innerHTML = `
+//         <p><strong>Keyboard Controls</strong></p>
+//         <ul>
+//             <li><kbd>Arrow Keys</kbd>: Move crop box 1px</li>
+//             <li><kbd>Shift</kbd> + <kbd>Arrow Keys</kbd>: Move crop box 5px</li>
+//             <li><kbd>Tab</kbd>: Switch between left/right crop box</li>
+//         </ul>
+//     `;
+//     // ...styling and event handlers...
+// }
+
 
     // Expose functions to global scope and the isCropping flag
     window.cropModule = {

@@ -1,0 +1,4 @@
+weird dotted lines on canvas on mobile
+timeouts on fullscreen??
+need fromFullScreenCanvas in case of ESC instead of pressing button
+some indication that the other box will move, like dotted green lines?

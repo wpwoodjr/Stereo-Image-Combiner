@@ -162,17 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
     scaleSlider.addEventListener('input', updateScale);
     gapSlider.addEventListener('input', updateGap);
     colorPicker.addEventListener('input', updateColor);
-
-    swapButton.addEventListener('click', () => {
-        if (images.length !== 2) {
-            alert('Please add two images before swapping.');
-        } else {
-            [images[0], images[1]] = [images[1], images[0]];
-            [imageNames[0], imageNames[1]] = [imageNames[1], imageNames[0]];
-            updateImageNames();
-            window.cropModule.onSwap();
-        }
-    });
+    swapButton.addEventListener('click', updateSwap);
 
     // Show/hide quality slider based on format selection
     formatSelect.addEventListener('change', function() {
@@ -191,7 +181,9 @@ document.addEventListener('DOMContentLoaded', () => {
     saveButton.addEventListener('click', saveImage);
 
     // Window resize handler
-    window.addEventListener('resize', function() {
+    window.addEventListener('resize', onResize);
+
+    function onResize() {
         if (images.length === 2) {
             const optimalScale = calculateOptimalScale(images[0], images[1]);
             setScale(optimalScale);
@@ -202,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 drawImages();
             }
         }
-    });
+    }
 
     // =========================
     // Functions
@@ -261,17 +253,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Get the available viewport width (accounting for some margin)
         // In vertical layout, we don't need to subtract the left panel width
-        const leftPanelWidth = document.getElementById('left-panel').offsetWidth;
+        const leftPanelWidth = document.fullscreenElement ? 0 : document.getElementById('left-panel').offsetWidth;
         const viewportWidth = isVerticalLayout 
             ? window.innerWidth - 15
             : window.innerWidth - leftPanelWidth - 50;
-        
+
         // Calculate total width at 100% scale (using the current pixel gap)
         const gapWidthAt100 = pixelGap(img1, img2);
         const totalWidthAt100 = img1.width + img2.width + gapWidthAt100;
-        
+
+        // Calculate larger height of the two images
+        const imageHeight = Math.max(img1.height, img2.height);
+
+        // Calculate max height, leave room for crop handles at screen edge
+        const maxHeight = screen.height * (window.cropModule.isCropping() ? 0.98 : 1);
+
         // Calculate the scale percentage needed to fit
         maxScale = viewportWidth / totalWidthAt100;
+        maxScale = Math.min(maxHeight / imageHeight, maxScale);
         return maxScale;
     }
 
@@ -326,6 +325,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateColor() {
         bgColor = this.value;
         drawImages();
+    }
+
+    function updateSwap() {
+        if (images.length !== 2) {
+            alert('Please add two images before swapping.');
+        } else {
+            [images[0], images[1]] = [images[1], images[0]];
+            [imageNames[0], imageNames[1]] = [imageNames[1], imageNames[0]];
+            updateImageNames();
+            window.cropModule.onSwap();
+        }
     }
 
     function updateImageNames() {
@@ -453,4 +463,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.drawImages = drawImages;
     window.setScale = setScale;
     window.calculateOptimalScale = calculateOptimalScale;
+    window.updateSwap = updateSwap;
+    window.onResize = onResize;
 });
