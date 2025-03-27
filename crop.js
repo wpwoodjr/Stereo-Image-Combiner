@@ -558,8 +558,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // For moves, we need to check if boxes can actually move
             const leftCanMove = canBoxMove(cropBoxes.left, 'left');
             const rightCanMove = canBoxMove(cropBoxes.right, 'right');
-            const bothCanMove = leftCanMove.canMoveHorizontally && rightCanMove.canMoveHorizontally
-                                || leftCanMove.canMoveVertically && rightCanMove.canMoveVertically;
 
             if (handle === 'inside') {
                 // Check if the active box can move
@@ -570,6 +568,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (handle = 'outside') {
                 // Check if both boxes are movable
+                const bothCanMoveLeft = leftCanMove.canMoveLeft && rightCanMove.canMoveLeft;
+                const bothCanMoveRight = leftCanMove.canMoveRight && rightCanMove.canMoveRight;
+                const bothCanMoveUp = leftCanMove.canMoveUp && rightCanMove.canMoveUp;
+                const bothCanMoveDown = leftCanMove.canMoveDown && rightCanMove.canMoveDown;
+                const bothCanMove = bothCanMoveLeft || bothCanMoveRight || bothCanMoveUp || bothCanMoveDown;
+
                 movableBoxes = { left: bothCanMove, right: bothCanMove };
             }
         } else {
@@ -754,19 +758,14 @@ document.addEventListener('DOMContentLoaded', () => {
                           window.images[1].height * currentScale;
         
         // Check if there's room to move in any direction
-        const hasRoomLeft = box.x > minX + epsilon;
-        const hasRoomRight = box.x + box.width < minX + maxWidth - epsilon;
-        const hasRoomUp = box.y > epsilon;
-        const hasRoomDown = box.y + box.height < maxHeight - epsilon;
-    
-        const canMoveHorizontally = hasRoomLeft || hasRoomRight;
-        const canMoveVertically = hasRoomUp || hasRoomDown;
-        const canMove = canMoveHorizontally || canMoveVertically;
+        const canMoveLeft = box.x > minX + epsilon;
+        const canMoveRight = box.x + box.width < minX + maxWidth - epsilon;
+        const canMoveUp = box.y > epsilon;
+        const canMoveDown = box.y + box.height < maxHeight - epsilon;
+        const canMove = canMoveLeft || canMoveRight || canMoveUp || canMoveDown;
 
         return {
-            canMoveHorizontally,
-            canMoveVertically,
-            canMove
+            canMoveLeft, canMoveRight, canMoveUp, canMoveDown, canMove
         };
     }
 

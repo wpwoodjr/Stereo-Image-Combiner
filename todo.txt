@@ -2,3 +2,7 @@ weird dotted lines on canvas on mobile
 timeouts on fullscreen??
 need fromFullScreenCanvas in case of ESC instead of pressing button
 some indication that the other box will move, like dotted green lines?
+check if other places for highlights needed
+check highlighting code
+update draw fn from new one
+mobile crop box up left cornere not working

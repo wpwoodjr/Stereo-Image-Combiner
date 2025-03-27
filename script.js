@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageHeight = Math.max(img1.height, img2.height);
 
         // Calculate max height, leave room for crop handles at screen edge
-        const maxHeight = screen.height * (window.cropModule.isCropping() ? 0.98 : 1);
+        const maxHeight = screen.height * (window.cropModule.isCropping() ? 0.94 : 1);
 
         // Calculate the scale percentage needed to fit
         maxScale = viewportWidth / totalWidthAt100;
