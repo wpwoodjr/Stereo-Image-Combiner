@@ -338,11 +338,22 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
     
-    function drawCropInterface() {
-        // console.trace("Call stack:");
+    // glow state variables
+    let glowStartTime = 0;
+    const GLOW_DURATION = 700;
+    let glowAnimationActive = false;
+    let glowAnimationFrameId = null;
+
+    function drawCropInterface(highlights = [ false, false ]) {
+        const [ leftBoxHighlight, rightBoxHighlight ] = highlights;
+        // Start glow animation if any box went active
+        if (leftBoxHighlight || rightBoxHighlight) {
+            startGlowAnimation();
+        }
+        
         // Get the main canvas context
         const ctx = canvas.getContext('2d');
-        
+
         // First draw the images (using the main draw function)
         currentParams = window.drawImages();
 
@@ -378,21 +389,139 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillRect(rightBox.x + rightBox.width, rightBox.y, (rightImgStart + img2Width) - (rightBox.x + rightBox.width), rightBox.height);
         // Bottom rectangle
         ctx.fillRect(rightImgStart, rightBox.y + rightBox.height, img2Width, img2Height - (rightBox.y + rightBox.height));
-        
-        // Draw crop borders
-        ctx.lineWidth = 2;
-        
-        // Left crop box border (green if movable, orange otherwise)
-        ctx.strokeStyle = movableBoxes.left ? '#33cc33' : '#ff9900';
+
+        const glowParams = glowParameters();
+
+        // Draw left crop box
+        configureBoxStyle(ctx, movableBoxes.left, glowParams);
         ctx.strokeRect(leftBox.x, leftBox.y, leftBox.width, leftBox.height);
+        ctx.shadowBlur = 0; // Reset shadow
         drawHandles(ctx, leftBox);
-        
-        // Right crop box border (green if movable, orange otherwise)
-        ctx.strokeStyle = movableBoxes.right ? '#33cc33' : '#ff9900';
+
+        // Draw right crop box
+        configureBoxStyle(ctx, movableBoxes.right, glowParams);
         ctx.strokeRect(rightBox.x, rightBox.y, rightBox.width, rightBox.height);
+        ctx.shadowBlur = 0; // Reset shadow
         drawHandles(ctx, rightBox);
+
+        // Reset line width to default
+        ctx.lineWidth = 2;
     }
-    
+
+    // calculate glow parameters
+    function glowParameters() {
+        // Calculate glow intensity if animation is active
+        let glowIntensity = 0;
+        let glowOffset = 0;
+        let greenIntensity = 0; // For color transition
+
+        if (glowAnimationActive) {
+            const elapsed = performance.now() - glowStartTime;
+            // Clamp normalizedTime between 0 and 1
+            const normalizedTime = Math.min(elapsed / GLOW_DURATION, 1);
+            
+            // Calculate a base intensity value between 0 and 1
+            let baseIntensity;
+            if (normalizedTime < 0.2) {
+                // Fast rise phase (first 20% of time) - quick ramp up to full intensity
+                const t = normalizedTime / 0.2;
+                // Smoothstep function
+                baseIntensity = t * t * (3 - 2 * t);
+            } else {
+                // Long decay phase (remaining 80% of time) - very gradual falloff
+                const t = (normalizedTime - 0.2) / 0.8;
+                // Cubic falloff
+                baseIntensity = Math.pow(1 - t, 3);
+            }
+            
+            // Apply the appropriate multipliers to the base intensity
+            glowIntensity = 30 * baseIntensity;
+            glowOffset = 2 * baseIntensity;
+            greenIntensity = baseIntensity; // No multiplier needed (0 to 1)
+        }
+
+        return [ glowIntensity, glowOffset, greenIntensity ];
+    }
+
+    // configure box borders
+    function configureBoxStyle(ctx, isMovable, glowParams) {
+        const [ glowIntensity, glowOffset, greenIntensity ] = glowParams;
+
+        if (isMovable) {
+            // Green, movable box
+            if (glowAnimationActive) {
+                // Set line width with smooth transition
+                ctx.lineWidth = 2 + glowOffset;
+                
+                // Create a color that transitions smoothly between regular and bright green
+                const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
+                const g = Math.round(204 + (255 - 204) * greenIntensity);
+                const b = Math.round(51 + (74 - 51) * greenIntensity);
+                const color = `rgb(${r}, ${g}, ${b})`;
+                
+                // Apply style and shadow
+                ctx.strokeStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = glowIntensity;
+            } else {
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#33cc33'; // Regular green
+                ctx.shadowBlur = 0;
+            }
+        } else {
+            // Orange, non-movable box - no animation effects
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ff9900'; // Orange
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    // Helper function to start the glow animation
+    function startGlowAnimation() {
+        // Cancel any existing animation
+        if (glowAnimationFrameId !== null) {
+            cancelAnimationFrame(glowAnimationFrameId);
+        }
+        
+        glowAnimationActive = true;
+        glowStartTime = performance.now();
+        
+        // Start the animation loop
+        glowAnimationFrameId = requestAnimationFrame(animateGlow);
+    }
+
+    // Animation loop function - separate from drawCropInterface
+    function animateGlow() {
+        const elapsed = performance.now() - glowStartTime;
+
+        if (!isCropping) {
+            // Stop the animation
+            stopGlowAnimation();
+        }
+        else if (elapsed < GLOW_DURATION && glowAnimationActive) {
+            // Continue the animation
+            glowAnimationFrameId = requestAnimationFrame(animateGlow);
+            
+            // Call drawCropInterface without activation flags
+            drawCropInterface();
+        } else {
+            // Stop the animation
+            stopGlowAnimation();
+            
+            // Final render with no glow
+            drawCropInterface();
+        }
+    }
+
+    // Helper function to stop the glow animation
+    function stopGlowAnimation() {
+        glowAnimationActive = false;
+        if (glowAnimationFrameId !== null) {
+            cancelAnimationFrame(glowAnimationFrameId);
+            glowAnimationFrameId = null;
+        }
+    }
+
     function drawHandles(ctx, box) {
         // Define handle positions
         const handlePositions = [
@@ -419,7 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         });
     }
-    
+
     function getHandle(x, y) {
         // Check if the mouse is over any handle of the left crop box
         const leftBox = cropBoxes.left;
@@ -1186,7 +1315,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Arrow key navigation handlers
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
 
     function nextTab() {
         if (currentHandle === 'outside') {
@@ -1271,266 +1399,6 @@ document.addEventListener('DOMContentLoaded', () => {
             drawCropInterface();
         }
     }
-
-    function onKeyUp(e) {
-        if (!isCropping) return;
-        
-        // Reset multiplier on Shift key release
-        if (e.key === 'Shift') {
-            arrowKeyMultiplier = 1;
-        }
-    }
-
-// // For the arrow key active box, highlight it differently
-// const leftStrokeStyle = arrowKeyBox === 'left' 
-//     ? (movableBoxes.left ? '#33ff33' : '#ffcc00') // Brighter when active
-//     : (movableBoxes.left ? '#33cc33' : '#ff9900');
-    
-// const rightStrokeStyle = arrowKeyBox === 'right'
-//     ? (movableBoxes.right ? '#33ff33' : '#ffcc00') // Brighter when active
-//     : (movableBoxes.right ? '#33cc33' : '#ff9900');
-
-// // Add arrow key instructions if in crop mode
-// if (isCropping) {
-//     ctx.font = '12px Arial';
-//     ctx.fillStyle = 'white';
-//     ctx.textAlign = 'left';
-//     ctx.fillText('Arrow keys: Move box 1px', 10, canvas.height - 50);
-//     ctx.fillText('Shift+Arrow: Move box 5px', 10, canvas.height - 35);
-//     ctx.fillText('Tab: Switch active box', 10, canvas.height - 20);
-    
-//     // Show which box is active for arrow keys
-//     ctx.textAlign = 'right';
-//     ctx.fillText(`Active: ${arrowKeyBox.toUpperCase()} box`, canvas.width - 10, canvas.height - 20);
-// }
-
-// // Reset arrow key state
-// arrowKeyBox = 'left';
-// arrowKeyMultiplier = 1;
-
-// function addKeyboardHelpMessage() {
-//     const helpDiv = document.createElement('div');
-//     helpDiv.id = 'cropKeyboardHelp';
-//     helpDiv.className = 'crop-help';
-//     helpDiv.innerHTML = `
-//         <p><strong>Keyboard Controls</strong></p>
-//         <ul>
-//             <li><kbd>Arrow Keys</kbd>: Move crop box 1px</li>
-//             <li><kbd>Shift</kbd> + <kbd>Arrow Keys</kbd>: Move crop box 5px</li>
-//             <li><kbd>Tab</kbd>: Switch between left/right crop box</li>
-//         </ul>
-//     `;
-//     // ...styling and event handlers...
-// }
-
-// Add these variables at the top of your file with other state variables
-let glowStartTime = 0;
-const GLOW_DURATION = 800; // Slightly longer duration for more visibility
-let glowAnimationActive = false;
-let glowAnimationFrameId = null;
-
-// Modified drawCropInterface function that accepts activation flags
-function drawCropInterface(highlights = [ false, false ]) {
-    const [ leftBoxHighlight, rightBoxHighlight ] = highlights;
-    // Start glow animation if any box went active
-    if (leftBoxHighlight || rightBoxHighlight) {
-        startGlowAnimation();
-    }
-    
-    // Get the main canvas context
-    const ctx = canvas.getContext('2d');
-    
-    // First draw the images (using the main draw function)
-    currentParams = window.drawImages();
-
-    // Calculate image dimensions and positions
-    const img1Width = window.images[0].width * currentScale;
-    const img1Height = window.images[0].height * currentScale;
-    const rightImgStart = img1Width + (currentParams ? currentParams.renderGap : 0);
-    const img2Width = window.images[1].width * currentScale;
-    const img2Height = window.images[1].height * currentScale;
-    
-    // Draw semi-transparent overlay for areas outside the crop boxes
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-
-    const leftBox = cropBoxes.left;
-    const rightBox = cropBoxes.right;
-    
-    // Left image overlay
-    // Top rectangle
-    ctx.fillRect(0, 0, img1Width, leftBox.y);
-    // Left rectangle
-    ctx.fillRect(0, leftBox.y, leftBox.x, leftBox.height);
-    // Right rectangle
-    ctx.fillRect(leftBox.x + leftBox.width, leftBox.y, img1Width - (leftBox.x + leftBox.width), leftBox.height);
-    // Bottom rectangle
-    ctx.fillRect(0, leftBox.y + leftBox.height, img1Width, img1Height - (leftBox.y + leftBox.height));
-    
-    // Right image overlay
-    // Top rectangle
-    ctx.fillRect(rightImgStart, 0, img2Width, rightBox.y);
-    // Left rectangle
-    ctx.fillRect(rightImgStart, rightBox.y, rightBox.x - rightImgStart, rightBox.height);
-    // Right rectangle
-    ctx.fillRect(rightBox.x + rightBox.width, rightBox.y, (rightImgStart + img2Width) - (rightBox.x + rightBox.width), rightBox.height);
-    // Bottom rectangle
-    ctx.fillRect(rightImgStart, rightBox.y + rightBox.height, img2Width, img2Height - (rightBox.y + rightBox.height));
-    
-    // Calculate glow intensity if animation is active
-    let glowIntensity = 0;
-    let glowOffset = 0;
-    let greenIntensity = 0; // For color transition
-
-    if (glowAnimationActive) {
-        const elapsed = performance.now() - glowStartTime;
-        if (elapsed < GLOW_DURATION) {
-            // Use a better curve for fast rise and very gradual decay
-            const normalizedTime = elapsed / GLOW_DURATION;
-            
-            if (normalizedTime < 0.2) {
-                // Fast rise phase (first 20% of time) - quick ramp up to full intensity
-                const t = normalizedTime / 0.2;
-                // Accelerate to max faster with cubic curve
-                glowIntensity = 30 * (t * t * (3 - 2 * t)); // Smoothstep function
-                glowOffset = 2 * (t * t * (3 - 2 * t));
-                greenIntensity = t * t * (3 - 2 * t); // Same smoothstep for color
-            } else {
-                // Long decay phase (remaining 80% of time) - very gradual falloff
-                const t = (normalizedTime - 0.2) / 0.8;
-                // Use a very gradual falloff curve
-                // Adjusted exponent for even smoother falloff
-                glowIntensity = 30 * Math.pow(1 - t, 3);
-                glowOffset = 2 * Math.pow(1 - t, 3);
-                greenIntensity = Math.pow(1 - t, 3); // Same curve for color
-            }
-        } else {
-            // Animation time is complete
-            glowIntensity = 0;
-            glowOffset = 0;
-            greenIntensity = 0;
-        }
-    }
-
-    // Draw crop borders
-
-    // Left crop box border
-    if (movableBoxes.left) {
-        // Green, movable box - apply animation effects if active
-        if (glowAnimationActive) {
-            // Set line width with smooth transition
-            ctx.lineWidth = 2 + glowOffset;
-            
-            // Create a color that transitions smoothly between regular and bright green
-            const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
-            const g = Math.round(204 + (255 - 204) * greenIntensity);
-            const b = Math.round(51 + (74 - 51) * greenIntensity);
-            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-            
-            // Set shadow with current intensity
-            ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
-            ctx.shadowBlur = glowIntensity;
-        } else {
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#33cc33'; // Regular green
-            ctx.shadowBlur = 0;
-        }
-    } else {
-        // Orange, non-movable box - no animation effects
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#ff9900'; // Orange
-        ctx.shadowBlur = 0;
-    }
-
-    ctx.strokeRect(leftBox.x, leftBox.y, leftBox.width, leftBox.height);
-    ctx.shadowBlur = 0; // Reset shadow
-
-    // Draw handles with current stroke style
-    drawHandles(ctx, leftBox);
-
-    // Right crop box border
-    if (movableBoxes.right) {
-        // Green, movable box - apply animation effects if active
-        if (glowAnimationActive) {
-            // Set line width with smooth transition
-            ctx.lineWidth = 2 + glowOffset;
-            
-            // Create a color that transitions smoothly between regular and bright green
-            const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
-            const g = Math.round(204 + (255 - 204) * greenIntensity);
-            const b = Math.round(51 + (74 - 51) * greenIntensity);
-            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-            
-            // Set shadow with current intensity
-            ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
-            ctx.shadowBlur = glowIntensity;
-        } else {
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#33cc33'; // Regular green
-            ctx.shadowBlur = 0;
-        }
-    } else {
-        // Orange, non-movable box - no animation effects
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#ff9900'; // Orange
-        ctx.shadowBlur = 0;
-    }
-
-    ctx.strokeRect(rightBox.x, rightBox.y, rightBox.width, rightBox.height);
-    ctx.shadowBlur = 0; // Reset shadow
-    
-    // Draw handles with current stroke style
-    drawHandles(ctx, rightBox);
-    
-    // Reset line width to default
-    ctx.lineWidth = 2;
-}
-
-// Helper function to start the glow animation
-function startGlowAnimation() {
-    // Cancel any existing animation
-    if (glowAnimationFrameId !== null) {
-        cancelAnimationFrame(glowAnimationFrameId);
-    }
-    
-    glowAnimationActive = true;
-    glowStartTime = performance.now();
-    
-    // Start the animation loop
-    animateGlow();
-}
-
-// Animation loop function - separate from drawCropInterface
-function animateGlow() {
-    const elapsed = performance.now() - glowStartTime;
-
-    if (!isCropping) {
-        // Stop the animation
-        stopGlowAnimation();
-    }
-    else if (elapsed < GLOW_DURATION && glowAnimationActive) {
-        // Continue the animation
-        glowAnimationFrameId = requestAnimationFrame(animateGlow);
-        
-        // Call drawCropInterface without activation flags
-        drawCropInterface();
-    } else {
-        // Stop the animation
-        stopGlowAnimation();
-        
-        // Final render with no glow
-        drawCropInterface();
-    }
-}
-
-// Helper function to stop the glow animation
-function stopGlowAnimation() {
-    glowAnimationActive = false;
-    if (glowAnimationFrameId !== null) {
-        cancelAnimationFrame(glowAnimationFrameId);
-        glowAnimationFrameId = null;
-    }
-}
-
 
     // Expose functions to global scope and the isCropping flag
     window.cropModule = {
