@@ -147,11 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
         dragStartX = x;
         dragStartY = y;
 
-        // Check if a handle is selected
-        [ currentHandle, activeCropBox ] = getHandle(x, y);
-
         // check if green highlights should be shown and draw crop interface
         const wasMovable = movableBoxes;
+        [ currentHandle, activeCropBox ] = getHandle(x, y);
         updatemovableBoxes(currentHandle);
         drawCropInterface(movableBoxHighlights(wasMovable));
     }
@@ -269,7 +267,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Draw crop interface
-        updatemovableBoxes('outside');
+        [ currentHandle, activeCropBox ] = [ 'outside', 'left' ];
+        updatemovableBoxes(currentHandle);
         const highlights = [movableBoxes.left, movableBoxes.right];
         drawCropInterface(highlights);
     }
@@ -1080,8 +1079,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cropBoxes.left.x -= rightImgStart;
             cropBoxes.right.x += rightImgStart;
 
-            [ currentHandle, activeCropBox ] = getHandle(dragStartX, dragStartY);
             const wasMovable = movableBoxes;
+            [ currentHandle, activeCropBox ] = getHandle(dragStartX, dragStartY);
             updatemovableBoxes(currentHandle);
             drawCropInterface(movableBoxHighlights(wasMovable));
         } else {

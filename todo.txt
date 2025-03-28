@@ -1,7 +1,8 @@
 weird dotted lines on canvas on mobile
 timeouts on fullscreen??
 need fromFullScreenCanvas in case of ESC instead of pressing button
-some indication that the other box will move, like dotted green lines?
 can't reproduce: mobile crop box up left cornere not working
-does startcrop init activecropbox and currentHandle and movableboxes
 Crop, apply, recrop - can set scale to same amt as after the apply
+
+horizontal movement on dblClick or by default
+image moves not crop box
