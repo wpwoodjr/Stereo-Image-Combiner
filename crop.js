@@ -270,7 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Draw crop interface
         updatemovableBoxes('outside');
-        drawCropInterface();
+        const highlights = [movableBoxes.left, movableBoxes.right];
+        drawCropInterface(highlights);
     }
 
     // make sure box dimensions are valid and the same
@@ -1375,104 +1376,104 @@ function drawCropInterface(highlights = [ false, false ]) {
     // Bottom rectangle
     ctx.fillRect(rightImgStart, rightBox.y + rightBox.height, img2Width, img2Height - (rightBox.y + rightBox.height));
     
-// Calculate glow intensity if animation is active
-let glowIntensity = 0;
-let glowOffset = 0;
-let greenIntensity = 0; // For color transition
+    // Calculate glow intensity if animation is active
+    let glowIntensity = 0;
+    let glowOffset = 0;
+    let greenIntensity = 0; // For color transition
 
-if (glowAnimationActive) {
-    const elapsed = performance.now() - glowStartTime;
-    if (elapsed < GLOW_DURATION) {
-        // Use a better curve for fast rise and very gradual decay
-        const normalizedTime = elapsed / GLOW_DURATION;
-        
-        if (normalizedTime < 0.2) {
-            // Fast rise phase (first 20% of time) - quick ramp up to full intensity
-            const t = normalizedTime / 0.2;
-            // Accelerate to max faster with cubic curve
-            glowIntensity = 30 * (t * t * (3 - 2 * t)); // Smoothstep function
-            glowOffset = 2 * (t * t * (3 - 2 * t));
-            greenIntensity = t * t * (3 - 2 * t); // Same smoothstep for color
+    if (glowAnimationActive) {
+        const elapsed = performance.now() - glowStartTime;
+        if (elapsed < GLOW_DURATION) {
+            // Use a better curve for fast rise and very gradual decay
+            const normalizedTime = elapsed / GLOW_DURATION;
+            
+            if (normalizedTime < 0.2) {
+                // Fast rise phase (first 20% of time) - quick ramp up to full intensity
+                const t = normalizedTime / 0.2;
+                // Accelerate to max faster with cubic curve
+                glowIntensity = 30 * (t * t * (3 - 2 * t)); // Smoothstep function
+                glowOffset = 2 * (t * t * (3 - 2 * t));
+                greenIntensity = t * t * (3 - 2 * t); // Same smoothstep for color
+            } else {
+                // Long decay phase (remaining 80% of time) - very gradual falloff
+                const t = (normalizedTime - 0.2) / 0.8;
+                // Use a very gradual falloff curve
+                // Adjusted exponent for even smoother falloff
+                glowIntensity = 30 * Math.pow(1 - t, 3);
+                glowOffset = 2 * Math.pow(1 - t, 3);
+                greenIntensity = Math.pow(1 - t, 3); // Same curve for color
+            }
         } else {
-            // Long decay phase (remaining 80% of time) - very gradual falloff
-            const t = (normalizedTime - 0.2) / 0.8;
-            // Use a very gradual falloff curve
-            // Adjusted exponent for even smoother falloff
-            glowIntensity = 30 * Math.pow(1 - t, 3);
-            glowOffset = 2 * Math.pow(1 - t, 3);
-            greenIntensity = Math.pow(1 - t, 3); // Same curve for color
+            // Animation time is complete
+            glowIntensity = 0;
+            glowOffset = 0;
+            greenIntensity = 0;
+        }
+    }
+
+    // Draw crop borders
+
+    // Left crop box border
+    if (movableBoxes.left) {
+        // Green, movable box - apply animation effects if active
+        if (glowAnimationActive) {
+            // Set line width with smooth transition
+            ctx.lineWidth = 2 + glowOffset;
+            
+            // Create a color that transitions smoothly between regular and bright green
+            const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
+            const g = Math.round(204 + (255 - 204) * greenIntensity);
+            const b = Math.round(51 + (74 - 51) * greenIntensity);
+            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+            
+            // Set shadow with current intensity
+            ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
+            ctx.shadowBlur = glowIntensity;
+        } else {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#33cc33'; // Regular green
+            ctx.shadowBlur = 0;
         }
     } else {
-        // Animation time is complete
-        glowIntensity = 0;
-        glowOffset = 0;
-        greenIntensity = 0;
-    }
-}
-
-// Draw crop borders
-
-// Left crop box border
-if (movableBoxes.left) {
-    // Green, movable box - apply animation effects if active
-    if (glowAnimationActive) {
-        // Set line width with smooth transition
-        ctx.lineWidth = 2 + glowOffset;
-        
-        // Create a color that transitions smoothly between regular and bright green
-        const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
-        const g = Math.round(204 + (255 - 204) * greenIntensity);
-        const b = Math.round(51 + (74 - 51) * greenIntensity);
-        ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-        
-        // Set shadow with current intensity
-        ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
-        ctx.shadowBlur = glowIntensity;
-    } else {
+        // Orange, non-movable box - no animation effects
         ctx.lineWidth = 2;
-        ctx.strokeStyle = '#33cc33'; // Regular green
+        ctx.strokeStyle = '#ff9900'; // Orange
         ctx.shadowBlur = 0;
     }
-} else {
-    // Orange, non-movable box - no animation effects
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#ff9900'; // Orange
-    ctx.shadowBlur = 0;
-}
 
-ctx.strokeRect(leftBox.x, leftBox.y, leftBox.width, leftBox.height);
-ctx.shadowBlur = 0; // Reset shadow
+    ctx.strokeRect(leftBox.x, leftBox.y, leftBox.width, leftBox.height);
+    ctx.shadowBlur = 0; // Reset shadow
 
-// Draw handles with current stroke style
-drawHandles(ctx, leftBox);
+    // Draw handles with current stroke style
+    drawHandles(ctx, leftBox);
 
-// Right crop box border
-if (movableBoxes.right) {
-    // Green, movable box - apply animation effects if active
-    if (glowAnimationActive) {
-        // Set line width with smooth transition
-        ctx.lineWidth = 2 + glowOffset;
-        
-        // Create a color that transitions smoothly between regular and bright green
-        const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
-        const g = Math.round(204 + (255 - 204) * greenIntensity);
-        const b = Math.round(51 + (74 - 51) * greenIntensity);
-        ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-        
-        // Set shadow with current intensity
-        ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
-        ctx.shadowBlur = glowIntensity;
+    // Right crop box border
+    if (movableBoxes.right) {
+        // Green, movable box - apply animation effects if active
+        if (glowAnimationActive) {
+            // Set line width with smooth transition
+            ctx.lineWidth = 2 + glowOffset;
+            
+            // Create a color that transitions smoothly between regular and bright green
+            const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
+            const g = Math.round(204 + (255 - 204) * greenIntensity);
+            const b = Math.round(51 + (74 - 51) * greenIntensity);
+            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+            
+            // Set shadow with current intensity
+            ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
+            ctx.shadowBlur = glowIntensity;
+        } else {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#33cc33'; // Regular green
+            ctx.shadowBlur = 0;
+        }
     } else {
+        // Orange, non-movable box - no animation effects
         ctx.lineWidth = 2;
-        ctx.strokeStyle = '#33cc33'; // Regular green
+        ctx.strokeStyle = '#ff9900'; // Orange
         ctx.shadowBlur = 0;
     }
-} else {
-    // Orange, non-movable box - no animation effects
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#ff9900'; // Orange
-    ctx.shadowBlur = 0;
-}
 
     ctx.strokeRect(rightBox.x, rightBox.y, rightBox.width, rightBox.height);
     ctx.shadowBlur = 0; // Reset shadow
@@ -1501,8 +1502,12 @@ function startGlowAnimation() {
 // Animation loop function - separate from drawCropInterface
 function animateGlow() {
     const elapsed = performance.now() - glowStartTime;
-    
-    if (elapsed < GLOW_DURATION && glowAnimationActive) {
+
+    if (!isCropping) {
+        // Stop the animation
+        stopGlowAnimation();
+    }
+    else if (elapsed < GLOW_DURATION && glowAnimationActive) {
         // Continue the animation
         glowAnimationFrameId = requestAnimationFrame(animateGlow);
         
@@ -1526,20 +1531,6 @@ function stopGlowAnimation() {
     }
 }
 
-// Add this function to clean up animations when necessary
-function cleanupGlowAnimation() {
-    stopGlowAnimation();
-}
-
-// Helper to make the start of the crop more prominent
-const originalStartCrop = startCrop;
-startCrop = function() {
-    originalStartCrop();
-    // Start with a small delay to ensure movableBoxes are set
-    setTimeout(() => {
-        startGlowAnimation();
-    }, 100);
-};
 
     // Expose functions to global scope and the isCropping flag
     window.cropModule = {
