@@ -279,8 +279,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate larger height of the two images
         const imageHeight = Math.max(img1.height, img2.height);
 
-        // Calculate max height, leave room for crop handles at screen edge
-        const maxHeight = screen.height * (window.cropModule.isCropping() ? 0.94 : 1);
+        // Calculate max height
+        const maxHeight = screen.height;
 
         // Calculate the scale percentage needed to fit
         const optimalScale = viewportWidth / totalWidthAt100;
@@ -348,6 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function pixelGap(img1, img2) {
         const avgWidth = (img1.width + img2.width) / 2;
+        // return avgWidth * (gapPercent / 100);
         return Math.round(avgWidth * (gapPercent / 100));
     }
 
@@ -400,6 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (avgWidth === -1) {
             renderGap = pixelGap(images[0], images[1]) * renderScale;
         } else {
+            // renderGap = avgWidth * (gapPercent / 100);
             renderGap = Math.round(avgWidth * (gapPercent / 100));
         }
         
