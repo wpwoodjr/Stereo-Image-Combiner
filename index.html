@@ -26,6 +26,10 @@
             width: 100%;
             text-align: center;
         }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
         #main-container {
             display: flex;
             width: 100%;
@@ -74,7 +78,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            margin-top: 20px;
+            margin-top: 10px;
             position: relative;
             background-color: #202020;
             cursor: pointer;
@@ -82,7 +86,7 @@
         }
         #canvasContainer {
             position: relative;
-            margin-top: 20px;
+            margin-top: 10px;
             display: none; /* Initially hidden */
             cursor: pointer;
         }
@@ -95,10 +99,11 @@
             display: flex;
             justify-content: space-between;
             width: 100%;
-            margin: 15px 0 0 0;
+            margin: 10px 0 0 0;
             color: #b0b0b0;
             padding-right: 15px;
             box-sizing: border-box;
+            font-size: 0.875rem;
         }
         #dropzoneMessage {
             position: absolute;
@@ -270,11 +275,6 @@
                 display: inline-block;
             }
             
-            /* Simple border for canvas container */
-            #canvasContainer {
-                border: 2px solid #333;
-                border-radius: 4px;
-            }
             #dropzoneMessage {
                 top: 15px;
                 transform: none;

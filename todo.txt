@@ -1,8 +1,33 @@
-weird dotted lines on canvas on mobile
 timeouts on fullscreen??
 need fromFullScreenCanvas in case of ESC instead of pressing button
-can't reproduce: mobile crop box up left cornere not working
-Crop, apply, recrop - can set scale to same amt as after the apply
+need to updatemovableboxes on entering and exiting fullscreen mode.
+fullscreen on Firefox does weird things with moving the image down, does Chrome?
 
-horizontal movement on dblClick or by default
-image moves not crop box
+clean up code that checks clamp mode before allowing box to move
+
+clean up clamp stuff
+
+cursor changes on mobile?
+^^^^^^^ try on chromebook
+desktop, crop / resize, mobile, desktop, cancel, crop - crop window too small
+^^^^^^^ try on chromebook
+
+why do both boxes blink when moving both outside
+    // seems weird that only am setting axtiveCB in tweakXY
+    // mismatch happens after diag movement, returning to vert or horizontal in final analysis
+
+scroll bar moves header to left
+
+Crop, since gap gets smaller on geese, scale size is too small, not optimal, can't even get it bigger with resize
+Crop geese, change display size, put back to max, handles go green when should be gray
+white streak down left goose left side when change display size down by one then increase again
+  ff, 179% scale gap 7.5%
+
+
+
+check touch mode
+
+
+
+This line is wrong:         cropBoxes[RIGHT].width = Math.max(minSize, Math.min(cropBoxes[RIGHT].width, rightImgStart + img2Width - cropBoxes[RIGHT].x));
+  shouldn't have rightImgStart

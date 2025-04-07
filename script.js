@@ -1,6 +1,7 @@
 // global variables
 var images = [];
-var scale;
+var scale, maxScale;
+var saveButton;
 
 // main script 
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gapSlider = document.getElementById('gap');
     const gapValue = document.getElementById('gapValue');
     const colorPicker = document.getElementById('color');
-    const saveButton = document.getElementById('save');
+    saveButton = document.getElementById('save');
     const swapButton = document.getElementById('swap');
     // const resetButton = document.getElementById('reset');
     const leftImageName = document.getElementById('leftImageName');
@@ -38,7 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // State variables
     let imageNames = [];
-    let maxScale = 1;
+    let gapColor = DEFAULT_COLOR;
+    let gapPercent = DEFAULT_GAP_PERCENT;
 
     // dropzone message
     let dropzoneMessageText = "Drag and drop two images here or click to browse"
@@ -139,8 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetControlsToDefaults() {
         // Reset scale
-        maxScale = 1;
-        setScale(DEFAULT_SCALE / 100);
+        setScale(DEFAULT_SCALE / 100, 1);
         
         // Reset gap
         gapPercent = DEFAULT_GAP_PERCENT;
@@ -148,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gapValue.textContent = `${DEFAULT_GAP_PERCENT}%`;
         
         // Reset color
-        bgColor = DEFAULT_COLOR;
+        gapColor = DEFAULT_COLOR;
         colorPicker.value = DEFAULT_COLOR;
 
         // Reset format and jpg quality
@@ -163,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gapSlider.addEventListener('input', updateGap);
     colorPicker.addEventListener('input', updateColor);
     swapButton.addEventListener('click', updateSwap);
+    swapButton.disabled = true;
 
     // Show/hide quality slider based on format selection
     formatSelect.addEventListener('change', function() {
@@ -179,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     saveButton.addEventListener('click', saveImage);
+    saveButton.disabled = true;
 
     // Window resize handler
     window.addEventListener('resize', onResize);
@@ -186,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function onResize() {
         if (images.length === 2) {
             const optimalScale = calculateOptimalScale(images[0], images[1]);
-            setScale(optimalScale);
+            setScale(optimalScale, optimalScale);
             if (window.cropModule.isCropping()) {
                 window.cropModule.onScaleChange(scale);
             } else {
@@ -233,10 +236,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // Calculate and set optimal scale
                         const optimalScale = calculateOptimalScale(images[0], images[1]);
-                        setScale(optimalScale);
+                        setScale(optimalScale, optimalScale);
 
                         // draw the images
                         drawImages();
+
+                        // enable buttons
+                        saveButton.disabled = false;
+                        swapButton.disabled = false;
+                        window.cropModule.cropButton.disabled = false;
                     }
                 };
                 img.src = event.target.result;
@@ -245,8 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Calculate the optimal scale
-    function calculateOptimalScale(img1, img2) {
+    function getViewPortWidth() {
         // Check if we're in vertical/mobile layout by checking the computed style
         const mainContainer = document.getElementById('main-container');
         const isVerticalLayout = window.getComputedStyle(mainContainer).flexDirection === 'column';
@@ -257,6 +264,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const viewportWidth = isVerticalLayout 
             ? window.innerWidth - 15
             : window.innerWidth - leftPanelWidth - 50;
+        return viewportWidth;
+    }
+
+    // Calculate the optimal scale
+    function calculateOptimalScale(img1, img2) {
+        // get image area
+        const viewportWidth = getViewPortWidth();
 
         // Calculate total width at 100% scale (using the current pixel gap)
         const gapWidthAt100 = pixelGap(img1, img2);
@@ -269,15 +283,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxHeight = screen.height * (window.cropModule.isCropping() ? 0.94 : 1);
 
         // Calculate the scale percentage needed to fit
-        maxScale = viewportWidth / totalWidthAt100;
-        maxScale = Math.min(maxHeight / imageHeight, maxScale);
-        return maxScale;
+        const optimalScale = viewportWidth / totalWidthAt100;
+        return Math.min(maxHeight / imageHeight, optimalScale);
     }
 
     function updateScale() {
         // Update to new scale
-        const newScale = Math.min(maxScale, parseInt(this.value) / 100);
-        setScale(newScale);
+        const newScale = parseInt(this.value) / 100;
+        setScale(newScale, maxScale);
 
         if (window.cropModule.isCropping()) {
             window.cropModule.onScaleChange(newScale);
@@ -287,17 +300,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function setScale(newScale) {
-        scale = newScale;
-        const displayScale = Math.round(newScale * 100);
-        scaleSlider.max = Math.max(1, Math.max(100, Math.round(maxScale * 100)));
+    function setScale(newScale, newMaxScale) {
+        scale = Math.min(newScale, newMaxScale);
+        maxScale = newMaxScale;
+        scaleSlider.max = Math.max(1, Math.round(newMaxScale * 100));
+        const displayScale = Math.round(scale * 100);
         scaleSlider.value = displayScale;
         scaleValue.textContent = `${displayScale}%`;
     }
 
     function updateGap() {
-        const oldPixelGap = pixelGap(images[0], images[1]);
-
         // Convert slider value (0-200) to percentage (0-20)
         const sliderValue = parseInt(this.value);
         gapPercent = sliderValue / 10;
@@ -305,7 +317,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update gap value display with percentage
         gapValue.textContent = `${gapPercent.toFixed(1)}%`;
 
+        if (images.length !== 2) return;
+
         // redraw
+        const oldPixelGap = pixelGap(images[0], images[1]);
         if (window.cropModule.isCropping()) {
             const newPixelGap = pixelGap(images[0], images[1]);
             window.cropModule.onGapChange(oldPixelGap, newPixelGap);
@@ -313,29 +328,43 @@ document.addEventListener('DOMContentLoaded', () => {
             // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
             drawImages();
         }
+
+        // check if max scale needs to be reduced because of new gap
+        const optimalScale = calculateOptimalScale(images[0], images[1]);
+        if (optimalScale < scale) {
+            // redraw at smaller scale
+            setScale(optimalScale, optimalScale);
+            if (window.cropModule.isCropping()) {
+                window.cropModule.onScaleChange(optimalScale);
+            } else {
+                drawImages();
+            }
+        // } else if (optimalScale < maxScale) {
+        } else {
+            // just set new max scale
+            setScale(scale, optimalScale);
+        }
     }
 
     function pixelGap(img1, img2) {
-        if (img1 === undefined || img2 === undefined) return 0;
-
         const avgWidth = (img1.width + img2.width) / 2;
         return Math.round(avgWidth * (gapPercent / 100));
     }
 
     function updateColor() {
-        bgColor = this.value;
-        drawImages();
+        gapColor = this.value;
+        if (window.cropModule.isCropping()) {
+            window.cropModule.drawCropInterface();
+        } else {
+            drawImages();
+        }
     }
 
     function updateSwap() {
-        if (images.length !== 2) {
-            alert('Please add two images before swapping.');
-        } else {
-            [images[0], images[1]] = [images[1], images[0]];
-            [imageNames[0], imageNames[1]] = [imageNames[1], imageNames[0]];
-            updateImageNames();
-            window.cropModule.onSwap();
-        }
+        [images[0], images[1]] = [images[1], images[0]];
+        [imageNames[0], imageNames[1]] = [imageNames[1], imageNames[0]];
+        updateImageNames();
+        window.cropModule.onSwap();
     }
 
     function updateImageNames() {
@@ -347,20 +376,32 @@ document.addEventListener('DOMContentLoaded', () => {
      * Creates a combined image with the current settings
      * @param {Object} options - Options for rendering the combined image
      * @param {HTMLCanvasElement} options.targetCanvas - The canvas to draw on
-     * @param {boolean} options.forSaving - Whether this is for saving (100% scale) or display
+     * @param {Number} options.renderScale - Scale to render at
+     * @param {Object} options.xOffsets - Optional X offsets for each image {left: number, right: number}
+     * @param {Object} options.yOffsets - Optional Y offsets for each image {left: number, right: number}
+     * @param {Number} options.avgWidth - Average width of images for calculating renderGap
      * @returns {Object} - Parameters used for the rendering (dimensions, etc.)
      */
     function renderCombinedImage(options = {}) {
         if (images.length !== 2) return null;
         
-        const { targetCanvas, forSaving = false } = options;
+        const { 
+            targetCanvas, 
+            renderScale = 1, 
+            xOffsets = {left: 0, right: 0},
+            yOffsets = {left: 0, right: 0},
+            avgWidth = -1
+        } = options;
+
         const targetCtx = targetCanvas.getContext('2d');
         
-        // Use display scale or 100% for saving
-        const renderScale = forSaving ? 1 : scale;
-        
         // Calculate gap - either scaled for display or full size for saving
-        let renderGap = pixelGap(images[0], images[1]) * renderScale;
+        let renderGap;
+        if (avgWidth === -1) {
+            renderGap = pixelGap(images[0], images[1]) * renderScale;
+        } else {
+            renderGap = Math.round(avgWidth * (gapPercent / 100));
+        }
         
         // Calculate dimensions
         const img1Width = images[0].width * renderScale;
@@ -369,39 +410,42 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const img1Height = images[0].height * renderScale;
         const img2Height = images[1].height * renderScale;
-        const maxHeight = Math.max(img1Height, img2Height);
+        // const maxHeight = Math.max(img1Height, img2Height);
+        const maxHeight = Math.max(img1Height + yOffsets.left, img2Height + yOffsets.right);
 
         // Set canvas dimensions
         targetCanvas.width = totalWidth;
         targetCanvas.height = maxHeight;
 
         // Clear the canvas
-        targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-        
+        targetCtx.clearRect(0, 0, totalWidth, maxHeight);
+
         // Fill background with selected color (ONLY the gap)
-        targetCtx.fillStyle = bgColor;
+        const gapStart = Math.max(yOffsets.left, yOffsets.right);
+        const gapHeight = Math.min(img1Height + yOffsets.left, img2Height + yOffsets.right) - gapStart;
+        targetCtx.fillStyle = gapColor;
         targetCtx.fillRect(
-            img1Width,                 // X position (after first image)
-            0,                         // Y position (top)
-            renderGap,                 // Width (just the gap)
-            maxHeight                  // Height (full height)
+            img1Width,                  // X position (after first image)
+            gapStart,                   // Y position (top)
+            renderGap,                  // Width (just the gap)
+            gapHeight                   // Height (full height)
         );
-        
-        // Draw the first image
+
+        // Draw the left image with offsets
         targetCtx.drawImage(
             images[0],
-            0, 0,                                   // Source position
+            -xOffsets.left/renderScale, 0,          // Source position
             images[0].width, images[0].height,      // Source dimensions
-            0, 0,                                   // Destination position
+            0, yOffsets.left,                       // Destination position with offsets
             img1Width, img1Height                   // Destination dimensions
         );
-        
-        // Draw the second image
+
+        // Normal drawing with right offset
         targetCtx.drawImage(
             images[1],
-            0, 0,                                   // Source position
+            -xOffsets.right/renderScale, 0,         // Source position
             images[1].width, images[1].height,      // Source dimensions
-            img1Width + renderGap, 0,               // Destination position (after first image + gap)
+            img1Width + renderGap, yOffsets.right,  // Destination position with offset
             img2Width, img2Height                   // Destination dimensions
         );
         
@@ -418,26 +462,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return lastRenderParams;
     }
 
-    function drawImages() {
-        // console.trace("Call stack:");
+    function drawImages(options = {}) {
+        const { xOffsets = {left: 0, right: 0}, yOffsets = {left: 0, right: 0}, avgWidth = -1 } = options;
+        
         return renderCombinedImage({
             targetCanvas: canvas,
-            forSaving: false
+            renderScale: scale,
+            xOffsets,
+            yOffsets,
+            avgWidth
         });
     }
 
     function saveImage() {
-        if (images.length !== 2) {
-            alert('Please add two images before saving.');
-            return;
-        }
-
         const saveCanvas = document.createElement('canvas');
         
         // Render at 100% scale for saving
         renderCombinedImage({
             targetCanvas: saveCanvas,
-            forSaving: true
+            renderScale: 1
         });
 
         const link = document.createElement('a');
@@ -465,4 +508,5 @@ document.addEventListener('DOMContentLoaded', () => {
     window.calculateOptimalScale = calculateOptimalScale;
     window.updateSwap = updateSwap;
     window.onResize = onResize;
+    window.getViewPortWidth = getViewPortWidth;
 });
