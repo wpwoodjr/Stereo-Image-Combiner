@@ -679,36 +679,39 @@ document.addEventListener('DOMContentLoaded', () => {
     function drawHandles(ctx, box, boxPos) {
         // Define handle positions
         const cornerRadius = handleSize / 4;
+        // don't overlay drawing of boxes and handles, creates a brighter line through the handles
+        const boxFactor = drawBoxesCheckbox.checked ? 1 : 0;
+
         let cornerHandlePositions, sideHandlePositions;
         if (boxPos === LEFT) {
             cornerHandlePositions = [
-                { id: TOP_LEFT, x: box.x, y: box.y, start: 0 },
-                { id: BOTTOM_LEFT, x: box.x, y: box.y + box.height, start: 1.5 * Math.PI },
+                { id: TOP_LEFT, x: box.x + boxFactor, y: box.y + boxFactor, start: 0 },
+                { id: BOTTOM_LEFT, x: box.x + boxFactor, y: box.y + box.height - boxFactor, start: 1.5 * Math.PI },
             ];
             sideHandlePositions = [
-                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y,
+                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + boxFactor,
                     width: handleSize * 2, height: handleSize / 2,
                     corners: [ 0, 0, cornerRadius, cornerRadius ] },
-                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2,
+                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2 - boxFactor,
                     width: handleSize * 2, height: handleSize / 2,
                     corners: [ cornerRadius, cornerRadius, 0, 0 ] },
-                { id: LEFT_MIDDLE, x: box.x, y: box.y + box.height / 2 - handleSize,
+                { id: LEFT_MIDDLE, x: box.x + boxFactor, y: box.y + box.height / 2 - handleSize,
                     width: handleSize / 2, height: handleSize * 2,
                     corners: [ 0, cornerRadius, cornerRadius, 0 ] }
             ];
         } else {
             cornerHandlePositions = [
-                { id: TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
-                { id: BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
+                { id: TOP_RIGHT, x: box.x + box.width - boxFactor, y: box.y + boxFactor, start: 0.5 * Math.PI },
+                { id: BOTTOM_RIGHT, x: box.x + box.width - boxFactor, y: box.y + box.height - boxFactor, start: Math.PI },
             ];
             sideHandlePositions = [
-                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y,
+                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + boxFactor,
                     width: handleSize * 2, height: handleSize / 2,
                     corners: [ 0, 0, cornerRadius, cornerRadius ] },
-                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2,
+                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2 - boxFactor,
                     width: handleSize * 2, height: handleSize / 2,
                     corners: [ cornerRadius, cornerRadius, 0, 0 ] },
-                { id: RIGHT_MIDDLE, x: box.x + box.width - handleSize / 2, y: box.y + box.height / 2 - handleSize,
+                { id: RIGHT_MIDDLE, x: box.x + box.width - handleSize / 2 - boxFactor, y: box.y + box.height / 2 - handleSize,
                     width: handleSize / 2, height: handleSize * 2,
                     corners: [ cornerRadius, 0, 0, cornerRadius ] }
             ];
@@ -970,6 +973,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function onMouseUp(e) {
         if (isCropping && isDragging) {
             isDragging = false;
+            clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
             // ensure that the images are not both above or below the top of the canvas
             let deltaYOffset = 0;

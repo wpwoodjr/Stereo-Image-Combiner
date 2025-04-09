@@ -32,5 +32,5 @@ Update readme
 gap should only be in area between crop boxes
 
 do something about image overlay
-bump handles so lines don't go through them?
 should do  [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ]; more often?
+cursor not updating after mouseup - check places I removed the check
