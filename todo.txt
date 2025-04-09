@@ -19,15 +19,14 @@ why do both boxes blink when moving both outside
 scroll bar moves header to left
 
 Crop, since gap gets smaller on geese, scale size is too small, not optimal, can't even get it bigger with resize
-Crop geese, change display size, put back to max, handles go green when should be gray
-white streak down left goose left side when change display size down by one then increase again
-  ff, 179% scale gap 7.5%
-
 
 
 check touch mode
 
 
+Update readme
 
-This line is wrong:         cropBoxes[RIGHT].width = Math.max(minSize, Math.min(cropBoxes[RIGHT].width, rightImgStart + img2Width - cropBoxes[RIGHT].x));
-  shouldn't have rightImgStart
+** new version **
+  
+
+gap should only be in area between crop boxes

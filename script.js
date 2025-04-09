@@ -1,6 +1,6 @@
 // global variables
 var images = [];
-var scale, maxScale;
+var scale;
 var saveButton;
 
 // main script 
@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let imageNames = [];
     let gapColor = DEFAULT_COLOR;
     let gapPercent = DEFAULT_GAP_PERCENT;
+    let maxScale = 1;
 
     // dropzone message
     let dropzoneMessageText = "Drag and drop two images here or click to browse"
@@ -191,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const optimalScale = calculateOptimalScale(images[0], images[1]);
             setScale(optimalScale, optimalScale);
             if (window.cropModule.isCropping()) {
-                window.cropModule.onScaleChange(scale);
+                window.cropModule.onScaleChange();
             } else {
                 // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
                 drawImages();
@@ -293,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setScale(newScale, maxScale);
 
         if (window.cropModule.isCropping()) {
-            window.cropModule.onScaleChange(newScale);
+            window.cropModule.onScaleChange();
         } else {
             // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
             drawImages();
@@ -303,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setScale(newScale, newMaxScale) {
         scale = Math.min(newScale, newMaxScale);
         maxScale = newMaxScale;
-        scaleSlider.max = Math.max(1, Math.round(newMaxScale * 100));
+        scaleSlider.max = Math.max(1, Math.round(maxScale * 100));
         const displayScale = Math.round(scale * 100);
         scaleSlider.value = displayScale;
         scaleValue.textContent = `${displayScale}%`;
@@ -319,37 +320,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (images.length !== 2) return;
 
-        // redraw
-        const oldPixelGap = pixelGap(images[0], images[1]);
-        if (window.cropModule.isCropping()) {
-            const newPixelGap = pixelGap(images[0], images[1]);
-            window.cropModule.onGapChange(oldPixelGap, newPixelGap);
-        } else {
-            // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
-            drawImages();
-        }
-
         // check if max scale needs to be reduced because of new gap
         const optimalScale = calculateOptimalScale(images[0], images[1]);
         if (optimalScale < scale) {
-            // redraw at smaller scale
+            // redraw at smaller scale with new gap
             setScale(optimalScale, optimalScale);
             if (window.cropModule.isCropping()) {
-                window.cropModule.onScaleChange(optimalScale);
+                window.cropModule.onScaleChange();
             } else {
                 drawImages();
             }
-        // } else if (optimalScale < maxScale) {
         } else {
-            // just set new max scale
+            // just set new max scale and redraw with new gap
             setScale(scale, optimalScale);
+            if (window.cropModule.isCropping()) {
+                window.cropModule.drawCropInterface();
+            } else {
+                drawImages();
+            }
         }
     }
 
     function pixelGap(img1, img2) {
         const avgWidth = (img1.width + img2.width) / 2;
-        // return avgWidth * (gapPercent / 100);
-        return Math.round(avgWidth * (gapPercent / 100));
+        return avgWidth * (gapPercent / 100);
+        // return Math.round(avgWidth * (gapPercent / 100));
     }
 
     function updateColor() {
@@ -401,8 +396,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (avgWidth === -1) {
             renderGap = pixelGap(images[0], images[1]) * renderScale;
         } else {
-            // renderGap = avgWidth * (gapPercent / 100);
-            renderGap = Math.round(avgWidth * (gapPercent / 100));
+            renderGap = avgWidth * (gapPercent / 100);
+            // renderGap = Math.round(avgWidth * (gapPercent / 100));
         }
         
         // Calculate dimensions
@@ -412,7 +407,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const img1Height = images[0].height * renderScale;
         const img2Height = images[1].height * renderScale;
-        // const maxHeight = Math.max(img1Height, img2Height);
         const maxHeight = Math.max(img1Height + yOffsets.left, img2Height + yOffsets.right);
 
         // Set canvas dimensions
@@ -450,11 +444,9 @@ document.addEventListener('DOMContentLoaded', () => {
             img1Width + renderGap, yOffsets.right,  // Destination position with offset
             img2Width, img2Height                   // Destination dimensions
         );
-        
+
         // Store the last render parameters for reference by crop module
         lastRenderParams = {
-            totalWidth,
-            maxHeight,
             img1Width,
             img2Width,
             renderGap
