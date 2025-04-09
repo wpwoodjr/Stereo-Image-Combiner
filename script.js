@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_COLOR = '#000000';
     const DEFAULT_FORMAT = 'image/jpeg';
     const DEFAULT_JPG_QUALITY = 90;
-    const DEFAULT_JPG_QUALITY_VISIBILITY = 'block';
     // Delay resetting controls in case of "duplicate tab"
     // Otherwise slider values and slider text don't match up
     setTimeout(resetControlsToDefaults, 100);
@@ -145,19 +144,19 @@ document.addEventListener('DOMContentLoaded', () => {
         setScale(DEFAULT_SCALE / 100, 1);
         
         // Reset gap
-        gapPercent = DEFAULT_GAP_PERCENT;
-        gapSlider.value = DEFAULT_GAP_PERCENT * 10;
-        gapValue.textContent = `${DEFAULT_GAP_PERCENT}%`;
+        gapPercent = getLocalStorageItem('gapPercent', DEFAULT_GAP_PERCENT);
+        gapSlider.value = gapPercent * 10;
+        gapValue.textContent = `${gapPercent}%`;
         
         // Reset color
-        gapColor = DEFAULT_COLOR;
-        colorPicker.value = DEFAULT_COLOR;
+        gapColor = getLocalStorageItem('gapColor', DEFAULT_COLOR);
+        colorPicker.value = gapColor;
 
         // Reset format and jpg quality
-        qualitySlider.value = DEFAULT_JPG_QUALITY;
-        qualityValue.textContent = `${DEFAULT_JPG_QUALITY}%`;
-        formatSelect.value = DEFAULT_FORMAT;
-        qualityContainer.style.display = DEFAULT_JPG_QUALITY_VISIBILITY;
+        qualitySlider.value = getLocalStorageItem('jpgQuality', DEFAULT_JPG_QUALITY);
+        qualityValue.textContent = `${qualitySlider.value}%`;
+        formatSelect.value = getLocalStorageItem('fileFormat', DEFAULT_FORMAT);
+        qualityContainer.style.display = formatSelect.value === 'image/jpeg' ? 'block' : 'none';
     }
 
     // Control event listeners
@@ -169,16 +168,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show/hide quality slider based on format selection
     formatSelect.addEventListener('change', function() {
-        if (this.value === 'image/jpeg') {
-            qualityContainer.style.display = 'block';
-        } else {
-            qualityContainer.style.display = 'none';
-        }
+        qualityContainer.style.display = this.value === 'image/jpeg' ? 'block' : 'none';
+        setLocalStorageItem('fileFormat', this.value);
     });
     
     // Update quality value display
     qualitySlider.addEventListener('input', function() {
         qualityValue.textContent = `${this.value}%`;
+        setLocalStorageItem('jpgQuality', this.value);
     });
 
     saveButton.addEventListener('click', saveImage);
@@ -314,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Convert slider value (0-200) to percentage (0-20)
         const sliderValue = parseInt(this.value);
         gapPercent = sliderValue / 10;
+        setLocalStorageItem('gapPercent', gapPercent);
 
         // Update gap value display with percentage
         gapValue.textContent = `${gapPercent.toFixed(1)}%`;
@@ -349,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateColor() {
         gapColor = this.value;
+        setLocalStorageItem('gapColor', this.value);
         if (window.cropModule.isCropping()) {
             window.cropModule.drawCropInterface();
         } else {
@@ -496,6 +495,39 @@ document.addEventListener('DOMContentLoaded', () => {
         link.click();
     }
 
+    function getLocalStorageItem(item, defaultVal) {
+        try {
+            let value = localStorage.getItem(item);
+            // console.log(item, value, typeof value, defaultVal, typeof defaultVal);
+            if (value === null) {
+                return defaultVal;
+            } else if (typeof defaultVal === "number" ) {
+                value = parseFloat(value);
+                if (isFinite(value)) {
+                    return value;
+                } else {
+                    return defaultVal;
+                }
+            } else if (typeof defaultVal === "boolean" ) {
+                return value === "true" ? true : false;
+            } else {
+                return value;
+            }
+        }
+        catch(e) {
+            return defaultVal;
+        }
+    }
+
+    function setLocalStorageItem(item, value) {
+        try {
+            // console.log(item, value);
+            localStorage.setItem(item, value);
+        }
+        catch(e) {
+        }
+    }
+    
     // Expose necessary variables and functions to the window object for crop.js
     window.drawImages = drawImages;
     window.setScale = setScale;
@@ -503,4 +535,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.updateSwap = updateSwap;
     window.onResize = onResize;
     window.getViewPortWidth = getViewPortWidth;
+    window.getLocalStorageItem = getLocalStorageItem;
+    window.setLocalStorageItem = setLocalStorageItem;
 });

@@ -195,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
         xLatch = 0;
         yLatch = 0;
         movementAxis = NONE;
-        clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
         fineCropWindow = window.getViewPortWidth() * FINE_CROP_WINDOW_PERCENTAGE;
         latchZoneSize = fineCropWindow * LATCH_ZONE_PERCENTAGE;
 
@@ -274,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cropButton.style.display = 'none';
         applyCropButton.style.display = 'block';
         cancelCropButton.style.display = 'block';
-        clampCheckboxContainer.style.display = 'flex';
+        checkBoxControlsContainer.style.display = 'flex';
         window.saveButton.disabled = true;
         
         // If we have a previous crop state, revert to that scale
@@ -308,6 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Draw crop interface
         [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+        clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
+        updateCursor(currentHandle);
         movableBoxes = getMovableBoxes(currentHandle);
         drawCropInterface(movableBoxes);
     }
@@ -342,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cropBoxes[RIGHT].height = minHeight;
         cropBoxes[LEFT].width = minWidth;
         cropBoxes[RIGHT].width = minWidth;
-/*
+
         const eps = epsilon / 100;
         if (
             Math.abs(cropBoxes[LEFT].x - oldCropBoxes[LEFT].x) > eps ||
@@ -378,7 +379,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(cropBoxes[RIGHT]);
             console.log(cropBoxes[RIGHT].x - cropBoxes[RIGHT].xOffset, 0);
         }
-*/
     }
     
     function initCropBoxes() {
@@ -521,11 +521,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Draw left crop box
         configureBoxStyle(ctx, movableBoxes[LEFT], glowParams);
         // ctx.strokeRect(leftBox.x, leftBox.y, leftBox.width, leftBox.height);
+        if (drawBoxesCheckbox.checked) {
+            drawCropBox(ctx, leftBox.x + leftBox.width, leftBox.y, leftBox.x,
+                Math.min(canvas.height, leftBox.y + leftBox.height));
+        }
         drawHandles(ctx, leftBox, LEFT);
 
         // Draw right crop box
         configureBoxStyle(ctx, movableBoxes[RIGHT], glowParams);
         // ctx.strokeRect(rightBox.x, rightBox.y, rightBox.width, rightBox.height);
+        if (drawBoxesCheckbox.checked) {
+            drawCropBox(ctx, rightBox.x, rightBox.y,
+                Math.min(canvas.width, rightBox.x + rightBox.width),
+                Math.min(canvas.height, rightBox.y + rightBox.height));
+        }
         drawHandles(ctx, rightBox, RIGHT);
 
         // Reset to defaults
@@ -533,6 +542,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // ctx.lineWidth = 2;
         handleSize = HANDLE_SIZE;
         ctx.globalAlpha = 1.0;
+    }
+
+    function drawCropBox(ctx, x1, y1, x2, y2) {
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineTo(x1, y2);
+        ctx.stroke();
     }
 
     // calculate glow parameters
@@ -951,7 +970,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function onMouseUp(e) {
         if (isCropping && isDragging) {
             isDragging = false;
-            clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
             // ensure that the images are not both above or below the top of the canvas
             let deltaYOffset = 0;
@@ -1458,7 +1476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isCropping = false;
         applyCropButton.style.display = 'none';
         cancelCropButton.style.display = 'none';
-        clampCheckboxContainer.style.display = 'none';
+        checkBoxControlsContainer.style.display = 'none';
         cropButton.style.display = 'block';
         canvas.style.cursor = 'default';
         window.saveButton.disabled = false;
@@ -1817,12 +1835,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // Add a checkbox for horizontal clamp mode
-    function addHorizontalClampCheckbox() {
-        // Create container for the checkbox and label
-        const clampCheckboxContainer = document.createElement('div');
-        clampCheckboxContainer.id = 'clampCheckboxContainer';
-        clampCheckboxContainer.style.cssText = `
+    function addCheckboxControls() {
+        // Create container for the checkboxes and labels
+        checkBoxControlsContainer.id = 'checkBoxControlsContainer';
+        checkBoxControlsContainer.style.cssText = `
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
@@ -1837,28 +1853,33 @@ document.addEventListener('DOMContentLoaded', () => {
             color: #ffffff;
             transition: opacity 0.2s;
             align-items: center;
+            justify-content: center;
+            gap: 15px;
             opacity: 0.8;
+            min-width: 280px;
         `;
         
         // Add hover effect for better visibility when needed
-        clampCheckboxContainer.addEventListener('mouseenter', function() {
+        checkBoxControlsContainer.addEventListener('mouseenter', function() {
             this.style.opacity = '1';
         });
         
-        clampCheckboxContainer.addEventListener('mouseleave', function() {
+        checkBoxControlsContainer.addEventListener('mouseleave', function() {
             this.style.opacity = '0.8';
         });
         
-        // Create the checkbox
+        // Create the clamp checkbox (horizontal only)
         clampCheckbox.type = 'checkbox';
         clampCheckbox.id = 'horizontalClampCheckbox';
         clampCheckbox.style.cssText = `
             margin-right: 6px;
             cursor: pointer;
             vertical-align: middle;
+            width: 16px;
+            height: 16px;
         `;
         
-        // Create the label
+        // Create the clamp label
         const clampLabel = document.createElement('label');
         clampLabel.htmlFor = 'horizontalClampCheckbox';
         clampLabel.textContent = 'Horizontal Only';
@@ -1870,32 +1891,84 @@ document.addEventListener('DOMContentLoaded', () => {
             font-family: inherit;
         `;
         
-        // Add checkbox and label to container
-        clampCheckboxContainer.appendChild(clampCheckbox);
-        clampCheckboxContainer.appendChild(clampLabel);
+        // Create wrapper div for first checkbox and label
+        const clampWrapper = document.createElement('div');
+        clampWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            min-width: 140px;
+            justify-content: flex-end;
+        `;
+        clampWrapper.appendChild(clampCheckbox);
+        clampWrapper.appendChild(clampLabel);
+        
+        // Create the draw boxes checkbox
+        drawBoxesCheckbox.type = 'checkbox';
+        drawBoxesCheckbox.id = 'drawBoxesCheckbox';
+        drawBoxesCheckbox.style.cssText = `
+            margin-right: 6px;
+            cursor: pointer;
+            vertical-align: middle;
+            width: 16px;
+            height: 16px;
+        `;
+        
+        // Create the draw boxes label
+        const drawBoxesLabel = document.createElement('label');
+        drawBoxesLabel.htmlFor = 'drawBoxesCheckbox';
+        drawBoxesLabel.textContent = 'Draw Boxes';
+        drawBoxesLabel.style.cssText = `
+            cursor: pointer;
+            white-space: nowrap;
+            user-select: none;
+            vertical-align: middle;
+            font-family: inherit;
+        `;
+        
+        // Create wrapper div for second checkbox and label
+        const drawBoxesWrapper = document.createElement('div');
+        drawBoxesWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            min-width: 110px;
+            justify-content: flex-end;
+        `;
+        drawBoxesWrapper.appendChild(drawBoxesCheckbox);
+        drawBoxesWrapper.appendChild(drawBoxesLabel);
+        
+        // Add checkboxes and labels to container
+        checkBoxControlsContainer.appendChild(clampWrapper);
+        checkBoxControlsContainer.appendChild(drawBoxesWrapper);
         
         // Add the container to the canvas element itself
-        const canvas = document.getElementById('canvas');
-        canvas.parentNode.insertBefore(clampCheckboxContainer, canvas);
-
-        // Add event listener for checkbox change
+        canvas.parentNode.insertBefore(checkBoxControlsContainer, canvas);
+        
+        // Add event listener for clamp checkbox change
         clampCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                clampMode = HORIZONTAL_CLAMP;
-            } else {
-                clampMode = NO_CLAMP;
-            }
-            
+            window.setLocalStorageItem('clampCheckBox', this.checked);
+            clampMode = this.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
             updateCursor(currentHandle);
             const wasMovable = movableBoxes;
             movableBoxes = getMovableBoxes(currentHandle);
             drawCropInterface(movableBoxHighlights(wasMovable));
         });
+    
+        // Add event listener for draw boxes checkbox change
+        drawBoxesCheckbox.addEventListener('change', function() {
+            window.setLocalStorageItem('drawCropBoxes', this.checked);
+            drawCropInterface();
+        });
+    
+        // Initialize from local storage with default values
+        clampCheckbox.checked = window.getLocalStorageItem('clampCheckBox', false);
+        drawBoxesCheckbox.checked = window.getLocalStorageItem('drawCropBoxes', true);
     }
 
     // initialize horizontal clamp mode button
+    const checkBoxControlsContainer = document.createElement('div');
     const clampCheckbox = document.createElement('input');
-    addHorizontalClampCheckbox();
+    const drawBoxesCheckbox = document.createElement('input');
+    addCheckboxControls();
 
 // Expose functions to global scope and the isCropping flag
     window.cropModule = {
