@@ -35,3 +35,4 @@ do something about image overlay
 should do  [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ]; more often?
 cursor not updating after mouseup - check places I removed the check
 check resize (phone when switching orientation was off)
+move checkboxes to left?

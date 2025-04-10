@@ -1484,10 +1484,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.saveButton.disabled = false;
     }
 
-    function restoreScale(scale) {
+    function restoreScale(scaleToBeRestored) {
         // Calculate new maximum scale when returning from crop, in case image was cropped or user changed window size
         const maxScale = window.calculateOptimalScale(window.images[0], window.images[1]);
-        window.setScale(window.scale, maxScale);
+        window.setScale(scaleToBeRestored, maxScale);
     }
 
     function onSwap() {
