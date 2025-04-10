@@ -420,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Get the background-color property
     const bodyBackgroundColor = bodyStyle.backgroundColor;
     // transparency of the image area outside of the cropboxes
-    const cropBoxOverlayOpacity = 0.55;
+    const cropBoxOverlayOpacity = 0.65;
 
     // glow state variables
     let glowStartTime = 0;
@@ -522,8 +522,8 @@ document.addEventListener('DOMContentLoaded', () => {
         configureBoxStyle(ctx, movableBoxes[LEFT], glowParams);
         // ctx.strokeRect(leftBox.x, leftBox.y, leftBox.width, leftBox.height);
         if (drawBoxesCheckbox.checked) {
-            drawCropBox(ctx, leftBox.x + leftBox.width, leftBox.y, leftBox.x,
-                Math.min(canvas.height, leftBox.y + leftBox.height));
+            drawCropBox(ctx, leftBox.x + leftBox.width, leftBox.y - 1, leftBox.x - 1,
+                Math.min(canvas.height, leftBox.y + leftBox.height) + 1);
         }
         drawHandles(ctx, leftBox, LEFT);
 
@@ -531,21 +531,20 @@ document.addEventListener('DOMContentLoaded', () => {
         configureBoxStyle(ctx, movableBoxes[RIGHT], glowParams);
         // ctx.strokeRect(rightBox.x, rightBox.y, rightBox.width, rightBox.height);
         if (drawBoxesCheckbox.checked) {
-            drawCropBox(ctx, rightBox.x, rightBox.y,
-                Math.min(canvas.width, rightBox.x + rightBox.width),
-                Math.min(canvas.height, rightBox.y + rightBox.height));
+            drawCropBox(ctx, rightBox.x, rightBox.y - 1,
+                Math.min(canvas.width, rightBox.x + rightBox.width) + 1,
+                Math.min(canvas.height, rightBox.y + rightBox.height) + 1);
         }
         drawHandles(ctx, rightBox, RIGHT);
 
         // Reset to defaults
         // ctx.shadowBlur = 0;
-        // ctx.lineWidth = 2;
+        ctx.lineWidth = 2;
         handleSize = HANDLE_SIZE;
         ctx.globalAlpha = 1.0;
     }
 
     function drawCropBox(ctx, x1, y1, x2, y2) {
-        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y1);
@@ -598,21 +597,22 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.globalAlpha = 0.75;
             if (glowAnimationActive) {
                 // Set line width with smooth transition
-                // ctx.lineWidth = 2 + glowOffset;
+                ctx.lineWidth = 2 + glowOffset;
                 handleSize = HANDLE_SIZE + glowOffset;
-                
-                // Create a color that transitions smoothly between regular and bright green
-                const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
-                const g = Math.round(204 + (255 - 204) * greenIntensity);
-                const b = Math.round(51 + (74 - 51) * greenIntensity);
-                const color = `rgb(${r}, ${g}, ${b})`;
-                
+
+                // // Create a color that transitions smoothly between regular and bright green
+                // const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
+                // const g = Math.round(204 + (255 - 204) * greenIntensity);
+                // const b = Math.round(51 + (74 - 51) * greenIntensity);
+                // const color = `rgb(${r}, ${g}, ${b}, ${ctx.globalAlpha})`;
+
                 // Apply style and shadow
-                ctx.strokeStyle = color;
-                ctx.shadowColor = color;
+                // ctx.strokeStyle = color;
+                ctx.strokeStyle = '#33cc33'; // Regular green
+                // ctx.shadowColor = color;
                 // ctx.shadowBlur = glowIntensity;
             } else {
-                // ctx.lineWidth = 2;
+                ctx.lineWidth = 2;
                 handleSize = HANDLE_SIZE;
                 ctx.strokeStyle = '#33cc33'; // Regular green
                 // ctx.shadowBlur = 0;
@@ -620,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // Non-movable box - no animation effects
             ctx.globalAlpha = 0.5;
-            // ctx.lineWidth = 2;
+            ctx.lineWidth = 2;
             handleSize = HANDLE_SIZE;
             ctx.strokeStyle = '#ff8800'; // Orange
             // ctx.strokeStyle = '#ff9900'; // Orange
@@ -679,39 +679,37 @@ document.addEventListener('DOMContentLoaded', () => {
     function drawHandles(ctx, box, boxPos) {
         // Define handle positions
         const cornerRadius = handleSize / 4;
-        // don't overlay drawing of boxes and handles, creates a brighter line through the handles
-        const boxFactor = drawBoxesCheckbox.checked ? 1 : 0;
 
         let cornerHandlePositions, sideHandlePositions;
         if (boxPos === LEFT) {
             cornerHandlePositions = [
-                { id: TOP_LEFT, x: box.x + boxFactor, y: box.y + boxFactor, start: 0 },
-                { id: BOTTOM_LEFT, x: box.x + boxFactor, y: box.y + box.height - boxFactor, start: 1.5 * Math.PI },
+                { id: TOP_LEFT, x: box.x, y: box.y, start: 0 },
+                { id: BOTTOM_LEFT, x: box.x, y: box.y + box.height, start: 1.5 * Math.PI },
             ];
             sideHandlePositions = [
-                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + boxFactor,
+                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y,
                     width: handleSize * 2, height: handleSize / 2,
                     corners: [ 0, 0, cornerRadius, cornerRadius ] },
-                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2 - boxFactor,
+                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2,
                     width: handleSize * 2, height: handleSize / 2,
                     corners: [ cornerRadius, cornerRadius, 0, 0 ] },
-                { id: LEFT_MIDDLE, x: box.x + boxFactor, y: box.y + box.height / 2 - handleSize,
+                { id: LEFT_MIDDLE, x: box.x, y: box.y + box.height / 2 - handleSize,
                     width: handleSize / 2, height: handleSize * 2,
                     corners: [ 0, cornerRadius, cornerRadius, 0 ] }
             ];
         } else {
             cornerHandlePositions = [
-                { id: TOP_RIGHT, x: box.x + box.width - boxFactor, y: box.y + boxFactor, start: 0.5 * Math.PI },
-                { id: BOTTOM_RIGHT, x: box.x + box.width - boxFactor, y: box.y + box.height - boxFactor, start: Math.PI },
+                { id: TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
+                { id: BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
             ];
             sideHandlePositions = [
-                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + boxFactor,
+                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y,
                     width: handleSize * 2, height: handleSize / 2,
                     corners: [ 0, 0, cornerRadius, cornerRadius ] },
-                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2 - boxFactor,
+                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2,
                     width: handleSize * 2, height: handleSize / 2,
                     corners: [ cornerRadius, cornerRadius, 0, 0 ] },
-                { id: RIGHT_MIDDLE, x: box.x + box.width - handleSize / 2 - boxFactor, y: box.y + box.height / 2 - handleSize,
+                { id: RIGHT_MIDDLE, x: box.x + box.width - handleSize / 2, y: box.y + box.height / 2 - handleSize,
                     width: handleSize / 2, height: handleSize * 2,
                     corners: [ cornerRadius, 0, 0, cornerRadius ] }
             ];
