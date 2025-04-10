@@ -300,7 +300,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lastCropState.swapped) {
                 swapCropBoxes(currentParams.img1Width);
             }
-            
+
+            if (lastCropState.scale > currentScale) {
+                const scaleRatio = currentScale / lastCropState.scale;
+                // Adjust both crop boxes
+                adjustScale(cropBoxes[LEFT], scaleRatio);
+                adjustScale(cropBoxes[RIGHT], scaleRatio);
+            }
+
             // Make sure boxes stay in bounds
             validateCropBoxes("startCrop");
         }
@@ -1528,27 +1535,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update current scale
         currentScale = window.scale;
-                
-        // Adjust both crop boxes
-        cropBoxes[LEFT].x *= scaleRatio;
-        cropBoxes[LEFT].y *= scaleRatio;
-        cropBoxes[LEFT].width *= scaleRatio;
-        cropBoxes[LEFT].height *= scaleRatio;
-        cropBoxes[LEFT].xOffset *= scaleRatio;
-        cropBoxes[LEFT].yOffset *= scaleRatio;
 
-        // Right box scales the same way since it now uses relative coordinates
-        cropBoxes[RIGHT].x *= scaleRatio;
-        cropBoxes[RIGHT].y *= scaleRatio;
-        cropBoxes[RIGHT].width *= scaleRatio;
-        cropBoxes[RIGHT].height *= scaleRatio;
-        cropBoxes[RIGHT].xOffset *= scaleRatio;
-        cropBoxes[RIGHT].yOffset *= scaleRatio;
+        // Adjust both crop boxes
+        adjustScale(cropBoxes[LEFT], scaleRatio);
+        adjustScale(cropBoxes[RIGHT], scaleRatio);
 
         // Redraw with updated boxes
         drawCropInterface();
     }
-    
+
+    function adjustScale(box, scaleRatio) {
+        box.x *= scaleRatio;
+        box.y *= scaleRatio;
+        box.width *= scaleRatio;
+        box.height *= scaleRatio;
+        box.xOffset *= scaleRatio;
+        box.yOffset *= scaleRatio;
+    }
+
     function resetCrop() {
         if (originalImages) {
             exitCrop();
