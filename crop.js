@@ -301,6 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 swapCropBoxes(currentParams.img1Width);
             }
 
+            // see if scale needs to be reduced
             if (lastCropState.scale > currentScale) {
                 const scaleRatio = currentScale / lastCropState.scale;
                 // Adjust both crop boxes
@@ -1528,20 +1529,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onScaleChange() {
-        if (!isCropping) return;
-        
-        // Calculate the scale ratio between old and new scale
-        const scaleRatio = window.scale / currentScale;
+        if (isCropping) {
+            // Calculate the scale ratio between old and new scale
+            const scaleRatio = window.scale / currentScale;
 
-        // Update current scale
-        currentScale = window.scale;
+            // Update current scale
+            currentScale = window.scale;
 
-        // Adjust both crop boxes
-        adjustScale(cropBoxes[LEFT], scaleRatio);
-        adjustScale(cropBoxes[RIGHT], scaleRatio);
+            // Adjust both crop boxes
+            adjustScale(cropBoxes[LEFT], scaleRatio);
+            adjustScale(cropBoxes[RIGHT], scaleRatio);
 
-        // Redraw with updated boxes
-        drawCropInterface();
+            // Redraw with updated boxes
+            drawCropInterface();
+        } else if (lastCropState) {
+            // adjust the cropBoxes in lastCropState to the new scale
+            const scaleRatio = window.scale / lastCropState.scale;
+            adjustScale(lastCropState.leftBox, scaleRatio);
+            adjustScale(lastCropState.rightBox, scaleRatio);
+            lastCropState.scale = window.scale;
+        }
     }
 
     function adjustScale(box, scaleRatio) {

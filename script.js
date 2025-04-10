@@ -188,9 +188,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (images.length === 2) {
             const optimalScale = calculateOptimalScale(images[0], images[1]);
             setScale(optimalScale, optimalScale);
-            if (window.cropModule.isCropping()) {
-                window.cropModule.onScaleChange();
-            } else {
+            // alert crop interface that user changed the window size
+            window.cropModule.onScaleChange();
+            if (! window.cropModule.isCropping()) {
                 // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
                 drawImages();
             }
