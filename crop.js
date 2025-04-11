@@ -278,20 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelCropButton.style.display = 'block';
         cropOptionsControlGroup.style.display = 'block'; // Show crop options in left panel
         window.saveButton.disabled = true;
-        
-        // If we have a previous crop state, revert to that scale
-        if (lastCropState) {
-            restoreScale(lastCropState.scale);
-        }
-        
-        // Get current scale and parameters
-        currentScale = window.scale;
-        // Redraw images to get parameters for original images
-        currentParams = window.drawImages();
-        
-        // Always initialize crop boxes
-        initCropBoxes();
-        
+
         // If we have a previous crop state, restore those dimensions
         if (lastCropState) {
             // Set the crop boxes to state while last cropping
@@ -302,8 +289,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 swapBoxes(cropBoxes, lastCropState.img2Width);
             }
 
-            // see if scale needs to be reduced
-            if (lastCropState.scale > currentScale) {
+            // update scale
+            const maxScale = window.calculateOptimalScale(window.images[0], window.images[1]);
+            if (lastCropState.scaleChanged) {
+                // user resized the window, set new max scale for crop mode
+                window.setScale(maxScale, maxScale);
+            } else {
+                window.setScale(lastCropState.scale, maxScale);
+            }
+            // now we've got the scale
+            currentScale = window.scale;
+
+            // see if cropBox scale needs to be updated
+            if (lastCropState.scale !== currentScale) {
                 const scaleRatio = currentScale / lastCropState.scale;
                 // Adjust both crop boxes
                 adjustScale(cropBoxes[LEFT], scaleRatio);
@@ -314,6 +312,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Make sure boxes stay in bounds
                 validateCropBoxes("startCrop");
             }
+        } else {
+            // initialize with max crop
+            currentScale = window.scale;
+            initCropBoxes();
         }
 
         // Draw crop interface

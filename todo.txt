@@ -40,4 +40,6 @@ minCropSize is relative to crop box space, not image space.
   So if you make the images largere via resize, you can crop tighter
 mincropsize = 4?
 
-crop apply resize swap crop
+sclae changes when not in crop mode
+
+May not want to update crop scale after fullscreen mode
