@@ -186,11 +186,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onResize() {
         if (images.length === 2) {
+            const oldScale = scale;
+            const oldMaxScale = maxScale;
             const optimalScale = calculateOptimalScale(images[0], images[1]);
             setScale(optimalScale, optimalScale);
+
             // alert crop interface that user changed the window size
-            window.cropModule.onScaleChange();
-            if (! window.cropModule.isCropping()) {
+            if (! window.cropModule.onScaleChange()) {
+                setScale(oldScale, oldMaxScale);
+            } else if (! window.cropModule.isCropping()) {
                 // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
                 drawImages();
             }
@@ -294,7 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.cropModule.isCropping()) {
             if (!window.cropModule.onScaleChange()) {
                 setScale(oldScale, maxScale);
-                window.cropModule.onScaleChange();
             }
         } else {
             // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)

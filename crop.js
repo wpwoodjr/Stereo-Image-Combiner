@@ -1572,13 +1572,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Redraw with updated boxes
             drawCropInterface();
-            return true;
         }
 
         if (lastCropState) {
             // indicate that optimal scale should be recalculated
             lastCropState.scaleChanged = true;
         }
+        return true;
     }
 
     function adjustScale(box, scaleRatio) {

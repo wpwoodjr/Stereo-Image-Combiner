@@ -44,3 +44,5 @@ sclae changes when not in crop mode
 
 May not want to update crop scale after fullscreen mode
 Update scale on return from crop?
+
+can't use oldscale = scale when in crop mode can I?  because currentScale
