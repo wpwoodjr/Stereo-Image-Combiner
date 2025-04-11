@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cropButton.style.display = 'none';
         applyCropButton.style.display = 'block';
         cancelCropButton.style.display = 'block';
-        checkBoxControlsContainer.style.display = 'flex';
+        cropOptionsControlGroup.style.display = 'block'; // Show crop options in left panel
         window.saveButton.disabled = true;
         
         // If we have a previous crop state, revert to that scale
@@ -1511,7 +1511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isCropping = false;
         applyCropButton.style.display = 'none';
         cancelCropButton.style.display = 'none';
-        checkBoxControlsContainer.style.display = 'none';
+        cropOptionsControlGroup.style.display = 'none'; // Hide crop options in left panel
         cropButton.style.display = 'block';
         canvas.style.cursor = 'default';
         window.saveButton.disabled = false;
@@ -1872,114 +1872,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     function addCheckboxControls() {
-        // Create container for the checkboxes and labels
-        checkBoxControlsContainer.id = 'checkBoxControlsContainer';
-        checkBoxControlsContainer.style.cssText = `
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: 100%;
-            margin-bottom: 5px;
-            z-index: 1000;
-            display: none;
-            padding: 2px 8px;
-            border: none;
-            border-radius: 4px;
-            background-color: rgba(0, 0, 0, 0.4);
-            color: #ffffff;
-            transition: opacity 0.2s;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            opacity: 0.8;
-            min-width: 280px;
-        `;
-        
-        // Add hover effect for better visibility when needed
-        checkBoxControlsContainer.addEventListener('mouseenter', function() {
-            this.style.opacity = '1';
-        });
-        
-        checkBoxControlsContainer.addEventListener('mouseleave', function() {
-            this.style.opacity = '0.8';
-        });
-        
         // Create the clamp checkbox (horizontal only)
+        const clampCheckbox = document.createElement('input');
         clampCheckbox.type = 'checkbox';
         clampCheckbox.id = 'horizontalClampCheckbox';
-        clampCheckbox.style.cssText = `
-            margin-right: 6px;
-            cursor: pointer;
-            vertical-align: middle;
-            width: 16px;
-            height: 16px;
-        `;
         
         // Create the clamp label
         const clampLabel = document.createElement('label');
         clampLabel.htmlFor = 'horizontalClampCheckbox';
         clampLabel.textContent = 'Horizontal Only';
-        clampLabel.style.cssText = `
-            cursor: pointer;
-            white-space: nowrap;
-            user-select: none;
-            vertical-align: middle;
-            font-family: inherit;
-        `;
         
         // Create wrapper div for first checkbox and label
         const clampWrapper = document.createElement('div');
-        clampWrapper.style.cssText = `
-            display: flex;
-            align-items: center;
-            min-width: 140px;
-            justify-content: flex-end;
-        `;
+        clampWrapper.className = 'control-row';
+        clampWrapper.style.marginBottom = '10px';
         clampWrapper.appendChild(clampCheckbox);
         clampWrapper.appendChild(clampLabel);
         
         // Create the draw boxes checkbox
+        const drawBoxesCheckbox = document.createElement('input');
         drawBoxesCheckbox.type = 'checkbox';
         drawBoxesCheckbox.id = 'drawBoxesCheckbox';
-        drawBoxesCheckbox.style.cssText = `
-            margin-right: 6px;
-            cursor: pointer;
-            vertical-align: middle;
-            width: 16px;
-            height: 16px;
-        `;
         
         // Create the draw boxes label
         const drawBoxesLabel = document.createElement('label');
         drawBoxesLabel.htmlFor = 'drawBoxesCheckbox';
         drawBoxesLabel.textContent = 'Draw Boxes';
-        drawBoxesLabel.style.cssText = `
-            cursor: pointer;
-            white-space: nowrap;
-            user-select: none;
-            vertical-align: middle;
-            font-family: inherit;
-        `;
         
         // Create wrapper div for second checkbox and label
         const drawBoxesWrapper = document.createElement('div');
-        drawBoxesWrapper.style.cssText = `
-            display: flex;
-            align-items: center;
-            min-width: 110px;
-            justify-content: flex-end;
-        `;
+        drawBoxesWrapper.className = 'control-row';
         drawBoxesWrapper.appendChild(drawBoxesCheckbox);
         drawBoxesWrapper.appendChild(drawBoxesLabel);
         
-        // Add checkboxes and labels to container
-        checkBoxControlsContainer.appendChild(clampWrapper);
-        checkBoxControlsContainer.appendChild(drawBoxesWrapper);
-        
-        // Add the container to the canvas element itself
-        canvas.parentNode.insertBefore(checkBoxControlsContainer, canvas);
+        // Add to control group in left panel
+        cropOptionsControlGroup.appendChild(clampWrapper);
+        cropOptionsControlGroup.appendChild(drawBoxesWrapper);
         
         // Add event listener for clamp checkbox change
         clampCheckbox.addEventListener('change', function() {
@@ -2000,12 +1929,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize from local storage with default values
         clampCheckbox.checked = window.getLocalStorageItem('clampCheckBox', false);
         drawBoxesCheckbox.checked = window.getLocalStorageItem('drawCropBoxes', true);
-    }
+        
+        // Make checkboxes available globally
+        window.clampCheckbox = clampCheckbox;
+        window.drawBoxesCheckbox = drawBoxesCheckbox;
+    }    
 
-    // initialize horizontal clamp mode button
-    const checkBoxControlsContainer = document.createElement('div');
-    const clampCheckbox = document.createElement('input');
-    const drawBoxesCheckbox = document.createElement('input');
+    // initialize check boxes
+    const controls = document.getElementById('controls');
+    const cropOptionsControlGroup = document.createElement('div');
+    cropOptionsControlGroup.id = 'cropOptionsControlGroup';
+    cropOptionsControlGroup.className = 'control-group';
+    cropOptionsControlGroup.style.display = 'none'; // Initially hidden
+    controls.appendChild(cropOptionsControlGroup);
     addCheckboxControls();
 
 // Expose functions to global scope and the isCropping flag
