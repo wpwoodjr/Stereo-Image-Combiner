@@ -500,20 +500,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const baseName1 = imageNames[0].includes('.') ? 
             imageNames[0].split('.').slice(0, -1).join('.') : 
             imageNames[0];
-
+        
         const baseName2 = imageNames[1].includes('.') ? 
             imageNames[1].split('.').slice(0, -1).join('.') : 
             imageNames[1];
-
-    if (!baseName1) return 'combined_image';
         
-        // Find the common part and separators
-        const commonPrefix = findCommonPrefix(baseName1, baseName2);
+        if (!baseName1) return 'combined_image';
         
-        // If we have no common prefix, just use the first name
-        if (!commonPrefix) return baseName1;
+        // Find common prefix up to the last separator
+        const commonPrefix = findCommonPrefixLastSeparator(baseName1, baseName2);
         
-        // Extract the unique numerical or text suffixes
+        // If we have no common prefix, create a combined name with both full names
+        if (!commonPrefix) {
+            return `${baseName1} & ${baseName2}`;
+        }
+        
+        // Extract the parts after the last separator
         const suffix1 = baseName1.substring(commonPrefix.length).trim();
         const suffix2 = baseName2.substring(commonPrefix.length).trim();
         
@@ -527,33 +529,57 @@ document.addEventListener('DOMContentLoaded', () => {
         return cleanSuffix2 ? `${cleanPrefix} - ${cleanSuffix1} & ${cleanSuffix2}` : baseName1;
     }
     
-    // Helper function to find the common prefix including any separator character
-    function findCommonPrefix(str1, str2) {
-        // Find the basic common characters
-        let i = 0;
-        while (i < str2.length && str1.charAt(i) === str2.charAt(i)) {
-            i++;
+    // Find common prefix up to the last separator
+    function findCommonPrefixLastSeparator(str1, str2) {
+        // Check if the first character is different - truly no common prefix
+        if (str1.charAt(0) !== str2.charAt(0)) {
+            return '';
         }
         
-        // If we found a complete match or no match
-        if (i === 0 || i === str1.length) return str1.substring(0, i);
+        // Find all separator positions in both strings
+        const separators = ['_', '-', ' '];
         
-        // Look for the last separator before the divergence point
-        const commonPart = str1.substring(0, i);
+        // Find all separator positions in first string
+        const positions1 = [];
+        separators.forEach(sep => {
+            let pos = -1;
+            while ((pos = str1.indexOf(sep, pos + 1)) !== -1) {
+                positions1.push(pos);
+            }
+        });
         
-        // Find the last occurrence of common separators
-        const lastSeparatorPos = Math.max(
-            commonPart.lastIndexOf('_'),
-            commonPart.lastIndexOf('-'),
-            commonPart.lastIndexOf(' ')
-        );
+        // Sort positions in ascending order
+        positions1.sort((a, b) => a - b);
         
-        // If we found a separator, use it as the split point
-        if (lastSeparatorPos !== -1) {
-            return str1.substring(0, lastSeparatorPos + 1); // Include the separator
+        // Find the common part
+        let commonLength = 0;
+        for (let i = 0; i < Math.min(str1.length, str2.length); i++) {
+            if (str1.charAt(i) !== str2.charAt(i)) {
+                break;
+            }
+            commonLength = i + 1;
         }
         
-        return commonPart;
+        // If hardly anything in common, consider it no common prefix
+        if (commonLength <= 1) return '';
+        
+        // Find the last separator position before the divergence point
+        let lastSepPos = -1;
+        for (const pos of positions1) {
+            if (pos < commonLength) {
+                lastSepPos = pos;
+            } else {
+                break;
+            }
+        }
+        
+        // If we found a separator, use it as the split point (include the separator)
+        if (lastSepPos !== -1) {
+            return str1.substring(0, lastSepPos + 1);
+        }
+        
+        // If no separator was found, return the common prefix
+        return str1.substring(0, commonLength);
     }
     
     function getLocalStorageItem(item, defaultVal) {
