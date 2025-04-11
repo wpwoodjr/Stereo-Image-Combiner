@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const HANDLE_SIZE = 16;
     let handleSize = HANDLE_SIZE;
+    const minCropSize = HANDLE_SIZE * 4;
 
     // Original scale before any cropping
     let originalScale = 0;
@@ -73,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Track which boxes can move with current crop boundaries
     let movableBoxes = [ false, false ];
+
+    const DEBUG = false;
 
     // =========================
     // Event Listeners
@@ -309,8 +312,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 adjustScale(cropBoxes[RIGHT], scaleRatio);
             }
 
-            // Make sure boxes stay in bounds
-            validateCropBoxes("startCrop");
+            if (DEBUG) {
+                // Make sure boxes stay in bounds
+                validateCropBoxes("startCrop");
+            }
         }
 
         // Draw crop interface
@@ -322,73 +327,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // make sure box dimensions are valid and the same
-    const minCropSize = HANDLE_SIZE * 4;
-    function validateCropBoxes(msg) {
-        // Get current image dimensions
-        const oldCropBoxes = [ { ...cropBoxes[LEFT] },  { ...cropBoxes[RIGHT] } ];
-        const img1Width = window.images[0].width * currentScale;
-        const img1Height = window.images[0].height * currentScale;
-        const img2Width = window.images[1].width * currentScale;
-        const img2Height = window.images[1].height * currentScale;
-        
-        // Ensure left box stays within left image bounds
-        cropBoxes[LEFT].x = Math.max(0, Math.min(cropBoxes[LEFT].x, img1Width - minCropSize));
-        cropBoxes[LEFT].y = Math.max(0, Math.min(cropBoxes[LEFT].y, img1Height - minCropSize));
-        cropBoxes[LEFT].width = Math.max(minCropSize, Math.min(cropBoxes[LEFT].width, img1Width - cropBoxes[LEFT].x));
-        cropBoxes[LEFT].height = Math.max(minCropSize, Math.min(cropBoxes[LEFT].height, img1Height - cropBoxes[LEFT].y));
-        
-        // Ensure right box stays within right image bounds - relative to the right image's left edge
-        cropBoxes[RIGHT].x = Math.max(0, Math.min(cropBoxes[RIGHT].x, img2Width - minCropSize));
-        cropBoxes[RIGHT].y = Math.max(0, Math.min(cropBoxes[RIGHT].y, img2Height - minCropSize));
-        cropBoxes[RIGHT].width = Math.max(minCropSize, Math.min(cropBoxes[RIGHT].width, img2Width - cropBoxes[RIGHT].x));
-        cropBoxes[RIGHT].height = Math.max(minCropSize, Math.min(cropBoxes[RIGHT].height, img2Height - cropBoxes[RIGHT].y));
-        
-        // Enforce both crop boxes having the same height and width
-        const minHeight = Math.min(cropBoxes[LEFT].height, cropBoxes[RIGHT].height);
-        const minWidth = Math.min(cropBoxes[LEFT].width, cropBoxes[RIGHT].width);
-        
-        cropBoxes[LEFT].height = minHeight;
-        cropBoxes[RIGHT].height = minHeight;
-        cropBoxes[LEFT].width = minWidth;
-        cropBoxes[RIGHT].width = minWidth;
+    if (DEBUG) {
+        function validateCropBoxes(msg) {
+            // Get current image dimensions
+            const oldCropBoxes = [ { ...cropBoxes[LEFT] },  { ...cropBoxes[RIGHT] } ];
+            const img1Width = window.images[0].width * currentScale;
+            const img1Height = window.images[0].height * currentScale;
+            const img2Width = window.images[1].width * currentScale;
+            const img2Height = window.images[1].height * currentScale;
+            
+            // Ensure left box stays within left image bounds
+            cropBoxes[LEFT].x = Math.max(0, Math.min(cropBoxes[LEFT].x, img1Width - minCropSize));
+            cropBoxes[LEFT].y = Math.max(0, Math.min(cropBoxes[LEFT].y, img1Height - minCropSize));
+            cropBoxes[LEFT].width = Math.max(minCropSize, Math.min(cropBoxes[LEFT].width, img1Width - cropBoxes[LEFT].x));
+            cropBoxes[LEFT].height = Math.max(minCropSize, Math.min(cropBoxes[LEFT].height, img1Height - cropBoxes[LEFT].y));
+            
+            // Ensure right box stays within right image bounds - relative to the right image's left edge
+            cropBoxes[RIGHT].x = Math.max(0, Math.min(cropBoxes[RIGHT].x, img2Width - minCropSize));
+            cropBoxes[RIGHT].y = Math.max(0, Math.min(cropBoxes[RIGHT].y, img2Height - minCropSize));
+            cropBoxes[RIGHT].width = Math.max(minCropSize, Math.min(cropBoxes[RIGHT].width, img2Width - cropBoxes[RIGHT].x));
+            cropBoxes[RIGHT].height = Math.max(minCropSize, Math.min(cropBoxes[RIGHT].height, img2Height - cropBoxes[RIGHT].y));
+            
+            // Enforce both crop boxes having the same height and width
+            const minHeight = Math.min(cropBoxes[LEFT].height, cropBoxes[RIGHT].height);
+            const minWidth = Math.min(cropBoxes[LEFT].width, cropBoxes[RIGHT].width);
+            
+            cropBoxes[LEFT].height = minHeight;
+            cropBoxes[RIGHT].height = minHeight;
+            cropBoxes[LEFT].width = minWidth;
+            cropBoxes[RIGHT].width = minWidth;
 
-        const eps = epsilon / 100;
-        if (
-            Math.abs(cropBoxes[LEFT].x - oldCropBoxes[LEFT].x) > eps ||
-            Math.abs(cropBoxes[LEFT].y - oldCropBoxes[LEFT].y) > eps ||
-            Math.abs(cropBoxes[LEFT].width - oldCropBoxes[LEFT].width) > eps ||
-            Math.abs(cropBoxes[LEFT].height - oldCropBoxes[LEFT].height) > eps
-        ) {
-            console.log('Left x, y, width, height:', msg);
-            console.log(cropBoxes[LEFT]);
-            console.log(oldCropBoxes[LEFT]);
-            cropBoxes[LEFT] = { ...oldCropBoxes[LEFT] };
-        }
-        if (
-            Math.abs(cropBoxes[RIGHT].x - oldCropBoxes[RIGHT].x) > eps ||
-            Math.abs(cropBoxes[RIGHT].y - oldCropBoxes[RIGHT].y) > eps ||
-            Math.abs(cropBoxes[RIGHT].width - oldCropBoxes[RIGHT].width) > eps ||
-            Math.abs(cropBoxes[RIGHT].height - oldCropBoxes[RIGHT].height) > eps
-        ) {
-            console.log('Right: x, y, width, height', msg);
-            console.log(cropBoxes[RIGHT]);
-            console.log(oldCropBoxes[RIGHT]);
-            cropBoxes[RIGHT] = { ...oldCropBoxes[RIGHT] };
-        }
-        // check that right side of left cropBox is next to gap
-        if (Math.abs(cropBoxes[LEFT].x + cropBoxes[LEFT].width - cropBoxes[LEFT].xOffset - img1Width) > eps) {
-            console.log('Left offsets:', msg);
-            console.log(cropBoxes[LEFT]);
-            console.log(cropBoxes[LEFT].x + cropBoxes[LEFT].width - cropBoxes[LEFT].xOffset, img1Width);
-        }
-        // check that left side of right cropBox is next to gap
-        if (Math.abs(cropBoxes[RIGHT].x - cropBoxes[RIGHT].xOffset) > eps) {
-            console.log('RIGHT offsets:', msg);
-            console.log(cropBoxes[RIGHT]);
-            console.log(cropBoxes[RIGHT].x - cropBoxes[RIGHT].xOffset, 0);
+            const eps = epsilon / 100;
+            if (
+                Math.abs(cropBoxes[LEFT].x - oldCropBoxes[LEFT].x) > eps ||
+                Math.abs(cropBoxes[LEFT].y - oldCropBoxes[LEFT].y) > eps ||
+                Math.abs(cropBoxes[LEFT].width - oldCropBoxes[LEFT].width) > eps ||
+                Math.abs(cropBoxes[LEFT].height - oldCropBoxes[LEFT].height) > eps
+            ) {
+                console.log('Left x, y, width, height:', msg);
+                console.log(cropBoxes[LEFT]);
+                console.log(oldCropBoxes[LEFT]);
+                cropBoxes[LEFT] = { ...oldCropBoxes[LEFT] };
+            }
+            if (
+                Math.abs(cropBoxes[RIGHT].x - oldCropBoxes[RIGHT].x) > eps ||
+                Math.abs(cropBoxes[RIGHT].y - oldCropBoxes[RIGHT].y) > eps ||
+                Math.abs(cropBoxes[RIGHT].width - oldCropBoxes[RIGHT].width) > eps ||
+                Math.abs(cropBoxes[RIGHT].height - oldCropBoxes[RIGHT].height) > eps
+            ) {
+                console.log('Right: x, y, width, height', msg);
+                console.log(cropBoxes[RIGHT]);
+                console.log(oldCropBoxes[RIGHT]);
+                cropBoxes[RIGHT] = { ...oldCropBoxes[RIGHT] };
+            }
+            // check that right side of left cropBox is next to gap
+            if (Math.abs(cropBoxes[LEFT].x + cropBoxes[LEFT].width - cropBoxes[LEFT].xOffset - img1Width) > eps) {
+                console.log('Left offsets:', msg);
+                console.log(cropBoxes[LEFT]);
+                console.log(cropBoxes[LEFT].x + cropBoxes[LEFT].width - cropBoxes[LEFT].xOffset, img1Width);
+            }
+            // check that left side of right cropBox is next to gap
+            if (Math.abs(cropBoxes[RIGHT].x - cropBoxes[RIGHT].xOffset) > eps) {
+                console.log('RIGHT offsets:', msg);
+                console.log(cropBoxes[RIGHT]);
+                console.log(cropBoxes[RIGHT].x - cropBoxes[RIGHT].xOffset, 0);
+            }
         }
     }
-    
+
     function initCropBoxes() {
         // Get scaled dimensions of images
         const img1Width = window.images[0].width * currentScale;
@@ -550,7 +556,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineWidth = 2;
         handleSize = HANDLE_SIZE;
         ctx.globalAlpha = 1.0;
-        // getHandle(rightImgStart, 0); // enable this to see touch points drawn
+
+        if (DEBUG) {
+            // draw the touch points
+            getHandle(rightImgStart, 0);
+        }
     }
 
     function drawCropBox(ctx, x1, y1, x2, y2) {
@@ -802,16 +812,16 @@ document.addEventListener('DOMContentLoaded', () => {
             ];
         }
 
-        /*
-        const ctx = canvas.getContext('2d');
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#33ccff'
-        for (const handle of handlePositions) {
-            const hx = handle.x;
-            const hy = handle.y;
-            ctx.strokeRect(hx, hy, grabSize, grabSize);
+        if (DEBUG) {
+            const ctx = canvas.getContext('2d');
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#33ccff'
+            for (const handle of handlePositions) {
+                const hx = handle.x;
+                const hy = handle.y;
+                ctx.strokeRect(hx, hy, grabSize, grabSize);
+            }
         }
-        */
 
         for (const handle of handlePositions) {
             const hx = handle.x;
@@ -1236,8 +1246,10 @@ document.addEventListener('DOMContentLoaded', () => {
             cropBoxes[otherBox] = testOtherBox;
         }
 
-        // Final validation to ensure boxes stay within bounds
-        validateCropBoxes("updateCropBoxes");
+        if (DEBUG) {
+            // Final validation to ensure boxes stay within bounds
+            validateCropBoxes("updateCropBoxes");
+        }
     }
 
     // Small tolerance value

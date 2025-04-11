@@ -477,12 +477,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const link = document.createElement('a');
-        const defaultName = imageNames[0].split('.').slice(0, -1).join('.') || 'combined_image';
+        const fileName = createCombinedFilename();
 
         // Get selected format and set appropriate extension
         const format = formatSelect.value;
         const extension = format === 'image/jpeg' ? 'jpg' : 'png';
-        link.download = `${defaultName}_combined.${extension}`;
+        link.download = `${fileName}.${extension}`;
 
         // For JPEG, use quality parameter; for PNG, don't specify quality
         if (format === 'image/jpeg') {
@@ -495,6 +495,67 @@ document.addEventListener('DOMContentLoaded', () => {
         link.click();
     }
 
+    function createCombinedFilename() {
+        // Extract base names - handle files without extensions
+        const baseName1 = imageNames[0].includes('.') ? 
+            imageNames[0].split('.').slice(0, -1).join('.') : 
+            imageNames[0];
+
+        const baseName2 = imageNames[1].includes('.') ? 
+            imageNames[1].split('.').slice(0, -1).join('.') : 
+            imageNames[1];
+
+    if (!baseName1) return 'combined_image';
+        
+        // Find the common part and separators
+        const commonPrefix = findCommonPrefix(baseName1, baseName2);
+        
+        // If we have no common prefix, just use the first name
+        if (!commonPrefix) return baseName1;
+        
+        // Extract the unique numerical or text suffixes
+        const suffix1 = baseName1.substring(commonPrefix.length).trim();
+        const suffix2 = baseName2.substring(commonPrefix.length).trim();
+        
+        // Remove any leading separators (_, -, etc) from suffixes
+        const cleanSuffix1 = suffix1.replace(/^[-_\s]+/, '');
+        const cleanSuffix2 = suffix2.replace(/^[-_\s]+/, '');
+        
+        // Create the combined name
+        const cleanPrefix = commonPrefix.replace(/[-_\s]+$/, ''); // Remove trailing separators
+        
+        return cleanSuffix2 ? `${cleanPrefix} - ${cleanSuffix1} & ${cleanSuffix2}` : baseName1;
+    }
+    
+    // Helper function to find the common prefix including any separator character
+    function findCommonPrefix(str1, str2) {
+        // Find the basic common characters
+        let i = 0;
+        while (i < str2.length && str1.charAt(i) === str2.charAt(i)) {
+            i++;
+        }
+        
+        // If we found a complete match or no match
+        if (i === 0 || i === str1.length) return str1.substring(0, i);
+        
+        // Look for the last separator before the divergence point
+        const commonPart = str1.substring(0, i);
+        
+        // Find the last occurrence of common separators
+        const lastSeparatorPos = Math.max(
+            commonPart.lastIndexOf('_'),
+            commonPart.lastIndexOf('-'),
+            commonPart.lastIndexOf(' ')
+        );
+        
+        // If we found a separator, use it as the split point
+        if (lastSeparatorPos !== -1) {
+            return str1.substring(0, lastSeparatorPos + 1); // Include the separator
+        }
+        
+        return commonPart;
+    }
+    
     function getLocalStorageItem(item, defaultVal) {
         try {
             let value = localStorage.getItem(item);
