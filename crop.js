@@ -1556,6 +1556,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isCropping) {
             // Calculate the scale ratio between old and new scale
             const scaleRatio = window.scale / currentScale;
+            const minSize = minCropSize / scaleRatio;
+
+            if (cropBoxes[LEFT].width < minSize || cropBoxes[RIGHT].width < minSize || cropBoxes[LEFT].height < minSize || cropBoxes[RIGHT].height < minSize) {
+                // disallow this as it violates the minCropSize constraint
+                return false;
+            }
 
             // Update current scale
             currentScale = window.scale;
@@ -1566,6 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Redraw with updated boxes
             drawCropInterface();
+            return true;
         }
 
         if (lastCropState) {

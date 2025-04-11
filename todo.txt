@@ -43,3 +43,4 @@ mincropsize = 4?
 sclae changes when not in crop mode
 
 May not want to update crop scale after fullscreen mode
+Update scale on return from crop?

@@ -287,11 +287,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateScale() {
         // Update to new scale
+        const oldScale = scale;
         const newScale = parseInt(this.value) / 100;
         setScale(newScale, maxScale);
 
         if (window.cropModule.isCropping()) {
-            window.cropModule.onScaleChange();
+            if (!window.cropModule.onScaleChange()) {
+                setScale(oldScale, maxScale);
+                window.cropModule.onScaleChange();
+            }
         } else {
             // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
             drawImages();
