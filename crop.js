@@ -322,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // make sure box dimensions are valid and the same
+    const minCropSize = HANDLE_SIZE * 4;
     function validateCropBoxes(msg) {
         // Get current image dimensions
         const oldCropBoxes = [ { ...cropBoxes[LEFT] },  { ...cropBoxes[RIGHT] } ];
@@ -331,17 +332,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const img2Height = window.images[1].height * currentScale;
         
         // Ensure left box stays within left image bounds
-        const minSize = handleSize * 3;
-        cropBoxes[LEFT].x = Math.max(0, Math.min(cropBoxes[LEFT].x, img1Width - minSize));
-        cropBoxes[LEFT].y = Math.max(0, Math.min(cropBoxes[LEFT].y, img1Height - minSize));
-        cropBoxes[LEFT].width = Math.max(minSize, Math.min(cropBoxes[LEFT].width, img1Width - cropBoxes[LEFT].x));
-        cropBoxes[LEFT].height = Math.max(minSize, Math.min(cropBoxes[LEFT].height, img1Height - cropBoxes[LEFT].y));
+        cropBoxes[LEFT].x = Math.max(0, Math.min(cropBoxes[LEFT].x, img1Width - minCropSize));
+        cropBoxes[LEFT].y = Math.max(0, Math.min(cropBoxes[LEFT].y, img1Height - minCropSize));
+        cropBoxes[LEFT].width = Math.max(minCropSize, Math.min(cropBoxes[LEFT].width, img1Width - cropBoxes[LEFT].x));
+        cropBoxes[LEFT].height = Math.max(minCropSize, Math.min(cropBoxes[LEFT].height, img1Height - cropBoxes[LEFT].y));
         
         // Ensure right box stays within right image bounds - relative to the right image's left edge
-        cropBoxes[RIGHT].x = Math.max(0, Math.min(cropBoxes[RIGHT].x, img2Width - minSize));
-        cropBoxes[RIGHT].y = Math.max(0, Math.min(cropBoxes[RIGHT].y, img2Height - minSize));
-        cropBoxes[RIGHT].width = Math.max(minSize, Math.min(cropBoxes[RIGHT].width, img2Width - cropBoxes[RIGHT].x));
-        cropBoxes[RIGHT].height = Math.max(minSize, Math.min(cropBoxes[RIGHT].height, img2Height - cropBoxes[RIGHT].y));
+        cropBoxes[RIGHT].x = Math.max(0, Math.min(cropBoxes[RIGHT].x, img2Width - minCropSize));
+        cropBoxes[RIGHT].y = Math.max(0, Math.min(cropBoxes[RIGHT].y, img2Height - minCropSize));
+        cropBoxes[RIGHT].width = Math.max(minCropSize, Math.min(cropBoxes[RIGHT].width, img2Width - cropBoxes[RIGHT].x));
+        cropBoxes[RIGHT].height = Math.max(minCropSize, Math.min(cropBoxes[RIGHT].height, img2Height - cropBoxes[RIGHT].y));
         
         // Enforce both crop boxes having the same height and width
         const minHeight = Math.min(cropBoxes[LEFT].height, cropBoxes[RIGHT].height);
@@ -550,6 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineWidth = 2;
         handleSize = HANDLE_SIZE;
         ctx.globalAlpha = 1.0;
+        // getHandle(rightImgStart, 0); // enable this to see touch points drawn
     }
 
     function drawCropBox(ctx, x1, y1, x2, y2) {
@@ -768,46 +769,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getHandleForBox(box, x, y, boxPos, xOffset = 0) {
         // Apply the offset for right box to get canvas coordinates
-        const xCanvas = box.x - box.xOffset + xOffset;
-        const yCanvas = box.y - box.yOffset;
-        const grabSize = box.width < handleSize * 6 || box.height < handleSize * 6 ? handleSize : handleSize * 2;
+        const desiredSize = handleSize * 3;
+        const grabSize = Math.min(desiredSize, (Math.min(box.width, box.height) + 2 * handleSize) / 3);
 
         // Handle positions
+        const xCanvas = box.x - box.xOffset + xOffset;
         const middlePosX = xCanvas + (box.width - grabSize) / 2;
+        const yCanvas = box.y - box.yOffset;
+        const topPosY = yCanvas - handleSize;
         const middlePosY = yCanvas + (box.height - grabSize) / 2;
-        const bottomPosY = yCanvas + box.height - grabSize;
+        const bottomPosY = yCanvas + box.height - grabSize + handleSize;
         let handlePositions;
         if (boxPos === LEFT) {
+            const leftPosX = xCanvas - handleSize;
             handlePositions = [
-                { id: TOP_LEFT, x: xCanvas, y: yCanvas },
-                { id: BOTTOM_LEFT, x: xCanvas, y: bottomPosY },
+                { id: TOP_LEFT, x: leftPosX, y: topPosY },
+                { id: BOTTOM_LEFT, x: leftPosX, y: bottomPosY },
                 // Side handles
-                { id: TOP_MIDDLE, x: middlePosX, y: yCanvas },
+                { id: TOP_MIDDLE, x: middlePosX, y: topPosY },
                 { id: BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
-                { id: LEFT_MIDDLE, x: xCanvas, y: middlePosY }
+                { id: LEFT_MIDDLE, x: leftPosX, y: middlePosY }
             ];
         } else {
-            const rightPosX = xCanvas + box.width - grabSize;
+            const rightPosX = xCanvas + box.width - grabSize + handleSize;
             handlePositions = [
-                { id: TOP_RIGHT, x: rightPosX, y: yCanvas },
+                { id: TOP_RIGHT, x: rightPosX, y: topPosY },
                 { id: BOTTOM_RIGHT, x: rightPosX, y: bottomPosY },
                 // Side handles
-                { id: TOP_MIDDLE, x: middlePosX, y: yCanvas },
+                { id: TOP_MIDDLE, x: middlePosX, y: topPosY },
                 { id: BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
                 { id: RIGHT_MIDDLE, x: rightPosX, y: middlePosY },
             ];
         }
-        
+
+        /*
+        const ctx = canvas.getContext('2d');
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#33ccff'
         for (const handle of handlePositions) {
             const hx = handle.x;
             const hy = handle.y;
-            
+            ctx.strokeRect(hx, hy, grabSize, grabSize);
+        }
+        */
+
+        for (const handle of handlePositions) {
+            const hx = handle.x;
+            const hy = handle.y;
+
             if (x >= hx && x <= hx + grabSize &&
                 y >= hy && y <= hy + grabSize) {
                 return handle.id;
             }
         }
-        
+
         // Check if inside the crop box for dragging
         if (x >= xCanvas && x <= xCanvas + box.width &&
             y >= yCanvas && y <= yCanvas + box.height) {
@@ -1229,13 +1244,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const epsilon = 0.001;
     // Helper function to check if a box is within bounds
     function isBoxInBounds(box, minX, maxWidth, maxHeight) {
-        const minSize = handleSize * 3;
         
         // Check all constraints
         if (box.x < minX - epsilon) return false;
         if (box.y < -epsilon) return false;
-        if (box.width < minSize - epsilon) return false;
-        if (box.height < minSize - epsilon) return false;
+        if (box.width < minCropSize - epsilon) return false;
+        if (box.height < minCropSize - epsilon) return false;
         if (box.x + box.width > minX + maxWidth + epsilon) return false;
         if (box.y + box.height > maxHeight + epsilon) return false;
         
@@ -1285,7 +1299,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resizeBox(box, handle, deltaX, deltaY, minX, maxWidth, maxHeight) {
-        const minSize = handleSize * 3;
         const boxAspectRatio = box.width / box.height;
         
         // Handle corner resize cases (maintains aspect ratio)
@@ -1319,7 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
         switch (handle) {
             case TOP_LEFT: {
                 // Adjust x position and width
-                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minSize));
+                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minCropSize));
                 const widthChange = box.x - newX;
                 box.x = newX;
                 box.width += widthChange;
@@ -1334,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case TOP_RIGHT: {
                 // Adjust width
-                box.width = Math.max(minSize, Math.min(box.width + deltaX, minX + maxWidth - box.x));
+                box.width = Math.max(minCropSize, Math.min(box.width + deltaX, minX + maxWidth - box.x));
                 
                 // Maintain aspect ratio
                 const newHeight = box.width / boxAspectRatio;
@@ -1346,7 +1359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case BOTTOM_LEFT: {
                 // Adjust x position and width
-                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minSize));
+                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minCropSize));
                 const widthChange = box.x - newX;
                 box.x = newX;
                 box.width += widthChange;
@@ -1358,7 +1371,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case BOTTOM_RIGHT: {
                 // Adjust width
-                box.width = Math.max(minSize, Math.min(box.width + deltaX, minX + maxWidth - box.x));
+                box.width = Math.max(minCropSize, Math.min(box.width + deltaX, minX + maxWidth - box.x));
                 
                 // Maintain aspect ratio
                 box.height = box.width / boxAspectRatio;
@@ -1367,7 +1380,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case TOP_MIDDLE: {
                 // Adjust y position and height - no aspect ratio
-                const newY = Math.max(0, Math.min(box.y + deltaY, box.y + box.height - minSize));
+                const newY = Math.max(0, Math.min(box.y + deltaY, box.y + box.height - minCropSize));
                 const heightChange = box.y - newY;
                 box.y = newY;
                 box.height += heightChange;
@@ -1376,19 +1389,19 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case RIGHT_MIDDLE: {
                 // Adjust width - no aspect ratio
-                box.width = Math.max(minSize, Math.min(box.width + deltaX, minX + maxWidth - box.x));
+                box.width = Math.max(minCropSize, Math.min(box.width + deltaX, minX + maxWidth - box.x));
                 break;
             }
             
             case BOTTOM_MIDDLE: {
                 // Adjust height - no aspect ratio
-                box.height = Math.max(minSize, Math.min(box.height + deltaY, maxHeight - box.y));
+                box.height = Math.max(minCropSize, Math.min(box.height + deltaY, maxHeight - box.y));
                 break;
             }
             
             case LEFT_MIDDLE: {
                 // Adjust x position and width - no aspect ratio
-                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minSize));
+                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minCropSize));
                 const widthChange = box.x - newX;
                 box.x = newX;
                 box.width += widthChange;

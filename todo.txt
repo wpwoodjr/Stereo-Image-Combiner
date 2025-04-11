@@ -36,5 +36,8 @@ should do  [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ]; more often?
 cursor not updating after mouseup - check places I removed the check
 check resize (phone when switching orientation was off)
 move checkboxes to left?
-make touch points bigger
 iPad left and right side of image not drawing corectly
+improve file naming scheme
+minCropSize is relative to crop box space, not image space.
+  So if you make the images largere via resize, you can crop tighter
+mincropsize = 4?
