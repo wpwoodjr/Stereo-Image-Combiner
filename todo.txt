@@ -40,6 +40,4 @@ minCropSize is relative to crop box space, not image space.
   So if you make the images largere via resize, you can crop tighter
 mincropsize = 4?
 
-crop apply change screen size swap crop
-
-move checkboxes
+crop apply resize swap crop

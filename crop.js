@@ -295,13 +295,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // If we have a previous crop state, restore those dimensions
         if (lastCropState) {
             // Set the crop boxes to state while last cropping
-            cropBoxes[LEFT] = { ...lastCropState.leftBox };
-            // The right box is now stored with coordinates relative to its image
-            cropBoxes[RIGHT] = { ...lastCropState.rightBox };
+            [ cropBoxes[LEFT], cropBoxes[RIGHT] ] = [ { ...lastCropState.boxes[LEFT] }, { ...lastCropState.boxes[RIGHT] } ];
 
-            // Swap now if a swap occurred while not cropping
+            // swap if necessary
             if (lastCropState.swapped) {
-                swapCropBoxes(currentParams.img1Width);
+                swapBoxes(cropBoxes, lastCropState.img2Width);
             }
 
             // see if scale needs to be reduced
@@ -534,7 +532,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Draw left crop box
         configureBoxStyle(ctx, movableBoxes[LEFT], glowParams);
-        // ctx.strokeRect(leftBox.x, leftBox.y, leftBox.width, leftBox.height);
         if (drawBoxesCheckbox.checked) {
             drawCropBox(ctx, leftBox.x + leftBox.width, leftBox.y - 1, leftBox.x - 1,
                 Math.min(canvas.height, leftBox.y + leftBox.height) + 1);
@@ -543,7 +540,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Draw right crop box
         configureBoxStyle(ctx, movableBoxes[RIGHT], glowParams);
-        // ctx.strokeRect(rightBox.x, rightBox.y, rightBox.width, rightBox.height);
         if (drawBoxesCheckbox.checked) {
             drawCropBox(ctx, rightBox.x, rightBox.y - 1,
                 Math.min(canvas.width, rightBox.x + rightBox.width) + 1,
@@ -1426,10 +1422,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Save the current crop state before applying
         // Now we store right box with coordinates relative to the right image
         lastCropState = {
-            leftBox: { ...cropBoxes[LEFT] },
-            rightBox: { ...cropBoxes[RIGHT] },
+            boxes: [ { ...cropBoxes[LEFT] }, { ...cropBoxes[RIGHT] } ],
             scale: currentScale,
-            swapped: false
+            scaleChanged: false,
+            swapped: false,
+            img2Width: currentParams.img2Width
         };
 
         // Calculate the crop in original image coordinates
@@ -1531,14 +1528,14 @@ document.addEventListener('DOMContentLoaded', () => {
             [tempCroppedImages[0], tempCroppedImages[1]] = [tempCroppedImages[1], tempCroppedImages[0]];
         }
 
-        // Maintain swapped state of lastCropState, in case user cancels this crop session
+        // Maintain swapped state of lastCropState
         if (lastCropState) {
             lastCropState.swapped = !lastCropState.swapped;
         }
 
         if (isCropping) {
             // Swap crop boxes with appropriate width calculations
-            swapCropBoxes(currentParams.img2Width);
+            swapBoxes(cropBoxes, currentParams.img2Width);
             drawCropInterface();
         } else {
             window.drawImages();
@@ -1546,11 +1543,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Modified to use relative coordinates
-    function swapCropBoxes(rightImgWidth) {
-        cropBoxes[RIGHT].xOffset += cropBoxes[RIGHT].width - rightImgWidth;
-        cropBoxes[LEFT].xOffset = cropBoxes[LEFT].x;
+    function swapBoxes(boxes, rightImgWidth) {
+        boxes[RIGHT].xOffset += boxes[RIGHT].width - rightImgWidth;
+        boxes[LEFT].xOffset = boxes[LEFT].x;
         // Swap the boxes
-        [cropBoxes[LEFT], cropBoxes[RIGHT]] = [cropBoxes[RIGHT], cropBoxes[LEFT]];
+        [boxes[LEFT], boxes[RIGHT]] = [boxes[RIGHT], boxes[LEFT]];
     }
 
     function onScaleChange() {
@@ -1567,12 +1564,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Redraw with updated boxes
             drawCropInterface();
-        } else if (lastCropState) {
-            // adjust the cropBoxes in lastCropState to the new scale
-            const scaleRatio = window.scale / lastCropState.scale;
-            adjustScale(lastCropState.leftBox, scaleRatio);
-            adjustScale(lastCropState.rightBox, scaleRatio);
-            lastCropState.scale = window.scale;
+        }
+
+        if (lastCropState) {
+            // indicate that optimal scale should be recalculated
+            lastCropState.scaleChanged = true;
         }
     }
 
