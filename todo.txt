@@ -34,10 +34,12 @@ gap should only be in area between crop boxes
 should do  [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ]; more often?
 cursor not updating after mouseup - check places I removed the check
 
-iPad left and right side of image not drawing corectly
-
 May not want to update crop scale after fullscreen mode
 
 Update scale on return from crop?
 
 tweakXY boxes in canvas mode units
+
+no handle boxes in geese on right side until draw top down a bit
+
+finecropwindow of 64 ok?

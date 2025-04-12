@@ -430,19 +430,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Draw the left image with offsets
         targetCtx.drawImage(
             images[0],
-            -xOffsets.left/renderScale, 0,          // Source position
-            images[0].width, images[0].height,      // Source dimensions
-            0, yOffsets.left,                       // Destination position with offsets
-            img1Width, img1Height                   // Destination dimensions
+            0, 0,                                                               // Source position
+            images[0].width - xOffsets.left / renderScale, images[0].height,    // Source dimensions
+            xOffsets.left, yOffsets.left,                                       // Destination position with offsets
+            img1Width - xOffsets.left, img1Height                               // Destination dimensions
         );
 
         // Normal drawing with right offset
+        const xFactor = xOffsets.right / renderScale;
         targetCtx.drawImage(
             images[1],
-            -xOffsets.right/renderScale, 0,         // Source position
-            images[1].width, images[1].height,      // Source dimensions
-            img1Width + renderGap, yOffsets.right,  // Destination position with offset
-            img2Width, img2Height                   // Destination dimensions
+            -xFactor, 0,                                    // Source position
+            images[1].width - xFactor, images[1].height,    // Source dimensions
+            img1Width + renderGap, yOffsets.right,          // Destination position with offset
+            img2Width - xOffsets.right, img2Height          // Destination dimensions
         );
 
         // Store the last render parameters for reference by crop module

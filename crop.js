@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // area within which the mouse will move slower for fine cropping
     let fineCropWindow = 0;
-    const FINE_CROP_WINDOW_PERCENTAGE = 0.04;
+    // const FINE_CROP_WINDOW_PERCENTAGE = 0.04;
     // Slowest speed for fine movement control
     const SLOWEST_SPEED = 0.20;
 
@@ -193,7 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
         xLatch = 0;
         yLatch = 0;
         movementAxis = NONE;
-        fineCropWindow = window.getViewPortWidth() * FINE_CROP_WINDOW_PERCENTAGE;
+        // fineCropWindow = window.getViewPortWidth() * FINE_CROP_WINDOW_PERCENTAGE;
+        fineCropWindow = 64;
         latchZoneSize = fineCropWindow * LATCH_ZONE_PERCENTAGE;
 
         // check if highlights should be shown and draw crop interface
@@ -902,7 +903,15 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
             movableBoxes = getMovableBoxes(currentHandle);
             drawCropInterface(highlights);
+            if (DEBUG && movementAxis === NONE) {
+                const ctx = canvas.getContext('2d');
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ff88ff'
+                ctx.strokeRect(x - totalDeltaX - latchZoneSize, y - totalDeltaY - latchZoneSize, latchZoneSize * 2, latchZoneSize * 2);
+                ctx.strokeStyle = '#4488ff'
+                ctx.strokeRect(x - totalDeltaX - fineCropWindow, y - totalDeltaY - fineCropWindow, fineCropWindow * 2, fineCropWindow * 2);
             }
+        }
         dragStartX = x;
         dragStartY = y;
     }
