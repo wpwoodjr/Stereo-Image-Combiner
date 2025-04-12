@@ -436,14 +436,14 @@ document.addEventListener('DOMContentLoaded', () => {
             img1Width - xOffsets.left, img1Height                               // Destination dimensions
         );
 
-        // Normal drawing with right offset
+        // Right image
         const xFactor = xOffsets.right / renderScale;
         targetCtx.drawImage(
             images[1],
             -xFactor, 0,                                    // Source position
-            images[1].width - xFactor, images[1].height,    // Source dimensions
+            images[1].width + xFactor, images[1].height,    // Source dimensions
             img1Width + renderGap, yOffsets.right,          // Destination position with offset
-            img2Width - xOffsets.right, img2Height          // Destination dimensions
+            img2Width + xOffsets.right, img2Height          // Destination dimensions
         );
 
         // Store the last render parameters for reference by crop module

@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { x: 0, y: 0, width: 0, height: 0, xOffset: 0, yOffset: 0 }
     ];
     const HANDLE_SIZE = 16;
+    const GRAB_SIZE = 3 * HANDLE_SIZE;
     let handleSize = HANDLE_SIZE;
     const minCropSizePixels = 64;
 
@@ -174,8 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SLOWEST_SPEED = 0.20;
 
     // area of fineCropWindow where only horizontal or vertical movement is allowed
-    let latchZoneSize = 0;
-    const LATCH_ZONE_PERCENTAGE = 0.30;
+    const latchZoneSize = GRAB_SIZE / 2;
 
     // optimization instead of checking currentHandle
     let reSizing = false;
@@ -195,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
         movementAxis = NONE;
         // fineCropWindow = window.getViewPortWidth() * FINE_CROP_WINDOW_PERCENTAGE;
         fineCropWindow = 64;
-        latchZoneSize = fineCropWindow * LATCH_ZONE_PERCENTAGE;
 
         // check if highlights should be shown and draw crop interface
         const wasMovable = movableBoxes;
@@ -774,8 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getHandleForBox(box, x, y, boxPos, xOffset = 0) {
         // Apply the offset for right box to get canvas coordinates
-        const desiredSize = handleSize * 3;
-        const grabSize = Math.min(desiredSize, (Math.min(box.width, box.height) + 2 * handleSize) / 3);
+        const grabSize = Math.min(GRAB_SIZE, (Math.min(box.width, box.height) + 2 * handleSize) / 3);
 
         // Handle positions
         const xCanvas = box.x - box.xOffset + xOffset;
@@ -903,7 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
             movableBoxes = getMovableBoxes(currentHandle);
             drawCropInterface(highlights);
-            if (DEBUG && movementAxis === NONE) {
+            if (DEBUG && movementAxis === NONE && !reSizing) {
                 const ctx = canvas.getContext('2d');
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = '#ff88ff'
