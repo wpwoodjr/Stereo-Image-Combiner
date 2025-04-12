@@ -2,44 +2,21 @@ timeouts on fullscreen??
 need fromFullScreenCanvas in case of ESC instead of pressing button
 need to updatemovableboxes on entering and exiting fullscreen mode.
 fullscreen on Firefox does weird things with moving the image down, does Chrome?
+May not want to update crop scale after fullscreen mode
 
-clean up code that checks clamp mode before allowing box to move
-
-clean up clamp stuff
-
-cursor changes on mobile?
+cursor changes on mobile? esp. with touch
 ^^^^^^^ try on chromebook
 desktop, crop / resize, mobile, desktop, cancel, crop - crop window too small
 ^^^^^^^ try on chromebook
 
-why do both boxes blink when moving both outside
-    // seems weird that only am setting axtiveCB in tweakXY
-    // mismatch happens after diag movement, returning to vert or horizontal in final analysis
+Update readme
 
-scroll bar moves header to left
+Hard to fix and maybe not worth it:
 
 Crop, since gap gets smaller on geese, scale size is too small, not optimal, can't even get it bigger with resize
 
+Gap should only be in area between crop boxes
 
-check touch mode
+scroll bar beside image moves header to left in Chrome
 
-
-Update readme
-
-** new version **
-  
-
-gap should only be in area between crop boxes
-
-should do  [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ]; more often?
-cursor not updating after mouseup - check places I removed the check
-
-May not want to update crop scale after fullscreen mode
-
-Update scale on return from crop?
-
-tweakXY boxes in canvas mode units
-
-no handle boxes in geese on right side until draw top down a bit
-
-finecropwindow of 64 ok?
+reducing 1 from full display scale moves right filename and fullscreen icon to the left

@@ -47,7 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const HANDLE_SIZE = 16;
     const GRAB_SIZE = 3 * HANDLE_SIZE;
     let handleSize = HANDLE_SIZE;
-    const minCropSizePixels = 64;
+
+    const MIN_CROP_SIZE_PERCENT = 1 / 16;
+    let minCropSizePixels = 0;
 
     // Original scale before any cropping
     let originalScale = 0;
@@ -206,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         xOffset = cropBoxes[activeCropBox].xOffset;
         yOffset = cropBoxes[activeCropBox].yOffset;
         drawCropInterface(movableBoxHighlights(wasMovable));
+        updateCursor(currentHandle);
     }
 
     function onTouchStart(e) {
@@ -237,6 +240,30 @@ document.addEventListener('DOMContentLoaded', () => {
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
         isDragging = false;
+        clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
+
+        // ensure that both images are not above or below the top of the canvas
+        let deltaYOffset = 0;
+        if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
+            // Both boxes are above the canvas - calculate adjustment to bring one down
+            deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
+        } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
+            // Both boxes are below the canvas top - calculate adjustment to bring one up
+            deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
+        }
+
+        // If we need to adjust offsets, animate the change
+        if (deltaYOffset !== 0) {
+            animateOffsetChange(deltaYOffset);
+        }
+
+        // Update cursor based on handle
+        [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+        updateCursor(currentHandle);
+        // check if highlights should be shown and draw crop interface
+        const wasMovable = movableBoxes;
+        movableBoxes = getMovableBoxes(currentHandle);
+        drawCropInterface(movableBoxHighlights(wasMovable));
     }
 
     function startCrop() {
@@ -266,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         isCropping = true;
         isDragging = false;
+        minCropSizePixels = Math.max(16, Math.round(Math.min(images[0].width, images[0].height, images[1].width, images[1].height) * MIN_CROP_SIZE_PERCENT));
 
         // Show crop controls
         cropButton.style.display = 'none';
@@ -877,8 +905,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function onMouseDown(e) {
         if (!isCropping) return;
         startDrag(e);
-
-        updateCursor(currentHandle);
     }
 
     function onMouseMove(e) {
@@ -901,6 +927,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
             movableBoxes = getMovableBoxes(currentHandle);
             drawCropInterface(highlights);
+
             if (DEBUG && movementAxis === NONE && !reSizing) {
                 const ctx = canvas.getContext('2d');
                 ctx.lineWidth = 2;
@@ -1007,9 +1034,8 @@ document.addEventListener('DOMContentLoaded', () => {
             isDragging = false;
             clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
-            // ensure that the images are not both above or below the top of the canvas
+            // ensure that both images are not above or below the top of the canvas
             let deltaYOffset = 0;
-            
             if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
                 // Both boxes are above the canvas - calculate adjustment to bring one down
                 deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
@@ -1849,6 +1875,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Set up for movement
             updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
 
+            // ensure that both images are not above or below the top of the canvas
             let deltaYOffset = 0;
             if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
                 // Both boxes are above the canvas - calculate adjustment to bring one down
