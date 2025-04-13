@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SLOWEST_SPEED = 0.20;
 
     // area of fineCropWindow where only horizontal or vertical movement is allowed
-    const latchZoneSize = GRAB_SIZE / 2;
+    const latchZoneSize = HANDLE_SIZE;
 
     // optimization instead of checking currentHandle
     let reSizing = false;
@@ -1682,7 +1682,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fullscreenButton.addEventListener('click', function() {
             toggleFullscreen(canvasContainer);
         });
-        
+
         // Fullscreen toggle function
         function toggleFullscreen(element) {
             if (!document.fullscreenElement && 
@@ -1690,6 +1690,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 !document.webkitFullscreenElement && 
                 !document.msFullscreenElement) {
                 // Enter fullscreen
+                // console.log("tfs");
                 if (element.requestFullscreen) {
                     element.requestFullscreen();
                 } else if (element.msRequestFullscreen) {
@@ -1699,13 +1700,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (element.webkitRequestFullscreen) {
                     element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
                 }
-                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
-                setTimeout(() => {
-                    // console.log("tfs");
-                    window.onResize();
-                }, 250);            
             } else {
                 // Exit fullscreen
+                // console.log("ffs");
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
                 } else if (document.msExitFullscreen) {
@@ -1715,21 +1712,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (document.webkitExitFullscreen) {
                     document.webkitExitFullscreen();
                 }
-                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
-                setTimeout(() => {
-                    // console.log("ffs");
-                    window.onResize();
-                }, 250);            
             }
         }
         
         // Listen for fullscreen change events to update button
-        document.addEventListener('fullscreenchange', updateFullscreenButton);
-        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
-        document.addEventListener('mozfullscreenchange', updateFullscreenButton);
-        document.addEventListener('MSFullscreenChange', updateFullscreenButton);
-        
-        function updateFullscreenButton() {
+        document.addEventListener('fullscreenchange', fullScreenChange);
+        document.addEventListener('webkitfullscreenchange', fullScreenChange);
+        document.addEventListener('mozfullscreenchange', fullScreenChange);
+        document.addEventListener('MSFullscreenChange', fullScreenChange);
+
+        function fullScreenChange() {
+            // console.log("uFSB:", document.fullscreenElement === null ? "ffs" : "tfs");
             if (document.fullscreenElement || 
                 document.webkitFullscreenElement || 
                 document.mozFullScreenElement || 
@@ -1740,6 +1733,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Not in fullscreen mode
                 fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
             }
+            setTimeout(() => {
+                window.onResize(null, "uFSB");
+            }, 250);
         }
         
         // Add fullscreen styles

@@ -1,8 +1,7 @@
-timeouts on fullscreen??
-need fromFullScreenCanvas in case of ESC instead of pressing button
 need to updatemovableboxes on entering and exiting fullscreen mode.
+  well how do onScaleChange and onSwap do it without calling movableboxes?
+
 fullscreen on Firefox does weird things with moving the image down, does Chrome?
-May not want to update crop scale after fullscreen mode
 
 cursor changes on mobile? esp. with touch
 ^^^^^^^ try on chromebook
@@ -11,7 +10,12 @@ desktop, crop / resize, mobile, desktop, cancel, crop - crop window too small
 
 Update readme
 
-Hard to fix and maybe not worth it:
+iOS may need to call onResize after a timeout, as documented in MB:
+    // ios is not always reporting correct width and height on orientation change
+    // use timeout to redo the resize after things have hopefully settled down
+
+
+Hard to fix and maybe not worth it (or both):
 
 Crop, since gap gets smaller on geese, scale size is too small, not optimal, can't even get it bigger with resize
 
@@ -20,3 +24,5 @@ Gap should only be in area between crop boxes
 scroll bar beside image moves header to left in Chrome
 
 reducing 1 from full display scale moves right filename and fullscreen icon to the left
+
+May want to revert scale after fullscreen mode

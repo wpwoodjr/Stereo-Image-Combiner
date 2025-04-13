@@ -184,8 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Window resize handler
     window.addEventListener('resize', onResize);
 
-    function onResize() {
+    function onResize(e, msg = "resize event") {
         if (images.length === 2) {
+            // console.log("onResize:", msg);
             const optimalScale = calculateOptimalScale(images[0], images[1]);
             setScale(optimalScale, optimalScale);
 
