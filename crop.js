@@ -48,13 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const GRAB_SIZE = 3 * HANDLE_SIZE;
     let handleSize = HANDLE_SIZE;
 
-    const MIN_CROP_SIZE_PERCENT = 1 / 16;
+    const MIN_CROP_SIZE_PERCENT = 1 / 8;
     let minCropSizePixels = 0;
 
     // Original scale before any cropping
-    let originalScale = 0;
+    let resetScalePercent = 0;
     // Scale prior to entering crop mode
-    let preCropScale = 0;
+    let preCropScalePercent = 0;
     
     // Track crop state
     let isDragging = false;
@@ -67,9 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentScale = 0.5; // Default 50%
     let currentParams = null;
     
+    let alignMode = false;
+
     // Cropbox names
     // LEFT must be 0, RIGHT must be 1
-    const [ LEFT, RIGHT ] = [ 0, 1 ];
+    const [ LEFT, RIGHT, BOTH ] = [ 0, 1, 2 ];
 
     // Cropbox handle names
     const [ TOP_LEFT, TOP_MIDDLE, TOP_RIGHT, LEFT_MIDDLE, RIGHT_MIDDLE, BOTTOM_LEFT, BOTTOM_MIDDLE, BOTTOM_RIGHT, INSIDE, OUTSIDE, TRANSLATION ] =
@@ -177,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SLOWEST_SPEED = 0.20;
 
     // area of fineCropWindow where only horizontal or vertical movement is allowed
-    const latchZoneSize = HANDLE_SIZE;
+    const latchZoneSize = HANDLE_SIZE / 2;
 
     // optimization instead of checking currentHandle
     let reSizing = false;
@@ -268,12 +270,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function startCrop() {
         // Store current scale before changing it
-        preCropScale = window.scale;
+        preCropScalePercent = window.scale / window.maxScale;
 
         // Store original images if not already stored
         if (!originalImages) {
             // Save original scale in case we reset the crop while not in crop mode
-            originalScale = preCropScale;
+            resetScalePercent = preCropScalePercent;
             originalImages = [
                 window.images[0].cloneNode(true),
                 window.images[1].cloneNode(true)
@@ -312,14 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 swapBoxes(cropBoxes, lastCropState.img2Width);
             }
 
-            // update scale
-            const maxScale = window.calculateOptimalScale(window.images[0], window.images[1]);
-            if (lastCropState.scaleChanged) {
-                // user resized the window, set new max scale for crop mode
-                window.setScale(maxScale, maxScale);
-            } else {
-                window.setScale(lastCropState.scale, maxScale);
-            }
+            // restore scale
+            updateScalePercent(lastCropState.scalePercent);
             // now we've got the scale
             currentScale = window.scale;
 
@@ -336,17 +332,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 validateCropBoxes("startCrop");
             }
         } else {
-            // initialize with max crop
             currentScale = window.scale;
             initCropBoxes();
         }
 
         // Draw crop interface
-        [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
         clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
-        updateCursor(currentHandle);
-        movableBoxes = getMovableBoxes(currentHandle);
-        drawCropInterface(movableBoxes);
+        if (alignMode) {
+            enterAlignMode();
+        } else {
+            [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+            updateCursor(currentHandle);
+            movableBoxes = getMovableBoxes(currentHandle);
+            drawCropInterface(movableBoxes);
+        }
+
     }
 
     // make sure box dimensions are valid and the same
@@ -458,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Get the background-color property
     const bodyBackgroundColor = bodyStyle.backgroundColor;
     // transparency of the image area outside of the cropboxes
-    const cropBoxOverlayOpacity = 0.65;
+    const CROP_BOX_OVERLAY_OPACITY = 0.65;
 
     // glow state variables
     let glowStartTime = 0;
@@ -473,6 +473,11 @@ document.addEventListener('DOMContentLoaded', () => {
             startGlowAnimation();
         }
         
+        if (alignMode) {
+            drawCropInterfaceAlignMode();
+            return;
+        }
+
         // Get the main canvas context
         const ctx = canvas.getContext('2d');
 
@@ -526,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Draw semi-transparent overlay for areas outside the crop boxes
-        ctx.globalAlpha = cropBoxOverlayOpacity;
+        ctx.globalAlpha = CROP_BOX_OVERLAY_OPACITY;
         ctx.fillStyle = bodyBackgroundColor;
 
         // Left image overlay
@@ -738,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     width: handleSize / 2, height: handleSize * 2,
                     corners: [ 0, cornerRadius, cornerRadius, 0 ] }
             ];
-        } else {
+        } else if (boxPos === RIGHT) {
             cornerHandlePositions = [
                 { id: TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
                 { id: BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
@@ -754,6 +759,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     width: handleSize / 2, height: handleSize * 2,
                     corners: [ cornerRadius, 0, 0, cornerRadius ] }
             ];
+        } else {
+            // align mode
+            cornerHandlePositions = [
+                { id: TOP_LEFT, x: box.x, y: box.y, start: 0 },
+                { id: BOTTOM_LEFT, x: box.x, y: box.y + box.height, start: 1.5 * Math.PI },
+                { id: TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
+                { id: BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
+            ];
+            sideHandlePositions = [
+                { id: TOP_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y,
+                    width: handleSize * 2, height: handleSize / 2,
+                    corners: [ 0, 0, cornerRadius, cornerRadius ] },
+                { id: BOTTOM_MIDDLE, x: box.x + box.width / 2 - handleSize, y: box.y + box.height - handleSize / 2,
+                    width: handleSize * 2, height: handleSize / 2,
+                    corners: [ cornerRadius, cornerRadius, 0, 0 ] },
+                { id: LEFT_MIDDLE, x: box.x, y: box.y + box.height / 2 - handleSize,
+                    width: handleSize / 2, height: handleSize * 2,
+                    corners: [ 0, cornerRadius, cornerRadius, 0 ] },
+                { id: RIGHT_MIDDLE, x: box.x + box.width - handleSize / 2, y: box.y + box.height / 2 - handleSize,
+                    width: handleSize / 2, height: handleSize * 2,
+                    corners: [ cornerRadius, 0, 0, cornerRadius ] }
+                ];
         }
     
         // Draw handles
@@ -780,20 +807,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getHandle(x, y) {
-        // Calculate right image starting position for handle detection
-        const rightImgStart = currentParams.img1Width + currentParams.renderGap;
-        
+        if (alignMode) {
+            const bothHandle = getHandleForBox(cropBoxes[RIGHT], x, y, BOTH, 0);
+            if (bothHandle !== null) {
+                return bothHandle.id === INSIDE ? [ INSIDE, LEFT ] : [ bothHandle.id, bothHandle.box ];
+            }
+            return [ OUTSIDE, LEFT ];
+        }
+
         // Check if the mouse is over any handle of the left crop box
         const leftHandle = getHandleForBox(cropBoxes[LEFT], x, y, LEFT, 0);
         if (leftHandle !== null) {
-            return [ leftHandle, LEFT ];
+            return [ leftHandle.id, LEFT ];
         }
         
         // Check if the mouse is over any handle of the right crop box
         // Pass the rightImgStart offset for the right box
+        const rightImgStart = currentParams.img1Width + currentParams.renderGap;
         const rightHandle = getHandleForBox(cropBoxes[RIGHT], x, y, RIGHT, rightImgStart);
         if (rightHandle !== null) {
-            return [ rightHandle, RIGHT ];
+            return [ rightHandle.id, RIGHT ];
         }
         
         return [ OUTSIDE, LEFT ];
@@ -804,9 +837,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const grabSize = Math.min(GRAB_SIZE, (Math.min(box.width, box.height) + 2 * handleSize) / 3);
 
         // Handle positions
-        const xCanvas = box.x - box.xOffset + xOffset;
+        const xCanvas = box.x - (boxPos === BOTH ? 0 : box.xOffset - xOffset);
         const middlePosX = xCanvas + (box.width - grabSize) / 2;
-        const yCanvas = box.y - box.yOffset;
+        const yCanvas = box.y - (boxPos === BOTH ? 0 : box.yOffset);
         const topPosY = yCanvas - handleSize;
         const middlePosY = yCanvas + (box.height - grabSize) / 2;
         const bottomPosY = yCanvas + box.height - grabSize + handleSize;
@@ -821,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
                 { id: LEFT_MIDDLE, x: leftPosX, y: middlePosY }
             ];
-        } else {
+        } else if (boxPos === RIGHT) {
             const rightPosX = xCanvas + box.width - grabSize + handleSize;
             handlePositions = [
                 { id: TOP_RIGHT, x: rightPosX, y: topPosY },
@@ -830,6 +863,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: TOP_MIDDLE, x: middlePosX, y: topPosY },
                 { id: BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
                 { id: RIGHT_MIDDLE, x: rightPosX, y: middlePosY },
+            ];
+        } else {
+            // alignMode, need to return correct box for handle
+            const leftPosX = xCanvas - handleSize;
+            const rightPosX = xCanvas + box.width - grabSize + handleSize;
+            handlePositions = [
+                { id: TOP_LEFT, x: leftPosX, y: topPosY, box: LEFT },
+                { id: BOTTOM_LEFT, x: leftPosX, y: bottomPosY, box: LEFT },
+                { id: TOP_RIGHT, x: rightPosX, y: topPosY, box: RIGHT },
+                { id: BOTTOM_RIGHT, x: rightPosX, y: bottomPosY, box: RIGHT },
+                // Side handles
+                { id: TOP_MIDDLE, x: middlePosX, y: topPosY, box: LEFT },
+                { id: BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY, box: LEFT },
+                { id: LEFT_MIDDLE, x: leftPosX, y: middlePosY, box: LEFT },
+                { id: RIGHT_MIDDLE, x: rightPosX, y: middlePosY, box: RIGHT }
             ];
         }
 
@@ -850,14 +898,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (x >= hx && x <= hx + grabSize &&
                 y >= hy && y <= hy + grabSize) {
-                return handle.id;
+                return { id: handle.id, box: handle.box };
             }
         }
 
         // Check if inside the crop box for dragging
         if (x >= xCanvas && x <= xCanvas + box.width &&
             y >= yCanvas && y <= yCanvas + box.height) {
-            return INSIDE;
+            return { id: INSIDE };
         }
 
         return null;
@@ -943,11 +991,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // tweak deltaX and deltaY for fine movement control and direction of translation
     function tweakXY(deltaX, deltaY) {
-        let highlights = [ false, false ];
-        if (reSizing) {
-            return [ deltaX, deltaY, highlights ];
-        }
-
         // Calculate total movement so far
         totalDeltaX += deltaX;
         totalDeltaY += deltaY;
@@ -969,6 +1012,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const speedFactor = Math.max(SLOWEST_SPEED, Math.min(1, totalDistanceEstimate / fineCropWindow));
         xMove = deltaX * speedFactor;
         yMove = deltaY * speedFactor;
+
+        // we're done here if resizing...
+        let highlights = [ false, false ];
+        if (reSizing) {
+            return [ xMove, yMove, highlights ];
+        }
 
         // update yMove and xMove based on direction of translation
         if (movementAxis === NONE) {
@@ -1133,7 +1182,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
             if (handle === INSIDE) {
                 // Check if the active box can move within current clamp constraints
-                if (activeCropBox === LEFT) {
+                // In align mode, movement is allowed if either cropbox can move
+                if (alignMode) {
+                    return [ leftCanMoveWithinClamp, rightCanMoveWithinClamp ];
+                } else if (activeCropBox === LEFT) {
                     return [ leftCanMoveWithinClamp, false ];
                 } else {
                     return [ false, rightCanMoveWithinClamp ];
@@ -1181,32 +1233,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const testActiveBox = { ...cropBoxes[activeBox] };
         
         if (handle === OUTSIDE) {
+            // In align mode, we're moving the crop boxes, not the image
+            if (alignMode) {
+                deltaX = -deltaX;
+                deltaY = -deltaY;
+            }
             // If moving both boxes, enforce limits of both boxes
             // Left box doesn't need an offset
             const activeResult = moveBox(testActiveBox, deltaX, deltaY, 
-                    0, // Min X - now always 0 for both boxes as they use relative coordinates
                     activeBox === LEFT ? img1Width : img2Width,
                     activeBox === LEFT ? img1Height : img2Height);
 
             // Now try moving the other box by the same actual deltas
             const otherResult = moveBox(cropBoxes[otherBox], activeResult.x, activeResult.y, 
-                    0,
                     otherBox === LEFT ? img1Width : img2Width,
                     otherBox === LEFT ? img1Height : img2Height);
 
             // Apply (possibly constrained) changes to activeBox
             moveBox(cropBoxes[activeBox], otherResult.x, otherResult.y, 
-                0,
                 activeBox === LEFT ? img1Width : img2Width,
                 activeBox === LEFT ? img1Height : img2Height);
 
         } else if (handle === INSIDE) {
             // Only move the active box
-            moveBox(cropBoxes[activeBox], deltaX, deltaY, 
-                    0,
+            const { x, y } =
+                moveBox(cropBoxes[activeBox], deltaX, deltaY, 
                     activeBox === LEFT ? img1Width : img2Width,
                     activeBox === LEFT ? img1Height : img2Height);
-
+            // in alignMode, move the other box when the active one can't move
+            if (alignMode) {
+                moveBox(cropBoxes[otherBox], x - deltaX, y - deltaY, 
+                    otherBox === LEFT ? img1Width : img2Width,
+                    otherBox === LEFT ? img1Height : img2Height);    
+            }
         } else {
             // Resize operation
             // Store the original dimensions
@@ -1217,7 +1276,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Simulate update on the test active box
             resizeBox(testActiveBox, handle, deltaX, deltaY, 
-                            0,
                             activeBox === LEFT ? img1Width : img2Width,
                             activeBox === LEFT ? img1Height : img2Height);
             
@@ -1257,10 +1315,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // Check if both test boxes would be valid after the resize
-            if (!isBoxInBounds(testActiveBox, 0, // Min X - now always 0
+            if (!isBoxInBounds(testActiveBox,
                               activeBox === LEFT ? img1Width : img2Width,
                               activeBox === LEFT ? img1Height : img2Height) ||
-                !isBoxInBounds(testOtherBox, 0,
+                !isBoxInBounds(testOtherBox,
                               otherBox === LEFT ? img1Width : img2Width,
                               otherBox === LEFT ? img1Height : img2Height)) {
                 // If either box would be out of bounds, don't allow the resize
@@ -1282,24 +1340,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Small tolerance value
     const epsilon = 0.001;
     // Helper function to check if a box is within bounds
-    function isBoxInBounds(box, minX, maxWidth, maxHeight) {
+    function isBoxInBounds(box, maxWidth, maxHeight) {
         const minCropSizeCanvas = minCropSizePixels * currentScale;
         
         // Check all constraints
-        if (box.x < minX - epsilon) return false;
+        if (box.x < -epsilon) return false;
         if (box.y < -epsilon) return false;
         if (box.width < minCropSizeCanvas - epsilon) return false;
         if (box.height < minCropSizeCanvas - epsilon) return false;
-        if (box.x + box.width > minX + maxWidth + epsilon) return false;
+        if (box.x + box.width > maxWidth + epsilon) return false;
         if (box.y + box.height > maxHeight + epsilon) return false;
         
         return true;
     }
 
-    function moveBox(box, deltaX, deltaY, minX, maxWidth, maxHeight) {
+    function moveBox(box, deltaX, deltaY, maxWidth, maxHeight) {
         // Calculate new position
-        const newX = Math.max(minX, Math.min(box.x - deltaX, minX + maxWidth - box.width));
-
+        const newX = Math.max(0, Math.min(box.x - deltaX, maxWidth - box.width));
         const newY = Math.max(0, Math.min(box.y - deltaY, maxHeight - box.height));
 
         // Calculate actual change applied
@@ -1319,8 +1376,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function canBoxMove(box, boxType) {
         // Determine if a box has any room to move in any direction
-        // minX is always 0 now since both boxes use coordinates relative to their images
-        const minX = 0;
         const maxWidth = boxType === LEFT ? 
                          window.images[0].width * currentScale : 
                          window.images[1].width * currentScale;
@@ -1329,8 +1384,8 @@ document.addEventListener('DOMContentLoaded', () => {
                           window.images[1].height * currentScale;
         
         // Check if there's room to move in any direction
-        const canMoveLeft = box.x > minX + epsilon;
-        const canMoveRight = box.x + box.width < minX + maxWidth - epsilon;
+        const canMoveLeft = box.x > epsilon;
+        const canMoveRight = box.x + box.width < maxWidth - epsilon;
         const canMoveUp = box.y > epsilon;
         const canMoveDown = box.y + box.height < maxHeight - epsilon;
         return {
@@ -1338,7 +1393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function resizeBox(box, handle, deltaX, deltaY, minX, maxWidth, maxHeight) {
+    function resizeBox(box, handle, deltaX, deltaY, maxWidth, maxHeight) {
         const minCropSizeCanvas = minCropSizePixels * currentScale;
         const boxAspectRatio = box.width / box.height;
         
@@ -1373,7 +1428,7 @@ document.addEventListener('DOMContentLoaded', () => {
         switch (handle) {
             case TOP_LEFT: {
                 // Adjust x position and width
-                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
+                const newX = Math.max(0, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
                 const widthChange = box.x - newX;
                 box.x = newX;
                 box.width += widthChange;
@@ -1388,7 +1443,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case TOP_RIGHT: {
                 // Adjust width
-                box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, minX + maxWidth - box.x));
+                box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, maxWidth - box.x));
                 
                 // Maintain aspect ratio
                 const newHeight = box.width / boxAspectRatio;
@@ -1400,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case BOTTOM_LEFT: {
                 // Adjust x position and width
-                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
+                const newX = Math.max(0, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
                 const widthChange = box.x - newX;
                 box.x = newX;
                 box.width += widthChange;
@@ -1412,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case BOTTOM_RIGHT: {
                 // Adjust width
-                box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, minX + maxWidth - box.x));
+                box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, maxWidth - box.x));
                 
                 // Maintain aspect ratio
                 box.height = box.width / boxAspectRatio;
@@ -1430,7 +1485,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case RIGHT_MIDDLE: {
                 // Adjust width - no aspect ratio
-                box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, minX + maxWidth - box.x));
+                box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, maxWidth - box.x));
                 break;
             }
             
@@ -1442,7 +1497,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             case LEFT_MIDDLE: {
                 // Adjust x position and width - no aspect ratio
-                const newX = Math.max(minX, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
+                const newX = Math.max(0, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
                 const widthChange = box.x - newX;
                 box.x = newX;
                 box.width += widthChange;
@@ -1452,12 +1507,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyCrop() {
+        // tidy up after align mode
+        alignModeRestorePreviousScalePercent();
+        // Exit crop mode
+        exitCrop();
+        window.isCropped = true;
+        resetCropButton.style.display = 'block';
+
         // Save the current crop state before applying
-        // Now we store right box with coordinates relative to the right image
         lastCropState = {
             boxes: [ { ...cropBoxes[LEFT] }, { ...cropBoxes[RIGHT] } ],
             scale: currentScale,
-            scaleChanged: false,
+            scalePercent: currentScale / window.maxScale,
             swapped: false,
             img2Width: currentParams.img2Width
         };
@@ -1507,12 +1568,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             newImg2.onload = function() {
                 window.images[1] = newImg2;
-                
-                // Exit crop mode
-                exitCrop();
-                restoreScale(preCropScale);
-                resetCropButton.style.display = 'block';
-
+                const scalePercent = getLocalStorageItem('croppedScalePercent', preCropScalePercent);
+                updateScalePercent(scalePercent);
                 // Redraw with cropped images
                 window.drawImages();
             };
@@ -1530,7 +1587,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         exitCrop();
-        restoreScale(preCropScale);
+        // resetScalePercent is kept up to date with latest uncroppedScalePercent
+        const scalePercent = window.isCropped ? preCropScalePercent : resetScalePercent;
+        updateScalePercent(scalePercent);
 
         // Redraw the images without crop overlay
         window.drawImages();
@@ -1547,10 +1606,11 @@ document.addEventListener('DOMContentLoaded', () => {
         window.saveButton.disabled = false;
     }
 
-    function restoreScale(scaleToBeRestored) {
-        // Calculate new maximum scale when returning from crop, in case image was cropped or user changed window size
-        const maxScale = window.calculateOptimalScale(window.images[0], window.images[1]);
-        window.setScale(scaleToBeRestored, maxScale);
+    function updateScalePercent(scalePercent) {
+        // Calculate maximum scale for current images
+        // console.log("scalePercent =", scalePercent);
+        const optimalScale = window.calculateMaxScale(window.images[0], window.images[1]);
+        window.setScalePercent(scalePercent, optimalScale);
     }
 
     function onSwap() {
@@ -1583,26 +1643,38 @@ document.addEventListener('DOMContentLoaded', () => {
         [boxes[LEFT], boxes[RIGHT]] = [boxes[RIGHT], boxes[LEFT]];
     }
 
-    function onScaleChange() {
-        if (isCropping) {
-            // Calculate the scale ratio between old and new scale
-            const scaleRatio = window.scale / currentScale;
-
-            // Update current scale
-            currentScale = window.scale;
-
-            // Adjust both crop boxes
-            adjustScale(cropBoxes[LEFT], scaleRatio);
-            adjustScale(cropBoxes[RIGHT], scaleRatio);
-
-            // Redraw with updated boxes
-            drawCropInterface();
+    function onScaleChange(scalePercent) {
+        // only gets called when isCropping
+        // set current scale
+        if (scalePercent !== 0) {
+            // new scale percent
+            if (alignMode) {
+                alignModeScalePercent = scalePercent;
+                window.setLocalStorageItem('alignModeScalePercent', scalePercent);
+            } else {
+                // keeping resetScalePercent up to date in case local storage is not working
+                resetScalePercent = scalePercent;
+                window.setLocalStorageItem('uncroppedScalePercent', scalePercent);
+            }
+            window.setScalePercent(scalePercent);
+        } else {
+            // just adjust to new max scale
+            const optimalScale = window.calculateMaxScale(window.images[0], window.images[1], alignMode);
+            window.setScalePercent(currentScale / window.maxScale, optimalScale);
         }
 
-        if (lastCropState) {
-            // indicate that optimal scale should be recalculated
-            lastCropState.scaleChanged = true;
-        }
+        // Calculate the scale ratio between old and new scale
+        const scaleRatio = window.scale / currentScale;
+
+        // Update current scale
+        currentScale = window.scale;
+
+        // Adjust both crop boxes
+        adjustScale(cropBoxes[LEFT], scaleRatio);
+        adjustScale(cropBoxes[RIGHT], scaleRatio);
+
+        // Redraw with updated boxes
+        drawCropInterface();
     }
 
     function adjustScale(box, scaleRatio) {
@@ -1618,17 +1690,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (originalImages) {
             exitCrop();
             resetCropButton.style.display = 'none';
+            window.isCropped = false;
 
             // Restore original images if images are currently being displayed
             if (window.images.length === 2) {
                 window.images[0] = originalImages[0].cloneNode(true);
                 window.images[1] = originalImages[1].cloneNode(true);
-                // reset scale to what it was before first crop
-                restoreScale(originalScale);
+                // reset scale to uncropped
+                updateScalePercent(resetScalePercent);
                 // Redraw with original images
                 window.drawImages();
+            } else {
+                // reset scale to uncropped
+                window.setScalePercent(resetScalePercent);
             }
-            
+
             // Reset original images array and last crop state
             originalImages = null;
             lastCropState = null;
@@ -1796,7 +1872,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentHandle === OUTSIDE) {
             currentHandle = INSIDE;
             activeCropBox = LEFT;
-        } else if (activeCropBox === LEFT) {
+        } else if (activeCropBox === LEFT && !alignMode) {
             activeCropBox = RIGHT;
         } else {
             currentHandle = OUTSIDE;
@@ -1831,6 +1907,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Handle arrow keys
         switch (e.key) {
+            case 'a':
+                toggleAlignMode();
+                e.preventDefault();
+                return;
             case 'ArrowLeft':
                 deltaX = -1 * arrowKeyMultiplier;
                 e.preventDefault();
@@ -1856,7 +1936,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 movableBoxes = nextTab();
                 if (!movableBoxes[LEFT] && !movableBoxes[RIGHT]) {
                     movableBoxes = nextTab();
-                    if (!movableBoxes[LEFT] && !movableBoxes[RIGHT]) {
+                    if (!alignMode && !movableBoxes[LEFT] && !movableBoxes[RIGHT]) {
                         movableBoxes = nextTab();
                     }
                 }
@@ -1865,7 +1945,7 @@ document.addEventListener('DOMContentLoaded', () => {
             default:
                 return; // Ignore other keys
         }
-        
+    
         // If we have movement, apply it
         if (deltaX !== 0 || deltaY !== 0) {
             // Set up for movement
@@ -1899,6 +1979,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addCheckboxControls() {
+        // Create the align mode checkbox
+        const alignCheckbox = document.createElement('input');
+        alignCheckbox.type = 'checkbox';
+        alignCheckbox.id = 'alignCheckbox';
+        
+        // Create the align label
+        const alignLabel = document.createElement('label');
+        alignLabel.htmlFor = 'alignCheckbox';
+        alignLabel.textContent = 'Align Mode (a)';
+        
+        // Create wrapper div for first checkbox and label
+        const alignWrapper = document.createElement('div');
+        alignWrapper.className = 'control-row';
+        alignWrapper.style.marginBottom = '10px';
+        alignWrapper.appendChild(alignCheckbox);
+        alignWrapper.appendChild(alignLabel);
+        
         // Create the clamp checkbox (horizontal only)
         const clampCheckbox = document.createElement('input');
         clampCheckbox.type = 'checkbox';
@@ -1909,7 +2006,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clampLabel.htmlFor = 'horizontalClampCheckbox';
         clampLabel.textContent = 'Horizontal Only';
         
-        // Create wrapper div for first checkbox and label
+        // Create wrapper div for checkbox and label
         const clampWrapper = document.createElement('div');
         clampWrapper.className = 'control-row';
         clampWrapper.style.marginBottom = '10px';
@@ -1926,16 +2023,20 @@ document.addEventListener('DOMContentLoaded', () => {
         drawBoxesLabel.htmlFor = 'drawBoxesCheckbox';
         drawBoxesLabel.textContent = 'Draw Boxes';
         
-        // Create wrapper div for second checkbox and label
+        // Create wrapper div for checkbox and label
         const drawBoxesWrapper = document.createElement('div');
         drawBoxesWrapper.className = 'control-row';
         drawBoxesWrapper.appendChild(drawBoxesCheckbox);
         drawBoxesWrapper.appendChild(drawBoxesLabel);
         
         // Add to control group in left panel
+        cropOptionsControlGroup.appendChild(alignWrapper);
         cropOptionsControlGroup.appendChild(clampWrapper);
         cropOptionsControlGroup.appendChild(drawBoxesWrapper);
-        
+
+        // Add event listener for align checkbox change
+        alignCheckbox.addEventListener('change', toggleAlignMode);
+
         // Add event listener for clamp checkbox change
         clampCheckbox.addEventListener('change', function() {
             window.setLocalStorageItem('clampCheckBox', this.checked);
@@ -1951,8 +2052,10 @@ document.addEventListener('DOMContentLoaded', () => {
             window.setLocalStorageItem('drawCropBoxes', this.checked);
             drawCropInterface();
         });
-    
+
         // Initialize from local storage with default values
+        alignCheckbox.checked = window.getLocalStorageItem('alignCheckBox', false);
+        alignMode = alignCheckbox.checked;
         clampCheckbox.checked = window.getLocalStorageItem('clampCheckBox', false);
         drawBoxesCheckbox.checked = window.getLocalStorageItem('drawCropBoxes', true);
         
@@ -1969,6 +2072,193 @@ document.addEventListener('DOMContentLoaded', () => {
     cropOptionsControlGroup.style.display = 'none'; // Initially hidden
     controls.appendChild(cropOptionsControlGroup);
     addCheckboxControls();
+
+
+    // code implementing align mode
+    let alignModeSavePreviousScalePercent = 0;
+    let alignModeScalePercent = 0;
+    let alignModeCropRatio = 0;
+
+    function enterAlignMode() {
+        alignMode = true;
+        window.setLocalStorageItem('alignCheckBox', true);
+        alignCheckbox.checked = true;
+        alignModeCropRatio = cropBoxes[LEFT].width / cropBoxes[LEFT].height;
+
+        alignModeSavePreviousScalePercent = currentScale / window.maxScale;
+        if (alignModeScalePercent === 0) {
+            alignModeScalePercent = window.getLocalStorageItem('alignModeScalePercent', alignModeSavePreviousScalePercent);
+        }
+        // we are displaying overlaid images so get the new max scale
+        const optimalScale = window.calculateMaxScale(window.images[0], window.images[1], true);
+        window.setScalePercent(alignModeScalePercent, optimalScale);
+
+        // Adjust both crop boxes
+        const scaleRatio = window.scale / currentScale;
+        adjustScale(cropBoxes[LEFT], scaleRatio);
+        adjustScale(cropBoxes[RIGHT], scaleRatio);
+        currentScale = window.scale;
+
+        [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+        updateCursor(currentHandle);
+        movableBoxes = getMovableBoxes(currentHandle);
+        drawCropInterface(movableBoxes);
+    }
+
+    function exitAlignMode() {
+        alignModeRestorePreviousScalePercent();
+        alignMode = false;
+        window.setLocalStorageItem('alignCheckBox', false);
+        alignCheckbox.checked = false;
+
+        [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+        updateCursor(currentHandle);
+        movableBoxes = getMovableBoxes(currentHandle);
+        drawCropInterface(movableBoxes);
+    }
+
+    function toggleAlignMode() {
+        if (alignMode) {
+            exitAlignMode();
+        } else {
+            enterAlignMode();
+        }
+    }
+
+    function alignModeRestorePreviousScalePercent() {
+        if (alignMode) {
+            updateScalePercent(alignModeSavePreviousScalePercent);
+            // Adjust both crop boxes
+            const scaleRatio = window.scale / currentScale;
+            adjustScale(cropBoxes[LEFT], scaleRatio);
+            adjustScale(cropBoxes[RIGHT], scaleRatio);
+            currentScale = window.scale;
+        }
+    }
+
+    function fixCropAfterAlignMode() {
+        if (DEBUG) {
+            if (Math.abs(cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset)) > epsilon) {
+                console.log("y doesn't match:", cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset), cropBoxes);
+            }
+        }
+        let deltaYOffset = 0;
+        if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
+            // Both boxes are above the canvas - calculate adjustment to bring one down
+            deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
+        } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
+            // Both boxes are below the canvas top - calculate adjustment to bring one up
+            deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
+        }
+        cropBoxes[LEFT].yOffset -= deltaYOffset;
+        cropBoxes[RIGHT].yOffset -= deltaYOffset;
+    }
+
+    function drawCropInterfaceAlignMode() {        
+        // Draw images with both x and y offsets
+        currentParams = drawImagesAlignMode();
+
+        // update box locations
+        fixCropAfterAlignMode();
+
+        // draw handles etc
+        drawCropBoxesAlignMode();
+    }
+
+    function drawCropBoxesAlignMode() {
+        // Get the main canvas context
+        const ctx = canvas.getContext('2d');
+
+        // draw with right box because left box moves relative to right
+        const box = cropBoxes[RIGHT];
+
+        // Draw semi-transparent overlay for areas outside the crop box
+        ctx.globalAlpha = CROP_BOX_OVERLAY_OPACITY;
+        ctx.fillStyle = bodyBackgroundColor;
+
+        ctx.fillRect(0, 0, box.x, canvas.height);
+        ctx.fillRect(box.x, 0, canvas.width - box.x, box.y);
+        ctx.fillRect(box.x + box.width, box.y, canvas.width - (box.x + box.width), canvas.height - box.y);
+        ctx.fillRect(box.x, box.y + box.height, box.width, canvas.height - (box.y + box.height));
+
+        ctx.globalAlpha = 1.0;
+
+        // draw the box (optionally) and handles
+        const glowParams = glowParameters();
+        configureBoxStyle(ctx, movableBoxes[LEFT] || movableBoxes[RIGHT], glowParams);
+
+        if (drawBoxesCheckbox.checked) {
+            ctx.strokeRect(box.x - 1, box.y - 1, box.width + 2, box.height + 2);
+        }
+
+        drawHandles(ctx, box, BOTH);
+
+        // Reset to defaults
+        // ctx.shadowBlur = 0;
+        ctx.lineWidth = 2;
+        handleSize = HANDLE_SIZE;
+        ctx.globalAlpha = 1.0;
+
+        if (DEBUG) {
+            // draw the touch points
+            getHandle(0, 0);
+        }
+    }
+
+    function drawImagesAlignMode() {
+        if (images.length !== 2) return null;
+
+        // Get the main canvas context
+        const ctx = canvas.getContext('2d');
+
+        // Calculate dimensions
+        const img1Width = images[0].width * currentScale;
+        const img2Width = images[1].width * currentScale;
+        const totalWidth = Math.max(img1Width, img2Width);
+        
+        const img1Height = images[0].height * currentScale;
+        const img2Height = images[1].height * currentScale;
+        const maxHeight = Math.max(img1Height, img2Height);
+
+        // Set canvas dimensions
+        canvas.width = totalWidth;
+        canvas.height = maxHeight;
+
+        // Clear the canvas
+        ctx.clearRect(0, 0, totalWidth, maxHeight);
+
+        // Draw the right image
+        ctx.drawImage(
+            images[1],
+            0, 0,                                   // Source position
+            images[1].width, images[1].height,      // Source dimensions
+            0, 0,                                   // Destination position
+            img2Width, img2Height                   // Destination dimensions
+        );
+
+        const xOffset = (cropBoxes[RIGHT].x - cropBoxes[LEFT].x);
+        const yOffset = (cropBoxes[RIGHT].y - cropBoxes[LEFT].y);
+
+        ctx.globalAlpha = 0.40;
+        // Draw the left image
+        ctx.drawImage(
+            images[0],
+            0, 0,                                   // Source position
+            images[0].width, images[0].height,      // Source dimensions
+            xOffset, yOffset,                       // Destination position with offsets
+            img1Width, img1Height                   // Destination dimensions
+        );
+        ctx.globalAlpha = 1;
+
+        // Store the last render parameters for reference by crop module
+        lastRenderParams = {
+            img1Width,
+            img2Width,
+        };
+        
+        // Return parameters used for rendering (useful for saving)
+        return lastRenderParams;
+    }
 
 // Expose functions to global scope and the isCropping flag
     window.cropModule = {

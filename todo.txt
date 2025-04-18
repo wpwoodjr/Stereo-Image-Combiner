@@ -1,21 +1,71 @@
+Update readme
+
+somehow got to state where left cropbox was below right cropbox... start in a mode, shake both images in align mode sometimes does it.
+  may have to do with y height correction
+  tab with arrow down when moving left cropbox does it
+related? unnecessary?
+        // prevent cropbox handles from being hidden when images are cut off at the top
+related? check fixCropAfterAlignMode
+
+========== Maybe later ==========
+only look at some mouse movements to decrease CPU?
+
+review alignMode code, esp fixcrop and drawing routines (need 3?)
+
+move other box in side by side mode, like in align mode?
+
+*Fullscreen*
+f for FS interface?
+fullscreen on Firefox does weird things with moving the image down, does Chrome?
+fs generally takes scalePercent from current mode, should it just be full screen at 100% scale?
 need to updatemovableboxes on entering and exiting fullscreen mode.
   well how do onScaleChange and onSwap do it without calling movableboxes?
 
-fullscreen on Firefox does weird things with moving the image down, does Chrome?
+lines on shadow, maybe due to off by one issue?  timing?
+
+want slow movement on resize handles?
+
+duplicate tab in a mode or after a crop, display scale is from a mode or cropped scale, eg 72 instead of 100
+
+iOS may need to call onResize after a timeout, as documented in MB:
+    // ios is not always reporting correct width and height on orientation change
+    // use timeout to redo the resize after things have hopefully settled down
 
 cursor changes on mobile? esp. with touch
 ^^^^^^^ try on chromebook
 desktop, crop / resize, mobile, desktop, cancel, crop - crop window too small
 ^^^^^^^ try on chromebook
 
-Update readme
+*Align Mode*
+need better indicators of what will move in align mode, esp arrow mode
+  for instance the transparency isn't a clear indicator
+  in arrow mode you have no idea
 
-iOS may need to call onResize after a timeout, as documented in MB:
-    // ios is not always reporting correct width and height on orientation change
-    // use timeout to redo the resize after things have hopefully settled down
+check fs and align mode
+
+swap needs to tell alignMode because wrong image is being moved - seems ok now?
+
+applyCrop probably doesn't have to call alignModeRestorePreviousScalePercent, except that when re-cropping, startCrop calls
+  enterAlignMode, the previous scale is remembered incorrectly as the previous alignMode scale, so switching to side-by-side mode is using the alignMode scale
+  
+On the first crop, enterAlignMode captures the previous scale as the uncropped scale; so when switching to side by side mode, this is actually
+  perchance OK because side by side mode also uses the uncropped scale.
+
+need this?
+        // prevent cropbox handles from being hidden when images are cut off at the top
+        const leftY = cropBoxes[LEFT].y;
+        let leftYOffset = cropBoxes[LEFT].yOffset;
+        const rightY = cropBoxes[RIGHT].y;
+        let rightYOffset = cropBoxes[RIGHT].yOffset;
+        if (leftYOffset > leftY) {
+            rightYOffset -= leftYOffset - leftY;
+            leftYOffset = leftY;
+            cropBoxes[LEFT].yOffset = leftYOffset;
+            cropBoxes[RIGHT].yOffset = rightYOffset;
+        }
 
 
-Hard to fix and maybe not worth it (or both):
+========== Hard to fix and maybe not worth it (or both) ==========
 
 Crop, since gap gets smaller on geese, scale size is too small, not optimal, can't even get it bigger with resize
 
@@ -26,3 +76,5 @@ scroll bar beside image moves header to left in Chrome
 reducing 1 from full display scale moves right filename and fullscreen icon to the left
 
 May want to revert scale after fullscreen mode
+
+Add 1/3 crop lines in align mode

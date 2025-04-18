@@ -2,6 +2,8 @@
 var images = [];
 var scale;
 var saveButton;
+var maxScale;
+var isCropped;
 
 // main script 
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const qualityContainer = document.getElementById('qualityContainer');
 
     // Default values
-    const DEFAULT_SCALE = 50;
+    const DEFAULT_SCALE = 100;
     const DEFAULT_GAP_PERCENT = 7.5; // Gap as percentage (7.5%)
     const DEFAULT_COLOR = '#000000';
     const DEFAULT_FORMAT = 'image/jpeg';
@@ -40,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let imageNames = [];
     let gapColor = DEFAULT_COLOR;
     let gapPercent = DEFAULT_GAP_PERCENT;
-    let maxScale = 1;
 
     // dropzone message
     let dropzoneMessageText = "Drag and drop two images here or click to browse"
@@ -141,8 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetControlsToDefaults() {
         // Reset scale
-        setScale(DEFAULT_SCALE / 100, 1);
-        
+        const uncroppedScalePercent = getLocalStorageItem('uncroppedScalePercent', DEFAULT_SCALE);
+        setScalePercent(uncroppedScalePercent, 1);
+        isCropped = false;
+
         // Reset gap
         gapPercent = getLocalStorageItem('gapPercent', DEFAULT_GAP_PERCENT);
         gapSlider.value = gapPercent * 10;
@@ -187,12 +190,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function onResize(e, msg = "resize event") {
         if (images.length === 2) {
             // console.log("onResize:", msg);
-            const optimalScale = calculateOptimalScale(images[0], images[1]);
-            setScale(optimalScale, optimalScale);
-
-            // alert crop interface that user changed the window size
-            window.cropModule.onScaleChange();
-            if (! window.cropModule.isCropping()) {
+            if (window.cropModule.isCropping()) {
+                // alert crop interface that user changed the window size
+                window.cropModule.onScaleChange(0);
+            } else {
+                const optimalScale = calculateMaxScale(images[0], images[1]);
+                setScalePercent(scale / maxScale, optimalScale);
                 // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
                 drawImages();
             }
@@ -235,8 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateImageNames();
 
                         // Calculate and set optimal scale
-                        const optimalScale = calculateOptimalScale(images[0], images[1]);
-                        setScale(optimalScale, optimalScale);
+                        const optimalScale = calculateMaxScale(images[0], images[1]);
+                        setScalePercent(scale / maxScale, optimalScale);
 
                         // draw the images
                         drawImages();
@@ -268,13 +271,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Calculate the optimal scale
-    function calculateOptimalScale(img1, img2) {
+    function calculateMaxScale(img1, img2, overlaid = false) {
         // get image area
         const viewportWidth = getViewPortWidth();
 
-        // Calculate total width at 100% scale (using the current pixel gap)
-        const gapWidthAt100 = pixelGap(img1, img2);
-        const totalWidthAt100 = img1.width + img2.width + gapWidthAt100;
+        let totalWidthAt100;
+        if (!overlaid) {
+            // Calculate total width at 100% scale (using the current pixel gap)
+            const gapWidthAt100 = pixelGap(img1, img2);
+            totalWidthAt100 = img1.width + img2.width + gapWidthAt100;
+        } else {
+            // get the max image width
+            totalWidthAt100 = Math.max(img1.width, img2.width);
+        }
 
         // Calculate larger height of the two images
         const imageHeight = Math.max(img1.height, img2.height);
@@ -289,22 +298,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateScale() {
         // Update to new scale
-        const newScale = parseInt(this.value) / 100;
-        setScale(newScale, maxScale);
+        const newScalePercent = parseInt(this.value) / 100;
 
         if (window.cropModule.isCropping()) {
-            window.cropModule.onScaleChange();
+            window.cropModule.onScaleChange(newScalePercent);
         } else {
+            setScalePercent(newScalePercent);
+            if (isCropped) {
+                setLocalStorageItem('croppedScalePercent', newScalePercent);
+            } else {
+                setLocalStorageItem('uncroppedScalePercent', newScalePercent);
+            }
             // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
             drawImages();
         }
     }
 
-    function setScale(newScale, newMaxScale) {
-        scale = Math.min(newScale, newMaxScale);
+    function setScalePercent(scalePercent, newMaxScale = maxScale) {
+        scale = Math.min(scalePercent * newMaxScale, newMaxScale);
         maxScale = newMaxScale;
-        scaleSlider.max = Math.max(1, Math.round(maxScale * 100));
-        const displayScale = Math.round(scale * 100);
+        const displayScale = Math.round(scale / maxScale * 100);
         scaleSlider.value = displayScale;
         scaleValue.textContent = `${displayScale}%`;
     }
@@ -320,24 +333,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (images.length !== 2) return;
 
-        // check if max scale needs to be reduced because of new gap
-        const optimalScale = calculateOptimalScale(images[0], images[1]);
-        if (optimalScale < scale) {
-            // redraw at smaller scale with new gap
-            setScale(optimalScale, optimalScale);
-            if (window.cropModule.isCropping()) {
-                window.cropModule.onScaleChange();
-            } else {
-                drawImages();
-            }
+        if (window.cropModule.isCropping()) {
+            // alert crop interface that max scale has changed
+            window.cropModule.onScaleChange(0);
         } else {
-            // just set new max scale and redraw with new gap
-            setScale(scale, optimalScale);
-            if (window.cropModule.isCropping()) {
-                window.cropModule.drawCropInterface();
-            } else {
-                drawImages();
-            }
+            const optimalScale = calculateMaxScale(images[0], images[1]);
+            setScalePercent(scale / maxScale, optimalScale);
+            // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
+            drawImages();
         }
     }
 
@@ -586,18 +589,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function getLocalStorageItem(item, defaultVal) {
+        // return(defaultVal);
         try {
             let value = localStorage.getItem(item);
-            // console.log(item, value, typeof value, defaultVal, typeof defaultVal);
+            // console.log('getLocalStorageItem:', item, value, typeof value, defaultVal, typeof defaultVal);
             if (value === null) {
                 return defaultVal;
             } else if (typeof defaultVal === "number" ) {
                 value = parseFloat(value);
-                if (isFinite(value)) {
-                    return value;
-                } else {
-                    return defaultVal;
-                }
+                return isFinite(value) ? value : defaultVal;
             } else if (typeof defaultVal === "boolean" ) {
                 return value === "true" ? true : false;
             } else {
@@ -611,17 +611,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setLocalStorageItem(item, value) {
         try {
-            // console.log(item, value);
+            // console.log('setLocalStorageItem:', item, value);
             localStorage.setItem(item, value);
+            return true;
         }
         catch(e) {
+            return false;
         }
     }
     
     // Expose necessary variables and functions to the window object for crop.js
     window.drawImages = drawImages;
-    window.setScale = setScale;
-    window.calculateOptimalScale = calculateOptimalScale;
+    window.setScalePercent = setScalePercent;
+    window.calculateMaxScale = calculateMaxScale;
     window.updateSwap = updateSwap;
     window.onResize = onResize;
     window.getViewPortWidth = getViewPortWidth;
