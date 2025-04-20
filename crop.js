@@ -311,7 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // swap if necessary
             if (lastCropState.swapped) {
-                swapBoxes(cropBoxes, lastCropState.img2Width);
+                const img2Width = images[1].width * lastCropState.scale;
+                swapBoxes(cropBoxes, img2Width);
             }
 
             // restore scale
@@ -1635,12 +1636,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Modified to use relative coordinates
+    // swap the crop boxes and set offsets
     function swapBoxes(boxes, rightImgWidth) {
-        boxes[RIGHT].xOffset += boxes[RIGHT].width - rightImgWidth;
-        boxes[LEFT].xOffset = boxes[LEFT].x;
         // Swap the boxes
-        [boxes[LEFT], boxes[RIGHT]] = [boxes[RIGHT], boxes[LEFT]];
+        [ boxes[LEFT], boxes[RIGHT] ] = [ boxes[RIGHT], boxes[LEFT] ];
+        boxes[LEFT].xOffset = boxes[LEFT].x + boxes[LEFT].width - rightImgWidth;
+        boxes[RIGHT].xOffset = boxes[RIGHT].x;
     }
 
     function onScaleChange(scalePercent) {

@@ -1,6 +1,15 @@
 Update readme
 
-When shrinking display scale, center image.  have a "view" mode which darkens? or auto-darken?
+got into situation where xOffset on left was -115 but width was full image width.  x,y,yOffset all 0. swap fixed it
+  crop, a mode move box to right, apply, swap, crop, side by side mode
+  if go into sbs mode before apply, everything is fine
+  img2width is wrong in a mode
+
+need to maintain xOffset or just calc it when drawing?
+
+need currentParams? 
+
+remove im2width from lastcropstate
 
 somehow got to state where left cropbox was below right cropbox... start in a mode, shake both images in align mode sometimes does it.
   may have to do with y height correction
