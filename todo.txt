@@ -1,5 +1,7 @@
 Update readme
 
+When shrinking display scale, center image.  have a "view" mode which darkens? or auto-darken?
+
 somehow got to state where left cropbox was below right cropbox... start in a mode, shake both images in align mode sometimes does it.
   may have to do with y height correction
   tab with arrow down when moving left cropbox does it
