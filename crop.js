@@ -41,8 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let tempCroppedImages = null; // Store temporarily during crop operations
     let lastCropState = null;
     let cropBoxes = [
-        { x: 0, y: 0, width: 0, height: 0, xOffset: 0, yOffset: 0 },
-        { x: 0, y: 0, width: 0, height: 0, xOffset: 0, yOffset: 0 }
+        { x: 0, y: 0, width: 0, height: 0, yOffset: 0 },
+        { x: 0, y: 0, width: 0, height: 0, yOffset: 0 }
     ];
     const HANDLE_SIZE = 16;
     const GRAB_SIZE = 3 * HANDLE_SIZE;
@@ -164,7 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let totalDeltaY = 0;
     let xStart = 0;
     let yStart = 0;
-    let xOffset = 0;
     let yOffset = 0;
     let xLatch = 0;
     let yLatch = 0;
@@ -207,7 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
         reSizing = currentHandle !== INSIDE && currentHandle !== OUTSIDE;
         xStart = cropBoxes[activeCropBox].x;
         yStart = cropBoxes[activeCropBox].y;
-        xOffset = cropBoxes[activeCropBox].xOffset;
         yOffset = cropBoxes[activeCropBox].yOffset;
         drawCropInterface(movableBoxHighlights(wasMovable));
         updateCursor(currentHandle);
@@ -247,10 +245,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // ensure that both images are not above or below the top of the canvas
         let deltaYOffset = 0;
         if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
-            // Both boxes are above the canvas - calculate adjustment to bring one down
+            // Both images are below the top of the canvas - calculate adjustment to bring one up
             deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
         } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
-            // Both boxes are below the canvas top - calculate adjustment to bring one up
+            // Both images are above the canvas top - calculate adjustment to bring one down
             deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
         }
 
@@ -311,8 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // swap if necessary
             if (lastCropState.swapped) {
-                const img2Width = images[1].width * lastCropState.scale;
-                swapBoxes(cropBoxes, img2Width);
+                swapBoxes(cropBoxes);
             }
 
             // restore scale
@@ -382,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cropBoxes[LEFT].width = minWidth;
             cropBoxes[RIGHT].width = minWidth;
 
+            // check for changes and report
             const eps = epsilon / 100;
             if (
                 Math.abs(cropBoxes[LEFT].x - oldCropBoxes[LEFT].x) > eps ||
@@ -405,17 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log(oldCropBoxes[RIGHT]);
                 cropBoxes[RIGHT] = { ...oldCropBoxes[RIGHT] };
             }
-            // check that right side of left cropBox is next to gap
-            if (Math.abs(cropBoxes[LEFT].x + cropBoxes[LEFT].width - cropBoxes[LEFT].xOffset - img1Width) > eps) {
-                console.log('Left offsets:', msg);
-                console.log(cropBoxes[LEFT]);
-                console.log(cropBoxes[LEFT].x + cropBoxes[LEFT].width - cropBoxes[LEFT].xOffset, img1Width);
-            }
-            // check that left side of right cropBox is next to gap
-            if (Math.abs(cropBoxes[RIGHT].x - cropBoxes[RIGHT].xOffset) > eps) {
-                console.log('RIGHT offsets:', msg);
-                console.log(cropBoxes[RIGHT]);
-                console.log(cropBoxes[RIGHT].x - cropBoxes[RIGHT].xOffset, 0);
+
+            // check that crop boxes are aligned on screen
+            if (Math.abs(cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset)) > epsilon) {
+                console.log("y doesn't match:", cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset), cropBoxes);
             }
         }
     }
@@ -439,7 +430,6 @@ document.addEventListener('DOMContentLoaded', () => {
             y: 0,
             width: maxWidth,
             height: maxHeight,
-            xOffset: 0,
             yOffset: 0
         };
         
@@ -449,7 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
             y: 0,
             width: maxWidth,
             height: maxHeight,
-            xOffset: 0,
             yOffset: 0
         };
     }
@@ -484,25 +473,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Calculate image offsets
         const xOffsets = {
-            left: -cropBoxes[LEFT].xOffset,
-            right: -cropBoxes[RIGHT].xOffset
+            left: -(cropBoxes[LEFT].x + cropBoxes[LEFT].width - window.images[0].width * currentScale),
+            right: -cropBoxes[RIGHT].x
         };
 
-        // prevent cropbox handles from being hidden when images are cut off at the top
-        const leftY = cropBoxes[LEFT].y;
-        let leftYOffset = cropBoxes[LEFT].yOffset;
-        const rightY = cropBoxes[RIGHT].y;
-        let rightYOffset = cropBoxes[RIGHT].yOffset;
-        if (leftYOffset > leftY) {
-            rightYOffset -= leftYOffset - leftY;
-            leftYOffset = leftY;
-            cropBoxes[LEFT].yOffset = leftYOffset;
-            cropBoxes[RIGHT].yOffset = rightYOffset;
-        }
-
         const yOffsets = {
-            left: -leftYOffset,
-            right: -rightYOffset
+            left: -cropBoxes[LEFT].yOffset,
+            right: -cropBoxes[RIGHT].yOffset
         };
         
         // draw gap based on crop box size
@@ -516,19 +493,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Calculate image dimensions and positions
-        const img1Width = currentParams.img1Width;
-        const img1Height = window.images[0].height * currentScale;
-        const rightImgStart = img1Width + currentParams.renderGap;
-        const img2Width = currentParams.img2Width;
-        const img2Height = window.images[1].height * currentScale;
+        const { img1Width, img1Height, img2Width, img2Height, rightImgStart } = currentParams;
         
         // create boxes in canvas space
-        const leftBox = { ...cropBoxes[LEFT], x: cropBoxes[LEFT].x - cropBoxes[LEFT].xOffset, y: leftY - leftYOffset };
-        // For the right box, we need to add the right image start position
-        const rightBox = { 
-            ...cropBoxes[RIGHT], 
-            x: rightImgStart + cropBoxes[RIGHT].x - cropBoxes[RIGHT].xOffset, 
-            y: rightY - rightYOffset 
+        const leftBox = {
+            x: cropBoxes[LEFT].x + xOffsets.left,
+            y: cropBoxes[LEFT].y + yOffsets.left,
+            width: cropBoxes[LEFT].width,
+            height: cropBoxes[LEFT].height
+        };
+        // For the right box, we need the right image start position
+        const rightBox = {
+            x: rightImgStart,
+            y: cropBoxes[RIGHT].y + yOffsets.right,
+            width: cropBoxes[RIGHT].width,
+            height: cropBoxes[RIGHT].height
         };
 
         // Draw semi-transparent overlay for areas outside the crop boxes
@@ -537,9 +516,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Left image overlay
         // shade the whole image
-        ctx.fillRect(-leftBox.xOffset, -leftBox.yOffset, img1Width + leftBox.xOffset, img1Height);
+        ctx.fillRect(xOffsets.left, yOffsets.left, img1Width - xOffsets.left, img1Height);
         // Right image overlay
-        ctx.fillRect(rightBox.x, -rightBox.yOffset, img2Width - rightBox.xOffset, img2Height);
+        ctx.fillRect(rightBox.x, yOffsets.right, img2Width + xOffsets.right, img2Height);
         ctx.globalAlpha = 1.0;
 
         // redraw the cropped part of the left image
@@ -809,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getHandle(x, y) {
         if (alignMode) {
-            const bothHandle = getHandleForBox(cropBoxes[RIGHT], x, y, BOTH, 0);
+            const bothHandle = getHandleForBox(cropBoxes[RIGHT], x, y, BOTH, cropBoxes[RIGHT].x);
             if (bothHandle !== null) {
                 return bothHandle.id === INSIDE ? [ INSIDE, LEFT ] : [ bothHandle.id, bothHandle.box ];
             }
@@ -817,15 +796,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Check if the mouse is over any handle of the left crop box
-        const leftHandle = getHandleForBox(cropBoxes[LEFT], x, y, LEFT, 0);
+        const xCanvasLeft = currentParams.img1Width - cropBoxes[LEFT].width;
+        const leftHandle = getHandleForBox(cropBoxes[LEFT], x, y, LEFT, xCanvasLeft);
         if (leftHandle !== null) {
             return [ leftHandle.id, LEFT ];
         }
         
         // Check if the mouse is over any handle of the right crop box
         // Pass the rightImgStart offset for the right box
-        const rightImgStart = currentParams.img1Width + currentParams.renderGap;
-        const rightHandle = getHandleForBox(cropBoxes[RIGHT], x, y, RIGHT, rightImgStart);
+        const xCanvasRight = currentParams.rightImgStart;
+        const rightHandle = getHandleForBox(cropBoxes[RIGHT], x, y, RIGHT, xCanvasRight);
         if (rightHandle !== null) {
             return [ rightHandle.id, RIGHT ];
         }
@@ -833,12 +813,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return [ OUTSIDE, LEFT ];
     }
 
-    function getHandleForBox(box, x, y, boxPos, xOffset = 0) {
+    function getHandleForBox(box, x, y, boxPos, xCanvas) {
         // Apply the offset for right box to get canvas coordinates
         const grabSize = Math.min(GRAB_SIZE, (Math.min(box.width, box.height) + 2 * handleSize) / 3);
 
         // Handle positions
-        const xCanvas = box.x - (boxPos === BOTH ? 0 : box.xOffset - xOffset);
         const middlePosX = xCanvas + (box.width - grabSize) / 2;
         const yCanvas = box.y - (boxPos === BOTH ? 0 : box.yOffset);
         const topPosY = yCanvas - handleSize;
@@ -1046,7 +1025,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     xMove = 0;
                     // zero out the horizontal direction
                     cropBoxes[activeCropBox].x = xStart;
-                    cropBoxes[activeCropBox].xOffset = xOffset;
                 }
             // Still deciding on direction
             } else if (! inLatchZone) {
@@ -1066,7 +1044,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 clampMode = VERTICAL_CLAMP;
                 xMove = 0;
                 cropBoxes[activeCropBox].x = xStart;
-                cropBoxes[activeCropBox].xOffset = xOffset;
                 xLatch = 0;
             }
             updateCursor(TRANSLATION);
@@ -1087,10 +1064,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // ensure that both images are not above or below the top of the canvas
             let deltaYOffset = 0;
             if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
-                // Both boxes are above the canvas - calculate adjustment to bring one down
+                // Both images are below the top of the canvas - calculate adjustment to bring one up
                 deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
             } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
-                // Both boxes are below the canvas top - calculate adjustment to bring one up
+                // Both images are above the canvas top - calculate adjustment to bring one down
                 deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
             }
 
@@ -1108,27 +1085,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let animateOffsetChangeStartTime = 0;
     const ANIMATE_OFFSET_CHANGE_DURATION = 300; // milliseconds
     let animateOffsetChangeFrameId = null;
-    let startLeftYOffset = 0;
-    let startRightYOffset = 0;
+    let previousDeltaY = 0;
     let targetDeltaY = 0;
-    
+
     // Function to animate offset changes
     function animateOffsetChange(deltaYOffset) {
         // Cancel any running animation
         if (animateOffsetChangeFrameId !== null) {
             cancelAnimationFrame(animateOffsetChangeFrameId);
         }
-        
-        // Store starting positions and target delta
-        startLeftYOffset = cropBoxes[LEFT].yOffset;
-        startRightYOffset = cropBoxes[RIGHT].yOffset;
+
+        // Store amount moved so far and target delta
+        previousDeltaY = 0;
         targetDeltaY = deltaYOffset;
         
         // Start animation
         animateOffsetChangeStartTime = performance.now();
         animateOffsetChangeFrameId = requestAnimationFrame(animateOffsetStep);
     }
-    
+
     // Animation step function
     function animateOffsetStep(timestamp) {
         // Calculate progress (0-1)
@@ -1139,20 +1114,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         
         // Apply the animated offset
-        const currentDelta = targetDeltaY * easeProgress;
-        cropBoxes[LEFT].yOffset = startLeftYOffset - currentDelta;
-        cropBoxes[RIGHT].yOffset = startRightYOffset - currentDelta;
-        
-        // Redraw with the new offsets
-        drawCropInterface();
-        
+        const currentDeltaY = targetDeltaY * easeProgress;
+        const currentIncrement = currentDeltaY - previousDeltaY;
+        previousDeltaY = currentDeltaY;
+        cropBoxes[LEFT].yOffset -= currentIncrement;
+        cropBoxes[RIGHT].yOffset -= currentIncrement;
+            
         // Continue animation if not complete
         if (progress < 1) {
+            // Redraw with the new offsets
+            drawCropInterface();
             animateOffsetChangeFrameId = requestAnimationFrame(animateOffsetStep);
         } else {
-            // Ensure final values are exact
-            cropBoxes[LEFT].yOffset = startLeftYOffset - targetDeltaY;
-            cropBoxes[RIGHT].yOffset = startRightYOffset - targetDeltaY;
             const wasMovable = movableBoxes;
             movableBoxes = getMovableBoxes(currentHandle);
             drawCropInterface(movableBoxHighlights(wasMovable));
@@ -1293,8 +1266,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if ([TOP_LEFT, LEFT_MIDDLE, BOTTOM_LEFT].includes(handle)) {
                 testOtherBox.x += xChange;
                 testOtherBox.width -= xChange; // Compensate width for left edge movement
-                // keep right box's left side positioned next to gap
-                testOtherBox.xOffset += xChange;
             }
             
             // Handle y position changes (top edge)
@@ -1306,8 +1277,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Handle width changes (right edge)
             if ([TOP_RIGHT, RIGHT_MIDDLE, BOTTOM_RIGHT].includes(handle)) {
                 testOtherBox.width += widthChange;
-                // keep left box's right side positioned next to gap
-                testOtherBox.xOffset += widthChange;
             }
             
             // Handle height changes (bottom edge)
@@ -1361,15 +1330,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const newY = Math.max(0, Math.min(box.y - deltaY, maxHeight - box.height));
 
         // Calculate actual change applied
-        let actualDeltaX = newX - box.x;
+        const actualDeltaX = box.x - newX;
         box.x = newX;
-        box.xOffset += actualDeltaX;
-        actualDeltaX = -actualDeltaX;
 
-        let actualDeltaY = newY - box.y;
+        const actualDeltaY = box.y - newY;
         box.y = newY;
-        box.yOffset += actualDeltaY;
-        actualDeltaY = -actualDeltaY;
+        box.yOffset -= actualDeltaY;
         
         // Return actual changes applied (might be different from requested due to constraints)
         return { x: actualDeltaX, y: actualDeltaY };
@@ -1520,8 +1486,7 @@ document.addEventListener('DOMContentLoaded', () => {
             boxes: [ { ...cropBoxes[LEFT] }, { ...cropBoxes[RIGHT] } ],
             scale: currentScale,
             scalePercent: currentScale / window.maxScale,
-            swapped: false,
-            img2Width: currentParams.img2Width
+            swapped: false
         };
 
         // Calculate the crop in original image coordinates
@@ -1629,19 +1594,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isCropping) {
             // Swap crop boxes with appropriate width calculations
-            swapBoxes(cropBoxes, currentParams.img2Width);
+            swapBoxes(cropBoxes);
             drawCropInterface();
         } else {
             window.drawImages();
         }
     }
 
-    // swap the crop boxes and set offsets
-    function swapBoxes(boxes, rightImgWidth) {
-        // Swap the boxes
+    // swap the crop boxes
+    function swapBoxes(boxes) {
         [ boxes[LEFT], boxes[RIGHT] ] = [ boxes[RIGHT], boxes[LEFT] ];
-        boxes[LEFT].xOffset = boxes[LEFT].x + boxes[LEFT].width - rightImgWidth;
-        boxes[RIGHT].xOffset = boxes[RIGHT].x;
     }
 
     function onScaleChange(scalePercent) {
@@ -1683,7 +1645,6 @@ document.addEventListener('DOMContentLoaded', () => {
         box.y *= scaleRatio;
         box.width *= scaleRatio;
         box.height *= scaleRatio;
-        box.xOffset *= scaleRatio;
         box.yOffset *= scaleRatio;
     }
 
@@ -1955,10 +1916,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // ensure that both images are not above or below the top of the canvas
             let deltaYOffset = 0;
             if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
-                // Both boxes are above the canvas - calculate adjustment to bring one down
+                // Both images are below the top of the canvas - calculate adjustment to bring one up
                 deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
             } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
-                // Both boxes are below the canvas top - calculate adjustment to bring one up
+                // Both images are above the canvas top - calculate adjustment to bring one down
                 deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
             }
 
@@ -2138,11 +2099,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function fixCropAfterAlignMode() {
-        if (DEBUG) {
-            if (Math.abs(cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset)) > epsilon) {
-                console.log("y doesn't match:", cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset), cropBoxes);
-            }
-        }
         let deltaYOffset = 0;
         if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
             // Both boxes are above the canvas - calculate adjustment to bring one down
@@ -2157,7 +2113,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function drawCropInterfaceAlignMode() {        
         // Draw images with both x and y offsets
-        currentParams = drawImagesAlignMode();
+        drawImagesAlignMode();
 
         // update box locations
         fixCropAfterAlignMode();
@@ -2250,15 +2206,6 @@ document.addEventListener('DOMContentLoaded', () => {
             img1Width, img1Height                   // Destination dimensions
         );
         ctx.globalAlpha = 1;
-
-        // Store the last render parameters for reference by crop module
-        lastRenderParams = {
-            img1Width,
-            img2Width,
-        };
-        
-        // Return parameters used for rendering (useful for saving)
-        return lastRenderParams;
     }
 
 // Expose functions to global scope and the isCropping flag

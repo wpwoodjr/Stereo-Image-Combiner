@@ -407,8 +407,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate dimensions
         const img1Width = images[0].width * renderScale;
         const img2Width = images[1].width * renderScale;
-        const totalWidth = img1Width + img2Width + renderGap;
-        
+        const rightImgStart = img1Width + renderGap;
+        const totalWidth = rightImgStart + img2Width;
+
         const img1Height = images[0].height * renderScale;
         const img2Height = images[1].height * renderScale;
         const maxHeight = Math.max(img1Height + yOffsets.left, img2Height + yOffsets.right);
@@ -446,15 +447,17 @@ document.addEventListener('DOMContentLoaded', () => {
             images[1],
             -xFactor, 0,                                    // Source position
             images[1].width + xFactor, images[1].height,    // Source dimensions
-            img1Width + renderGap, yOffsets.right,          // Destination position with offset
+            rightImgStart, yOffsets.right,                  // Destination position with offset
             img2Width + xOffsets.right, img2Height          // Destination dimensions
         );
 
         // Store the last render parameters for reference by crop module
         lastRenderParams = {
             img1Width,
+            img1Height,
             img2Width,
-            renderGap
+            img2Height,
+            rightImgStart
         };
         
         // Return parameters used for rendering (useful for saving)

@@ -1,22 +1,21 @@
 Update readme
 
-got into situation where xOffset on left was -115 but width was full image width.  x,y,yOffset all 0. swap fixed it
-  crop, a mode move box to right, apply, swap, crop, side by side mode
-  if go into sbs mode before apply, everything is fine
-  img2width is wrong in a mode
+Can remove yOffset?
 
-need to maintain xOffset or just calc it when drawing?
+Why using scale here?
+        return renderCombinedImage({
+            targetCanvas: canvas,
+            renderScale: scale,
+            xOffsets,
+            yOffsets,
+            avgWidth
+        });
 
-need currentParams? 
+Mac cropbox drawing all screwed up
 
-remove im2width from lastcropstate
+Check drawImage in alignMode works with Safari
 
-somehow got to state where left cropbox was below right cropbox... start in a mode, shake both images in align mode sometimes does it.
-  may have to do with y height correction
-  tab with arrow down when moving left cropbox does it
-related? unnecessary?
-        // prevent cropbox handles from being hidden when images are cut off at the top
-related? check fixCropAfterAlignMode
+check fixCropAfterAlignMode
 
 ========== Maybe later ==========
 only look at some mouse movements to decrease CPU?
