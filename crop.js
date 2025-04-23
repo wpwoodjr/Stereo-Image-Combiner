@@ -243,19 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
         // ensure that both images are not above or below the top of the canvas
-        let deltaYOffset = 0;
-        if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
-            // Both images are below the top of the canvas - calculate adjustment to bring one up
-            deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
-        } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
-            // Both images are above the canvas top - calculate adjustment to bring one down
-            deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
-        }
-
-        // If we need to adjust offsets, animate the change
-        if (deltaYOffset !== 0) {
-            animateOffsetChange(deltaYOffset);
-        }
+        animateFixImagePositions();
 
         // Update cursor based on handle
         [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
@@ -1062,19 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
             // ensure that both images are not above or below the top of the canvas
-            let deltaYOffset = 0;
-            if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
-                // Both images are below the top of the canvas - calculate adjustment to bring one up
-                deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
-            } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
-                // Both images are above the canvas top - calculate adjustment to bring one down
-                deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
-            }
-
-            // If we need to adjust offsets, animate the change
-            if (deltaYOffset !== 0) {
-                animateOffsetChange(deltaYOffset);
-            }
+            animateFixImagePositions();
 
             // update cursor and cropbox movable state
             onMouseMove(e);
@@ -1907,37 +1883,20 @@ document.addEventListener('DOMContentLoaded', () => {
             default:
                 return; // Ignore other keys
         }
-    
-        // If we have movement, apply it
-        if (deltaX !== 0 || deltaY !== 0) {
-            // Set up for movement
-            updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
 
-            // ensure that both images are not above or below the top of the canvas
-            let deltaYOffset = 0;
-            if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
-                // Both images are below the top of the canvas - calculate adjustment to bring one up
-                deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
-            } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
-                // Both images are above the canvas top - calculate adjustment to bring one down
-                deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
-            }
+        // Set up for movement
+        updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
 
-            // If we need to adjust offsets, animate the change
-            if (deltaYOffset !== 0) {
-                // stop any scheduled change
-                if (deltaYOffsetChangeTimeoutID) {
-                    clearTimeout(deltaYOffsetChangeTimeoutID);
-                    deltaYOffsetChangeTimeoutID = null;
-                }
-                // delay until the user releases the key
-                deltaYOffsetChangeTimeoutID = setTimeout(
-                    () => { animateOffsetChange(deltaYOffset); }, 300);
-            }
-
-            // Redraw the interface
-            drawCropInterface();
+        // stop any scheduled process
+        if (deltaYOffsetChangeTimeoutID) {
+            clearTimeout(deltaYOffsetChangeTimeoutID);
         }
+        // ensure that both images are not above or below the top of the canvas
+        // delay until the user releases the key
+        deltaYOffsetChangeTimeoutID = setTimeout(animateFixImagePositions, 200);
+
+        // Redraw the interface
+        drawCropInterface();
     }
 
     function addCheckboxControls() {
@@ -2098,25 +2057,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function fixCropAfterAlignMode() {
-        let deltaYOffset = 0;
+    // check image positions relative to top of canvas
+    function checkImagePositions() {
         if (cropBoxes[LEFT].yOffset < 0 && cropBoxes[RIGHT].yOffset < 0) {
             // Both boxes are above the canvas - calculate adjustment to bring one down
-            deltaYOffset = Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
+            return Math.max(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
         } else if (cropBoxes[LEFT].yOffset > 0 && cropBoxes[RIGHT].yOffset > 0) {
             // Both boxes are below the canvas top - calculate adjustment to bring one up
-            deltaYOffset = Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
+            return Math.min(cropBoxes[LEFT].yOffset, cropBoxes[RIGHT].yOffset);
         }
-        cropBoxes[LEFT].yOffset -= deltaYOffset;
-        cropBoxes[RIGHT].yOffset -= deltaYOffset;
+        return 0;
+    }
+
+    // ensure that both images are not above or below the top of the canvas
+    function animateFixImagePositions() {
+        const deltaYOffset = checkImagePositions();
+        // If we need to adjust offsets, animate the change
+        if (deltaYOffset !== 0) {
+            animateOffsetChange(deltaYOffset);
+        }
     }
 
     function drawCropInterfaceAlignMode() {        
         // Draw images with both x and y offsets
         drawImagesAlignMode();
 
-        // update box locations
-        fixCropAfterAlignMode();
+        // ensure that both images are not above or below the top of the canvas
+        const deltaYOffset = checkImagePositions();
+        if (deltaYOffset !== 0) {
+            cropBoxes[LEFT].yOffset -= deltaYOffset;
+            cropBoxes[RIGHT].yOffset -= deltaYOffset;
+        }
 
         // draw handles etc
         drawCropBoxesAlignMode();
