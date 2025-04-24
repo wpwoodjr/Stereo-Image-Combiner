@@ -1602,18 +1602,19 @@ document.addEventListener('DOMContentLoaded', () => {
             window.setScalePercent(currentScale / window.maxScale, optimalScale);
         }
 
-        // Calculate the scale ratio between old and new scale
-        const scaleRatio = window.scale / currentScale;
-
-        // Update current scale
-        currentScale = window.scale;
-
-        // Adjust both crop boxes
-        adjustScale(cropBoxes[LEFT], scaleRatio);
-        adjustScale(cropBoxes[RIGHT], scaleRatio);
+        // adjust crop boxes to new scale
+        adjustToNewScale();
 
         // Redraw with updated boxes
         drawCropInterface();
+    }
+
+    // adjust crop boxes to new scale
+    function adjustToNewScale() {
+        const scaleRatio = window.scale / currentScale;
+        adjustScale(cropBoxes[LEFT], scaleRatio);
+        adjustScale(cropBoxes[RIGHT], scaleRatio);
+        currentScale = window.scale;
     }
 
     function adjustScale(box, scaleRatio) {
@@ -1741,7 +1742,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.webkitFullscreenElement || 
                 document.mozFullScreenElement || 
                 document.msFullscreenElement) {
-                // In fullscreen mode
+                // To fullscreen mode
                 fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
             } else {
                 // Not in fullscreen mode
@@ -2014,11 +2015,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const optimalScale = window.calculateMaxScale(window.images[0], window.images[1], true);
         window.setScalePercent(alignModeScalePercent, optimalScale);
 
-        // Adjust both crop boxes
-        const scaleRatio = window.scale / currentScale;
-        adjustScale(cropBoxes[LEFT], scaleRatio);
-        adjustScale(cropBoxes[RIGHT], scaleRatio);
-        currentScale = window.scale;
+        // adjust crop boxes to new scale
+        adjustToNewScale();
 
         [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
         updateCursor(currentHandle);
@@ -2049,11 +2047,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function alignModeRestorePreviousScalePercent() {
         if (alignMode) {
             updateScalePercent(alignModeSavePreviousScalePercent);
-            // Adjust both crop boxes
-            const scaleRatio = window.scale / currentScale;
-            adjustScale(cropBoxes[LEFT], scaleRatio);
-            adjustScale(cropBoxes[RIGHT], scaleRatio);
-            currentScale = window.scale;
+            // adjust crop boxes to new scale
+            adjustToNewScale();
         }
     }
 

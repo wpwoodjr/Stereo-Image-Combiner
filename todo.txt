@@ -15,12 +15,8 @@ Mac cropbox drawing all screwed up
 
 Check drawImage in alignMode works with Safari
 
-check fixCropAfterAlignMode
-
 ========== Maybe later ==========
 only look at some mouse movements to decrease CPU?
-
-review alignMode code, esp fixcrop and drawing routines (need 3?)
 
 move other box in side by side mode, like in align mode?
 
