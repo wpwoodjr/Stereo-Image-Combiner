@@ -162,9 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Use in determining primary axis of translation
     let totalDeltaX = 0;
     let totalDeltaY = 0;
-    let xStart = 0;
-    let yStart = 0;
-    let yOffset = 0;
+    let saveActiveBoxXY = null;
+    let saveOtherBoxXY = null;
     let xLatch = 0;
     let yLatch = 0;
 
@@ -172,7 +171,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let movementAxis = NONE;
 
     // area within which the mouse will move slower for fine cropping
-    let fineCropWindow = 0;
+    const FINE_CROP_WINDOW_SIZE = 48;
+    // const fineCropWindow = FINE_CROP_WINDOW_SIZE;
     // const FINE_CROP_WINDOW_PERCENTAGE = 0.04;
     // Slowest speed for fine movement control
     const SLOWEST_SPEED = 0.20;
@@ -197,16 +197,16 @@ document.addEventListener('DOMContentLoaded', () => {
         yLatch = 0;
         movementAxis = NONE;
         // fineCropWindow = window.getViewPortWidth() * FINE_CROP_WINDOW_PERCENTAGE;
-        fineCropWindow = 64;
 
         // check if highlights should be shown and draw crop interface
         const wasMovable = movableBoxes;
         [ currentHandle, activeCropBox ] = getHandle(x, y);
         movableBoxes = getMovableBoxes(currentHandle);
         reSizing = currentHandle !== INSIDE && currentHandle !== OUTSIDE;
-        xStart = cropBoxes[activeCropBox].x;
-        yStart = cropBoxes[activeCropBox].y;
-        yOffset = cropBoxes[activeCropBox].yOffset;
+        const activeBox = cropBoxes[activeCropBox];
+        const otherBox = cropBoxes[1 - activeCropBox];
+        saveActiveBoxXY = { x: activeBox.x, y: activeBox.y, yOffset: activeBox.yOffset };
+        saveOtherBoxXY = { x: otherBox.x, y: otherBox.y, yOffset: otherBox.yOffset };
         drawCropInterface(movableBoxHighlights(wasMovable));
         updateCursor(currentHandle);
     }
@@ -394,7 +394,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // check that crop boxes are aligned on screen
             if (Math.abs(cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset)) > epsilon) {
-                console.log("y doesn't match:", cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset), cropBoxes);
+                console.log("y doesn't match:", msg);
+                console.log(cropBoxes[LEFT].y - cropBoxes[LEFT].yOffset - (cropBoxes[RIGHT].y - cropBoxes[RIGHT].yOffset));
+                console.log(cropBoxes);
             }
         }
     }
@@ -950,7 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.strokeStyle = '#ff88ff'
                 ctx.strokeRect(x - totalDeltaX - latchZoneSize, y - totalDeltaY - latchZoneSize, latchZoneSize * 2, latchZoneSize * 2);
                 ctx.strokeStyle = '#4488ff'
-                ctx.strokeRect(x - totalDeltaX - fineCropWindow, y - totalDeltaY - fineCropWindow, fineCropWindow * 2, fineCropWindow * 2);
+                ctx.strokeRect(x - totalDeltaX - FINE_CROP_WINDOW_SIZE, y - totalDeltaY - FINE_CROP_WINDOW_SIZE, FINE_CROP_WINDOW_SIZE * 2, FINE_CROP_WINDOW_SIZE * 2);
             }
         }
         dragStartX = x;
@@ -977,7 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalDistanceEstimate = absTotalDeltaX + absTotalDeltaY;
 
         // apply fine movement control
-        const speedFactor = Math.max(SLOWEST_SPEED, Math.min(1, totalDistanceEstimate / fineCropWindow));
+        const speedFactor = Math.max(SLOWEST_SPEED, Math.min(1, totalDistanceEstimate / FINE_CROP_WINDOW_SIZE));
         xMove = deltaX * speedFactor;
         yMove = deltaY * speedFactor;
 
@@ -990,11 +992,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // update yMove and xMove based on direction of translation
         if (movementAxis === NONE) {
             const inLatchZone = xLatch === 0 || yLatch === 0;
+            const otherBox = 1 - activeCropBox;
             if (clampCheckbox.checked) {
                 movementAxis = HORIZONTAL;
                 clampMode = HORIZONTAL_CLAMP;
                 yMove = 0;
-            } else if (totalDistanceEstimate > fineCropWindow) {
+            } else if (totalDistanceEstimate > FINE_CROP_WINDOW_SIZE) {
                 // We have our direction!  Let the user know...
                 highlights[activeCropBox] = true;
                 if (! inLatchZone) {
@@ -1005,14 +1008,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     clampMode = HORIZONTAL_CLAMP;
                     yMove = 0;
                     // zero out the vertical direction
-                    cropBoxes[activeCropBox].y = yStart;
-                    cropBoxes[activeCropBox].yOffset = yOffset;
+                    cropBoxes[activeCropBox].y = saveActiveBoxXY.y;
+                    cropBoxes[activeCropBox].yOffset = saveActiveBoxXY.yOffset;
+                    cropBoxes[otherBox].y = saveOtherBoxXY.y;
+                    cropBoxes[otherBox].yOffset = saveOtherBoxXY.yOffset;
                 } else {
                     movementAxis = VERTICAL;
                     clampMode = VERTICAL_CLAMP;
                     xMove = 0;
                     // zero out the horizontal direction
-                    cropBoxes[activeCropBox].x = xStart;
+                    cropBoxes[activeCropBox].x = saveActiveBoxXY.x;
+                    cropBoxes[otherBox].x = saveOtherBoxXY.x;
                 }
             // Still deciding on direction
             } else if (! inLatchZone) {
@@ -1025,13 +1031,16 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (absTotalDeltaX > absTotalDeltaY) {
                 clampMode = HORIZONTAL_CLAMP;
                 yMove = 0;
-                cropBoxes[activeCropBox].y = yStart;
-                cropBoxes[activeCropBox].yOffset = yOffset;
+                cropBoxes[activeCropBox].y = saveActiveBoxXY.y;
+                cropBoxes[activeCropBox].yOffset = saveActiveBoxXY.yOffset;
+                cropBoxes[otherBox].y = saveOtherBoxXY.y;
+                cropBoxes[otherBox].yOffset = saveOtherBoxXY.yOffset;
                 yLatch = 0;
             } else {
                 clampMode = VERTICAL_CLAMP;
                 xMove = 0;
-                cropBoxes[activeCropBox].x = xStart;
+                cropBoxes[activeCropBox].x = saveActiveBoxXY.x;
+                cropBoxes[otherBox].x = saveOtherBoxXY.x;
                 xLatch = 0;
             }
             updateCursor(TRANSLATION);
