@@ -1,17 +1,10 @@
 Update readme
 
-Can remove yOffset?
+Any way to position box better when growing?
 
-yOffset can still be off
+Shrink latch? Or don't use in align mode?
 
-Why using scale here?
-        return renderCombinedImage({
-            targetCanvas: canvas,
-            renderScale: scale,
-            xOffsets,
-            yOffsets,
-            avgWidth
-        });
+Optimize growBox?
 
 Mac cropbox drawing all screwed up
 
@@ -21,6 +14,11 @@ need to updatemovableboxes on entering and exiting fullscreen mode.
   well how do onScaleChange and onSwap do it without calling movableboxes?
 
 ========== Maybe later ==========
+Use currentparams for imgages[0].width etc
+need currentScale?
+
+Can remove yOffset?
+
 only look at some mouse movements to decrease CPU?
 
 move other box in side by side mode, like in align mode?
