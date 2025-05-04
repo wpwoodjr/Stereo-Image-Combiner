@@ -201,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // check if highlights should be shown and draw crop interface
         const wasMovable = movableBoxes;
         [ currentHandle, activeCropBox ] = getHandle(x, y);
+        updateCursor(currentHandle);
         movableBoxes = getMovableBoxes(currentHandle);
         reSizing = currentHandle !== INSIDE && currentHandle !== OUTSIDE;
         const activeBox = cropBoxes[activeCropBox];
@@ -212,7 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
             shrinkBoxes(activeBox, otherBox);
         }
         drawCropInterface(movableBoxHighlights(wasMovable));
-        updateCursor(currentHandle);
     }
 
     function onTouchStart(e) {
@@ -1340,6 +1340,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function growCorner(leftBox, rightBox, xGrow, yGrow, ratio) {
+        let xDir, yDir;
+        if (yGrow && ratio > Math.abs(xGrow / yGrow)) {
+            xDir = xGrow;
+            yDir = xGrow / ratio;
+        } else {
+            xDir = yGrow * ratio;
+            yDir = yGrow;
+        }
+        leftBox.width += xDir;
+        rightBox.width += xDir;
+        leftBox.height += yDir;
+        rightBox.height += yDir;
+        return { xDir, yDir };
+    }
+
     // Enlarge the boxes as much as possible while maintaining the aspect ratio
     function growBoxes(leftBox, rightBox) {
         const img1Width = window.images[0].width * currentScale;
@@ -1349,106 +1365,61 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxWidth = saveCropBoxDimensions.width;
         const maxHeight = saveCropBoxDimensions.height;
         const ratio = maxWidth / maxHeight;
-        let xDir, yDir;
 
         // bottom right
-        let leftBoxDistToRightEdge = img1Width - leftBox.x - leftBox.width;
-        let rightBoxDistToRightEdge = img2Width - rightBox.x - rightBox.width;
-        let leftBoxDistToBottom = img1Height - leftBox.y - leftBox.height;
-        let rightBoxDistToBottom = img2Height - rightBox.y - rightBox.height;
-
-        let maxGrowRight = Math.min(leftBoxDistToRightEdge, rightBoxDistToRightEdge, maxWidth - leftBox.width);
-        let maxGrowDown = Math.min(leftBoxDistToBottom, rightBoxDistToBottom, maxHeight - leftBox.height);
-
-        if (maxGrowDown && ratio > Math.abs(maxGrowRight / maxGrowDown)) {
-            xDir = maxGrowRight;
-            yDir = maxGrowRight / ratio;
-        } else {
-            xDir = maxGrowDown * ratio;
-            yDir = maxGrowDown;
-        }
-        leftBox.width += xDir;
-        rightBox.width += xDir;
-        leftBox.height += yDir;
-        rightBox.height += yDir;
-        if (leftBox.height + leftBox.y > img1Height + epsilon) {
-            console.log(xDir, yDir, img1Height, leftBox);
-        }
-        if (rightBox.height + rightBox.y > img2Height + epsilon) {
-            console.log(xDir, yDir, img2Height, rightBox);
+        {
+            const leftBoxDistToRightEdge = img1Width - leftBox.x - leftBox.width;
+            const rightBoxDistToRightEdge = img2Width - rightBox.x - rightBox.width;
+            const leftBoxDistToBottom = img1Height - leftBox.y - leftBox.height;
+            const rightBoxDistToBottom = img2Height - rightBox.y - rightBox.height;
+    
+            const maxGrowRight = Math.min(leftBoxDistToRightEdge, rightBoxDistToRightEdge, maxWidth - leftBox.width);
+            const maxGrowDown = Math.min(leftBoxDistToBottom, rightBoxDistToBottom, maxHeight - leftBox.height);
+    
+            growCorner(leftBox, rightBox, maxGrowRight, maxGrowDown, ratio);
         }
 
         // bottom left
-        leftBoxDistToBottom = img1Height - leftBox.y - leftBox.height;
-        rightBoxDistToBottom = img2Height - rightBox.y - rightBox.height;
+        {
+            const leftBoxDistToBottom = img1Height - leftBox.y - leftBox.height;
+            const rightBoxDistToBottom = img2Height - rightBox.y - rightBox.height;
+    
+            const maxX = Math.min(leftBox.x, rightBox.x, maxWidth - leftBox.width);
+            const maxGrowDown = Math.min(leftBoxDistToBottom, rightBoxDistToBottom, maxHeight - leftBox.height);
 
-        let maxX = Math.min(leftBox.x, rightBox.x, maxWidth - leftBox.width);
-        maxGrowDown = Math.min(leftBoxDistToBottom, rightBoxDistToBottom, maxHeight - leftBox.height);
-
-        if (maxGrowDown && ratio > Math.abs(maxX / maxGrowDown)) {
-            xDir = maxX;
-            yDir = maxX / ratio;
-        } else {
-            xDir = maxGrowDown * ratio;
-            yDir = maxGrowDown;
-        }
-        leftBox.x -= xDir;
-        rightBox.x -= xDir;
-        leftBox.width += xDir;
-        rightBox.width += xDir;
-        leftBox.height += yDir;
-        rightBox.height += yDir;
-        if (leftBox.height + leftBox.y > img1Height + epsilon) {
-            console.log(xDir, yDir, img1Height, leftBox);
-        }
-        if (rightBox.height + rightBox.y > img2Height + epsilon) {
-            console.log(xDir, yDir, img2Height, rightBox);
+            const { xDir } = growCorner(leftBox, rightBox, maxX, maxGrowDown, ratio);
+            leftBox.x -= xDir;
+            rightBox.x -= xDir;
         }
 
         // top right
-        leftBoxDistToRightEdge = img1Width - leftBox.x - leftBox.width;
-        rightBoxDistToRightEdge = img2Width - rightBox.x - rightBox.width;
+        {
+            const leftBoxDistToRightEdge = img1Width - leftBox.x - leftBox.width;
+            const rightBoxDistToRightEdge = img2Width - rightBox.x - rightBox.width;
 
-        maxGrowRight = Math.min(leftBoxDistToRightEdge, rightBoxDistToRightEdge, maxWidth - leftBox.width);
-        let maxY = Math.min(leftBox.y, rightBox.y, maxHeight - leftBox.height);
+            const maxGrowRight = Math.min(leftBoxDistToRightEdge, rightBoxDistToRightEdge, maxWidth - leftBox.width);
+            const maxY = Math.min(leftBox.y, rightBox.y, maxHeight - leftBox.height);
 
-        if (maxY && ratio > Math.abs(maxGrowRight / maxY)) {
-            xDir = maxGrowRight;
-            yDir = maxGrowRight / ratio;
-        } else {
-            xDir = maxY * ratio;
-            yDir = maxY;
+            const { yDir } = growCorner(leftBox, rightBox, maxGrowRight, maxY, ratio);
+            leftBox.y -= yDir;
+            leftBox.yOffset -= yDir;
+            rightBox.y -= yDir;
+            rightBox.yOffset -= yDir;
         }
-        leftBox.y -= yDir;
-        leftBox.yOffset -= yDir;
-        rightBox.y -= yDir;
-        rightBox.yOffset -= yDir;
-        leftBox.width += xDir;
-        rightBox.width += xDir;
-        leftBox.height += yDir;
-        rightBox.height += yDir;
 
         // top left
-        maxX = Math.min(leftBox.x, rightBox.x, maxWidth - leftBox.width);
-        maxY = Math.min(leftBox.y, rightBox.y, maxHeight - leftBox.height);
+        {
+            const maxX = Math.min(leftBox.x, rightBox.x, maxWidth - leftBox.width);
+            const maxY = Math.min(leftBox.y, rightBox.y, maxHeight - leftBox.height);
 
-        if (maxY && ratio > maxX / maxY) {
-            xDir = maxX;
-            yDir = maxX / ratio;
-        } else {
-            xDir = maxY * ratio;
-            yDir = maxY;
+            const { xDir, yDir } = growCorner(leftBox, rightBox, maxX, maxY, ratio);
+            leftBox.x -= xDir;
+            rightBox.x -= xDir;
+            leftBox.y -= yDir;
+            leftBox.yOffset -= yDir;
+            rightBox.y -= yDir;
+            rightBox.yOffset -= yDir;
         }
-        leftBox.x -= xDir;
-        rightBox.x -= xDir;
-        leftBox.y -= yDir;
-        leftBox.yOffset -= yDir;
-        rightBox.y -= yDir;
-        rightBox.yOffset -= yDir;
-        leftBox.width += xDir;
-        rightBox.width += xDir;
-        leftBox.height += yDir;
-        rightBox.height += yDir;
     }
 
     // Small tolerance value
@@ -1868,38 +1839,6 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleFullscreen(canvasContainer);
         });
 
-        // Fullscreen toggle function
-        function toggleFullscreen(element) {
-            if (!document.fullscreenElement && 
-                !document.mozFullScreenElement && 
-                !document.webkitFullscreenElement && 
-                !document.msFullscreenElement) {
-                // Enter fullscreen
-                // console.log("tfs");
-                if (element.requestFullscreen) {
-                    element.requestFullscreen();
-                } else if (element.msRequestFullscreen) {
-                    element.msRequestFullscreen();
-                } else if (element.mozRequestFullScreen) {
-                    element.mozRequestFullScreen();
-                } else if (element.webkitRequestFullscreen) {
-                    element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-                }
-            } else {
-                // Exit fullscreen
-                // console.log("ffs");
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                }
-            }
-        }
-        
         // Listen for fullscreen change events to update button
         document.addEventListener('fullscreenchange', fullScreenChange);
         document.addEventListener('webkitfullscreenchange', fullScreenChange);
@@ -1965,6 +1904,38 @@ document.addEventListener('DOMContentLoaded', () => {
         document.head.appendChild(style);
     }
 
+    // Fullscreen toggle function
+    function toggleFullscreen(element) {
+        if (!document.fullscreenElement && 
+            !document.mozFullScreenElement && 
+            !document.webkitFullscreenElement && 
+            !document.msFullscreenElement) {
+            // Enter fullscreen
+            // console.log("tfs");
+            if (element.requestFullscreen) {
+                element.requestFullscreen();
+            } else if (element.msRequestFullscreen) {
+                element.msRequestFullscreen();
+            } else if (element.mozRequestFullScreen) {
+                element.mozRequestFullScreen();
+            } else if (element.webkitRequestFullscreen) {
+                element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+            }
+        } else {
+            // Exit fullscreen
+            // console.log("ffs");
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            }
+        }
+    }
+
     // Initialize fullscreen option
     addFullscreenOption();
 
@@ -2001,6 +1972,10 @@ document.addEventListener('DOMContentLoaded', () => {
             window.updateSwap();
             e.preventDefault();
             return;
+        } else if (e.key === 'f') {
+            toggleFullscreen(canvasContainer);
+            e.preventDefault();
+            return;
         }
 
         if (!isCropping) return;
@@ -2018,6 +1993,10 @@ document.addEventListener('DOMContentLoaded', () => {
         switch (e.key) {
             case 'a':
                 toggleAlignMode();
+                e.preventDefault();
+                return;
+            case 'h':
+                toggleClampCheckbox(true);
                 e.preventDefault();
                 return;
             case 'ArrowLeft':
@@ -2096,7 +2075,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Create the clamp label
         const clampLabel = document.createElement('label');
         clampLabel.htmlFor = 'horizontalClampCheckbox';
-        clampLabel.textContent = 'Horizontal Only';
+        clampLabel.textContent = 'Horizontal Only (h)';
         
         // Create wrapper div for checkbox and label
         const clampWrapper = document.createElement('div');
@@ -2130,14 +2109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alignCheckbox.addEventListener('change', toggleAlignMode);
 
         // Add event listener for clamp checkbox change
-        clampCheckbox.addEventListener('change', function() {
-            window.setLocalStorageItem('clampCheckBox', this.checked);
-            clampMode = this.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
-            updateCursor(currentHandle);
-            const wasMovable = movableBoxes;
-            movableBoxes = getMovableBoxes(currentHandle);
-            drawCropInterface(movableBoxHighlights(wasMovable));
-        });
+        clampCheckbox.addEventListener('change', () => toggleClampCheckbox(false));
     
         // Add event listener for draw boxes checkbox change
         drawBoxesCheckbox.addEventListener('change', function() {
@@ -2156,13 +2128,27 @@ document.addEventListener('DOMContentLoaded', () => {
         window.drawBoxesCheckbox = drawBoxesCheckbox;
     }    
 
-    // initialize check boxes
-    const controls = document.getElementById('controls');
+    function toggleClampCheckbox(key = false) {
+        if (key) {
+            // called from key press
+            clampCheckbox.checked = !clampCheckbox.checked;
+        }
+
+        window.setLocalStorageItem('clampCheckBox', clampCheckbox.checked);
+        clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
+
+        updateCursor(currentHandle);
+        const wasMovable = movableBoxes;
+        movableBoxes = getMovableBoxes(currentHandle);
+        drawCropInterface(movableBoxHighlights(wasMovable));
+    }
+
+    // initialize check boxes, add to first control group
     const cropOptionsControlGroup = document.createElement('div');
     cropOptionsControlGroup.id = 'cropOptionsControlGroup';
     cropOptionsControlGroup.className = 'control-group';
     cropOptionsControlGroup.style.display = 'none'; // Initially hidden
-    controls.appendChild(cropOptionsControlGroup);
+    controlGroup.appendChild(cropOptionsControlGroup);
     addCheckboxControls();
 
 
