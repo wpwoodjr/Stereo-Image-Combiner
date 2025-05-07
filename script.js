@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Default values
     const DEFAULT_SCALE = 100;
-    const DEFAULT_GAP_PERCENT = 7.5; // Gap as percentage (7.5%)
+    const DEFAULT_GAP_PERCENT = 3.0; // Gap as percentage
     const DEFAULT_COLOR = '#000000';
     const DEFAULT_FORMAT = 'image/jpeg';
     const DEFAULT_JPG_QUALITY = 90;
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset gap
         gapPercent = getLocalStorageItem('gapPercent', DEFAULT_GAP_PERCENT);
         gapSlider.value = gapPercent * 10;
-        gapValue.textContent = `${gapPercent}%`;
+        gapValue.textContent = `${gapPercent.toFixed(1)}%`;
         
         // Reset color
         gapColor = getLocalStorageItem('gapColor', DEFAULT_COLOR);

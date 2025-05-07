@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Track crop state
     let isDragging = false;
+    let isArrowing = false;
     let currentHandle = null;
     let activeCropBox = null;
     let dragStartX = 0;
@@ -171,9 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let movementAxis = NONE;
 
     // area within which the mouse will move slower for fine cropping
-    const FINE_CROP_WINDOW_SIZE = 48;
-    // const fineCropWindow = FINE_CROP_WINDOW_SIZE;
-    // const FINE_CROP_WINDOW_PERCENTAGE = 0.04;
+    const FINE_CROP_WINDOW_SIZE = 32;
     // Slowest speed for fine movement control
     const SLOWEST_SPEED = 0.20;
 
@@ -181,38 +180,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const latchZoneSize = HANDLE_SIZE / 2;
 
     // optimization instead of checking currentHandle
-    let reSizing = false;
+    let resizing = false;
 
     // start mouse or touch drag
     function startDrag(e) {
         isDragging = true;
 
+        // set up for tweakXY
         const [x, y] = getXY(e);
         dragStartX = x;
         dragStartY = y;
-
+        const activeBox = cropBoxes[activeCropBox];
+        const otherBox = cropBoxes[1 - activeCropBox];
+        saveActiveBoxXY = { x: activeBox.x, y: activeBox.y, yOffset: activeBox.yOffset };
+        saveOtherBoxXY = { x: otherBox.x, y: otherBox.y, yOffset: otherBox.yOffset };
         totalDeltaX = 0;
         totalDeltaY = 0;
         xLatch = 0;
         yLatch = 0;
         movementAxis = NONE;
-        // fineCropWindow = window.getViewPortWidth() * FINE_CROP_WINDOW_PERCENTAGE;
 
         // check if highlights should be shown and draw crop interface
         const wasMovable = movableBoxes;
         [ currentHandle, activeCropBox ] = getHandle(x, y);
         updateCursor(currentHandle);
         movableBoxes = getMovableBoxes(currentHandle);
-        reSizing = currentHandle !== INSIDE && currentHandle !== OUTSIDE;
-        const activeBox = cropBoxes[activeCropBox];
-        const otherBox = cropBoxes[1 - activeCropBox];
-        saveActiveBoxXY = { x: activeBox.x, y: activeBox.y, yOffset: activeBox.yOffset };
-        saveOtherBoxXY = { x: otherBox.x, y: otherBox.y, yOffset: otherBox.yOffset };
+        startMove();
+        drawCropInterface(movableBoxHighlights(wasMovable));
+    }
+
+    // called before moving boxes
+    function startMove() {
+        resizing = currentHandle !== INSIDE && currentHandle !== OUTSIDE;
         if (alignMode && currentHandle === INSIDE) {
+            const activeBox = cropBoxes[activeCropBox];
+            const otherBox = cropBoxes[1 - activeCropBox];
             // shrink the boxes so they have room to move around
             shrinkBoxes(activeBox, otherBox);
         }
-        drawCropInterface(movableBoxHighlights(wasMovable));
     }
 
     function onTouchStart(e) {
@@ -290,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         isCropping = true;
         isDragging = false;
+        isArrowing = false;
         minCropSizePixels = Math.max(16, Math.round(Math.min(images[0].width, images[0].height, images[1].width, images[1].height) * MIN_CROP_SIZE_PERCENT));
 
         // Show crop controls
@@ -452,11 +458,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Get the background-color property
     const bodyBackgroundColor = bodyStyle.backgroundColor;
     // transparency of the image area outside of the cropboxes
-    const CROP_BOX_OVERLAY_OPACITY = 0.65;
+    const CROP_BOX_OVERLAY_OPACITY = 0.7;
 
     // glow state variables
     let glowStartTime = 0;
-    const GLOW_DURATION = 700;
+    const GLOW_DURATION = 500;
     let glowAnimationActive = false;
     let glowAnimationFrameId = null;
 
@@ -561,17 +567,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Draw left crop box
         configureBoxStyle(ctx, movableBoxes[LEFT], glowParams);
         if (drawBoxesCheckbox.checked) {
-            drawCropBox(ctx, leftBox.x + leftBox.width, leftBox.y - 1, leftBox.x - 1,
-                Math.min(canvas.height, leftBox.y + leftBox.height) + 1);
+            drawCropBox(ctx, leftBox.x + leftBox.width, leftBox.y, leftBox.x,
+                Math.min(canvas.height, leftBox.y + leftBox.height));
         }
         drawHandles(ctx, leftBox, LEFT);
 
         // Draw right crop box
         configureBoxStyle(ctx, movableBoxes[RIGHT], glowParams);
         if (drawBoxesCheckbox.checked) {
-            drawCropBox(ctx, rightBox.x, rightBox.y - 1,
-                Math.min(canvas.width, rightBox.x + rightBox.width) + 1,
-                Math.min(canvas.height, rightBox.y + rightBox.height) + 1);
+            drawCropBox(ctx, rightBox.x, rightBox.y,
+                Math.min(canvas.width, rightBox.x + rightBox.width),
+                Math.min(canvas.height, rightBox.y + rightBox.height));
         }
         drawHandles(ctx, rightBox, RIGHT);
 
@@ -635,41 +641,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function configureBoxStyle(ctx, isMovable, glowParams) {
         const [ glowIntensity, glowOffset, greenIntensity ] = glowParams;
 
-        if (isMovable) {
+        ctx.globalAlpha = 0.75;
+        ctx.lineWidth = 2;
+        handleSize = HANDLE_SIZE;
+
+        if (isDragging || isArrowing) {
+            // No animation effects, just a white border
+            ctx.strokeStyle = '#ffffff';
+
+        } else if (isMovable) {
             // Green, movable box
-            ctx.globalAlpha = 0.75;
+            ctx.strokeStyle = '#33cc33';
             if (glowAnimationActive) {
                 // Set line width with smooth transition
                 ctx.lineWidth = 2 + glowOffset;
                 handleSize = HANDLE_SIZE + glowOffset;
-
-                // // Create a color that transitions smoothly between regular and bright green
-                // const r = Math.round(51 + (74 - 51) * greenIntensity);  // 33cc33 to 4AFF4A
-                // const g = Math.round(204 + (255 - 204) * greenIntensity);
-                // const b = Math.round(51 + (74 - 51) * greenIntensity);
-                // const color = `rgb(${r}, ${g}, ${b}, ${ctx.globalAlpha})`;
-
-                // Apply style and shadow
-                // ctx.strokeStyle = color;
-                ctx.strokeStyle = '#33cc33'; // Regular green
-                // ctx.shadowColor = color;
-                // ctx.shadowBlur = glowIntensity;
-            } else {
-                ctx.lineWidth = 2;
-                handleSize = HANDLE_SIZE;
-                ctx.strokeStyle = '#33cc33'; // Regular green
-                // ctx.shadowBlur = 0;
             }
+
         } else {
-            // Non-movable box - no animation effects
-            ctx.globalAlpha = 0.5;
-            ctx.lineWidth = 2;
-            handleSize = HANDLE_SIZE;
-            ctx.strokeStyle = '#ff8800'; // Orange
-            // ctx.strokeStyle = '#ff9900'; // Orange
-            // ctx.strokeStyle = '#ffa084'; // Salmon
-            // ctx.strokeStyle = '#999999'; // gray
-            // ctx.shadowBlur = 0;
+            // Orange, not movable
+            ctx.strokeStyle = '#ff8800';
         }
     }
 
@@ -720,6 +711,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawHandles(ctx, box, boxPos) {
+        if (!resizing && (isDragging || isArrowing)) return;
+
         // Define handle positions
         const cornerRadius = handleSize / 4;
 
@@ -958,9 +951,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const [x, y] = getXY(e);
 
         if (!isDragging) {
-            [ currentHandle, activeCropBox ] = getHandle(x, y);
-
             // Update cursor based on handle
+            [ currentHandle, activeCropBox ] = getHandle(x, y);
             updateCursor(currentHandle);
 
             // check if highlights should be shown and draw crop interface
@@ -973,7 +965,7 @@ document.addEventListener('DOMContentLoaded', () => {
             movableBoxes = getMovableBoxes(currentHandle);
             drawCropInterface(highlights);
 
-            if (DEBUG && movementAxis === NONE && !reSizing) {
+            if (DEBUG && movementAxis === NONE && !resizing) {
                 const ctx = canvas.getContext('2d');
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = '#ff88ff'
@@ -1003,16 +995,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (absTotalDeltaY < yLatch) {
             absTotalDeltaY = yLatch;
         }
-        const totalDistanceEstimate = absTotalDeltaX + absTotalDeltaY;
+        const totalDistanceSquared = absTotalDeltaX * absTotalDeltaX + absTotalDeltaY * absTotalDeltaY;
 
         // apply fine movement control
-        const speedFactor = Math.max(SLOWEST_SPEED, Math.min(1, totalDistanceEstimate / FINE_CROP_WINDOW_SIZE));
+        const speedFactor = Math.max(SLOWEST_SPEED, Math.min(1, totalDistanceSquared / (FINE_CROP_WINDOW_SIZE * FINE_CROP_WINDOW_SIZE)));
         xMove = deltaX * speedFactor;
         yMove = deltaY * speedFactor;
 
-        // we're done here if resizing...
+        // we're done here if resizing or aligning...
         let highlights = [ false, false ];
-        if (reSizing) {
+        if (resizing || (alignMode && !clampCheckbox.checked && currentHandle === INSIDE)) {
             return [ xMove, yMove, highlights ];
         }
 
@@ -1024,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 movementAxis = HORIZONTAL;
                 clampMode = HORIZONTAL_CLAMP;
                 yMove = 0;
-            } else if (totalDistanceEstimate > FINE_CROP_WINDOW_SIZE) {
+            } else if (totalDistanceSquared > FINE_CROP_WINDOW_SIZE * FINE_CROP_WINDOW_SIZE) {
                 // We have our direction!  Let the user know...
                 highlights[activeCropBox] = true;
                 if (! inLatchZone) {
@@ -1680,6 +1672,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // reset buttons etc to non-cropping state
     function exitCrop() {
         isCropping = false;
+        isDragging = false;
+        isArrowing = false;
         applyCropButton.style.display = 'none';
         cancelCropButton.style.display = 'none';
         cropOptionsControlGroup.style.display = 'none'; // Hide crop options in left panel
@@ -1709,6 +1703,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (isCropping) {
+            if (alignMode) {
+                [ alignImage0, alignImage1 ] = [ alignImage1, alignImage0 ];
+            }
             // Swap crop boxes with appropriate width calculations
             swapBoxes(cropBoxes);
             drawCropInterface();
@@ -1981,7 +1978,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isCropping) return;
 
         if (activeCropBox === null) {
-            activeCropBox = LEFT
+            activeCropBox = LEFT;
         }
         let deltaX = 0;
         let deltaY = 0;
@@ -2034,6 +2031,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; // Ignore other keys
         }
 
+        // set up for moving boxes
+        if (!isArrowing) {
+            isArrowing = true;
+            startMove();
+        }
+
         // Set up for movement
         updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
 
@@ -2043,10 +2046,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // ensure that both images are not above or below the top of the canvas
         // delay until the user releases the key
-        deltaYOffsetChangeTimeoutID = setTimeout(animateFixImagePositions, 200);
+        deltaYOffsetChangeTimeoutID = setTimeout(onArrowEnd, 300);
 
         // Redraw the interface
         drawCropInterface();
+    }
+
+    function onArrowEnd() {
+        if (isCropping && isArrowing) {
+            isArrowing = false;
+
+            // ensure that both images are not above or below the top of the canvas
+            animateFixImagePositions();
+
+            if (alignMode && currentHandle === INSIDE) {
+                // grow the boxes as much as possible after shrinking and repositioning them
+                growBoxes(cropBoxes[LEFT], cropBoxes[RIGHT]);
+            }
+
+            drawCropInterface();
+        }
     }
 
     function addCheckboxControls() {
@@ -2160,6 +2179,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // remember the size of the boxes for growing them after positioning them in align mode
     let saveCropBoxDimensions = { width: 0, height: 0 };
 
+    // transformed images for aligning
+    let alignImage0, alignImage1 = null;
+
     function enterAlignMode() {
         alignMode = true;
         window.setLocalStorageItem('alignCheckBox', true);
@@ -2181,6 +2203,17 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCursor(currentHandle);
         movableBoxes = getMovableBoxes(currentHandle);
         drawCropInterface(movableBoxes);
+
+        // transform images for easier aligning
+        alignImage0 = transformImage(images[0], (r, g, b, a, x, y) => {
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+            const inverse = 255 - gray;
+            return [ inverse, inverse, inverse, a ];
+        });
+        alignImage1 = transformImage(images[1], (r, g, b, a, x, y) => {
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+            return [ gray, gray, gray, a ];
+        });
     }
 
     function exitAlignMode() {
@@ -2232,9 +2265,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function drawCropInterfaceAlignMode() {        
+    function drawCropInterfaceAlignMode() {    
+        const aligning = currentHandle === INSIDE && (isDragging || isArrowing);    
+
         // Draw images with both x and y offsets
-        drawImagesAlignMode();
+        drawImagesAlignMode(aligning);
 
         // ensure that both images are not above or below the top of the canvas
         const deltaYOffset = checkImagePositions();
@@ -2244,7 +2279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // draw handles etc if not positioning the images relative to each other
-        if (!isDragging || currentHandle !== INSIDE) {
+        if (!aligning) {
             drawCropBoxesAlignMode();
         }
     }
@@ -2272,7 +2307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         configureBoxStyle(ctx, movableBoxes[LEFT] || movableBoxes[RIGHT], glowParams);
 
         if (drawBoxesCheckbox.checked) {
-            ctx.strokeRect(box.x - 1, box.y - 1, box.width + 2, box.height + 2);
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
         }
 
         drawHandles(ctx, box, BOTH);
@@ -2289,7 +2324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function drawImagesAlignMode() {
+    function drawImagesAlignMode(aligning) {
         if (images.length !== 2) return null;
 
         // Get the main canvas context
@@ -2316,7 +2351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Draw the right image
         ctx.drawImage(
-            images[1],
+            aligning ? alignImage1 : images[1],
             0, 0,                                   // Source position
             images[1].width, images[1].height,      // Source dimensions
             0, 0,                                   // Destination position
@@ -2326,10 +2361,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const xOffset = (cropBoxes[RIGHT].x - cropBoxes[LEFT].x);
         const yOffset = (cropBoxes[RIGHT].y - cropBoxes[LEFT].y);
 
-        ctx.globalAlpha = 0.40;
+        ctx.globalAlpha = 0.50;
         // Draw the left image
         ctx.drawImage(
-            images[0],
+            aligning ? alignImage0 : images[0],
             0, 0,                                   // Source position
             images[0].width, images[0].height,      // Source dimensions
             xOffset, yOffset,                       // Destination position with offsets

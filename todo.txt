@@ -1,6 +1,6 @@
 Update readme
 
-Any way to position box better when growing?
+Any way to position box better when growing? Such as bottom having priority?
 
 Shrink latch? Or don't use in align mode?
 
