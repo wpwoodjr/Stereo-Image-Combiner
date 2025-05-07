@@ -224,6 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isCropping) return;
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
+        if (isArrowing) return;
         startDrag(e.touches[0]);
     }
 
@@ -235,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const [x, y] = getXY(e.touches[0]);
         const [deltaX, deltaY, highlights ] = tweakXY(x - dragStartX, y - dragStartY);
-        
+
         updateCropBoxes(currentHandle, activeCropBox, deltaX, deltaY);
         movableBoxes = getMovableBoxes(currentHandle);
         drawCropInterface(highlights);
@@ -248,6 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isCropping) return;
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
+        if (!isDragging) return;
         isDragging = false;
         clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
@@ -941,12 +943,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onMouseDown(e) {
-        if (!isCropping) return;
+        if (!isCropping || isArrowing) return;
         startDrag(e);
     }
 
     function onMouseMove(e) {
-        if (!isCropping) return;
+        if (!isCropping || isArrowing) return;
 
         const [x, y] = getXY(e);
 
@@ -2046,7 +2048,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // ensure that both images are not above or below the top of the canvas
         // delay until the user releases the key
-        deltaYOffsetChangeTimeoutID = setTimeout(onArrowEnd, 300);
+        deltaYOffsetChangeTimeoutID = setTimeout(onArrowEnd, alignMode && currentHandle === INSIDE ? 1200 : 500);
 
         // Redraw the interface
         drawCropInterface();
