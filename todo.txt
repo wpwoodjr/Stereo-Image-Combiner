@@ -4,8 +4,6 @@ Any way to position box better when growing? Such as bottom having priority?
 
 Shrink latch? Or don't use in align mode?
 
-cross or parallel in file name? checkbox?
-
 cursor disappears after handling a keypress
 
 Initial state in alignmode shows crop boxes can't be moved (orange)

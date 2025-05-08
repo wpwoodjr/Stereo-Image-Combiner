@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stereo Image Combiner - Help</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            /* No custom scrollbar styling */
+        }
+        h1 {
+            color: #b0b0b0;
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #b0b0b0;
+            margin-top: 30px;
+            border-left: 4px solid #555;
+            padding-left: 10px;
+        }
+        h3 {
+            color: #b0b0b0;
+            margin-top: 20px;
+        }
+        .section {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            /* Ensure overflow uses default browser scrolling */
+            overflow: auto;
+        }
+        .shortcut {
+            display: inline-block;
+            background-color: #333;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 0 3px;
+        }
+        ul, ol {
+            padding-left: 25px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        .tip {
+            background-color: #2a3038;
+            border-left: 4px solid #4a7eb5;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .warning {
+            background-color: #382a30;
+            border-left: 4px solid #b54a4a;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid #444;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            background-color: #1e1e1e;
+            border-radius: 8px 8px 0 0;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        .tab.active {
+            background-color: #333;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+            /* Use default scrollbars */
+            overflow: visible;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #444;
+            background-color: #272727;
+        }
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #333;
+        }
+        
+        /* Additional responsive styles */
+        @media (max-width: 600px) {
+            .tab {
+                padding: 8px 15px;
+                font-size: 14px;
+            }
+            
+            .section {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Stereo Image Combiner - Help</h1>
+    
+    <div class="tab-container">
+        <div class="tab active" onclick="openTab('basics')">Basics</div>
+        <div class="tab" onclick="openTab('cropping')">Cropping</div>
+        <div class="tab" onclick="openTab('advanced')">Advanced</div>
+        <div class="tab" onclick="openTab('shortcuts')">Shortcuts</div>
+    </div>
+    
+    <div id="basics" class="tab-content active">
+        <div class="section">
+            <h2>Getting Started</h2>
+            <p>Stereo Image Combiner is a web-based tool that lets you combine two images side by side for stereo viewing, with customizable gap, color, and cropping options.</p>
+            
+            <h3>Loading Images</h3>
+            <ol>
+                <li>Drag and drop two images onto the drop zone, or</li>
+                <li>Click the drop zone to open a file browser (hold Ctrl or ⌘ to select both images)</li>
+                <li>Once loaded, both images will be displayed side by side</li>
+            </ol>
+            
+            <h3>Basic Controls</h3>
+            <ul>
+                <li><strong>Scale Slider:</strong> Adjusts the preview size without affecting the final output</li>
+                <li><strong>Gap Slider:</strong> Controls the space between images (0-20% of average image width)</li>
+                <li><strong>Gap Color:</strong> Changes the color of the gap between images</li>
+                <li><strong>Swap Images:</strong> Switches the left and right images (useful for changing from cross-eyed to parallel viewing)</li>
+            </ul>
+            
+            <h3>Saving Your Image</h3>
+            <ol>
+                <li>Enter an optional filename prefix</li>
+                <li>Select your preferred format (JPG or PNG)</li>
+                <li>For JPG, adjust the quality setting</li>
+                <li>Click "Save Image" to download the combined image</li>
+            </ol>
+            
+            <div class="tip">
+                <strong>Tip:</strong> PNG format preserves transparency and provides highest quality, but produces larger files. JPG is more space-efficient but uses lossy compression.
+            </div>
+        </div>
+    </div>
+    
+    <div id="cropping" class="tab-content">
+        <div class="section">
+            <h2>Image Cropping</h2>
+            <p>The cropping feature allows you to select matching regions from both images with synchronized dimensions.</p>
+            
+            <h3>Starting Crop Mode</h3>
+            <ol>
+                <li>Click the "Crop Images" button to enter crop mode</li>
+                <li>The images will be displayed with crop boxes overlaid</li>
+            </ol>
+            
+            <h3>Crop Box Controls</h3>
+            <ul>
+                <li><strong>Resize:</strong> Drag any handle (corner or edge) to resize both crop boxes simultaneously while maintaining the same dimensions</li>
+                <li><strong>Move:</strong> Click inside a crop box and drag to reposition that box</li>
+                <li><strong>Moving Both Boxes:</strong> Click outside both crop boxes to enable simultaneous movement of both boxes</li>
+                <li><strong>Tab Key:</strong> Press Tab to cycle between left box, right box, and both boxes</li>
+            </ul>
+            
+            <h3>Movement Controls</h3>
+            <ul>
+                <li>When dragging a crop box, you'll initially have freedom to move in any direction</li>
+                <li>As you drag further, the system detects your primary direction of movement:
+                    <ul>
+                        <li>Horizontal movement locks to left/right only</li>
+                        <li>Vertical movement locks to up/down only</li>
+                        <li>Diagonal movement allows movement in both directions</li>
+                    </ul>
+                </li>
+                <li>Fine-grained control is available when moving near the starting point</li>
+            </ul>
+            
+            <h3>Align Mode</h3>
+            <p>Align mode provides a special overlay view to help you precisely align the two images.</p>
+            <ul>
+                <li>Click the "Align Mode" checkbox or press <span class="shortcut">a</span> key to toggle align mode</li>
+                <li>Images appear overlaid with inverse grayscale coloring to highlight differences</li>
+                <li>Position the images to align key features</li>
+                <li>Boxes automatically expand to maximum available size after positioning</li>
+            </ul>
+            
+            <h3>Applying or Canceling Crop</h3>
+            <ul>
+                <li>Click "Apply Crop" to confirm your selection</li>
+                <li>Click "Cancel" to exit crop mode without changes</li>
+                <li>After applying a crop, you can click "Reset Crop" to restore the original images</li>
+            </ul>
+            
+            <div class="warning">
+                <strong>Note:</strong> The crop operation cannot be undone after saving the image, but you can always reset the crop as long as you haven't closed the application.
+            </div>
+        </div>
+    </div>
+    
+    <div id="advanced" class="tab-content">
+        <div class="section">
+            <h2>Advanced Features</h2>
+            
+            <h3>Horizontal-Only Movement</h3>
+            <p>When in crop mode, you can enable horizontal-only movement to restrict adjustments to the left-right axis.</p>
+            <ul>
+                <li>Check the "Horizontal Only" checkbox or press <span class="shortcut">h</span> key</li>
+                <li>Useful for maintaining vertical alignment between stereo pairs</li>
+            </ul>
+            
+            <h3>Draw Boxes Option</h3>
+            <p>Toggle the display of crop box outlines with the "Draw Boxes" checkbox.</p>
+            
+            <h3>Fullscreen Mode</h3>
+            <p>For a larger view of your images:</p>
+            <ul>
+                <li>Click the fullscreen button in the top-right corner of the canvas</li>
+                <li>Or press the <span class="shortcut">f</span> key</li>
+                <li>Press <span class="shortcut">Esc</span> to exit fullscreen mode</li>
+            </ul>
+            
+            <h3>Fine-Tuning with Arrow Keys</h3>
+            <p>When in crop mode, you can use arrow keys for precise adjustments:</p>
+            <ul>
+                <li>Arrow keys move the active crop box by 1 pixel</li>
+                <li>Hold <span class="shortcut">Shift</span> + arrow keys for 5-pixel movements</li>
+                <li>Press <span class="shortcut">Tab</span> to change which box is active</li>
+            </ul>
+            
+            <h3>Image Replacement</h3>
+            <p>To replace your images without resetting all settings:</p>
+            <ul>
+                <li>Drag and drop new images directly onto the canvas area</li>
+                <li>Or click on the canvas to open the file browser</li>
+            </ul>
+            
+            <div class="tip">
+                <strong>Tip:</strong> Settings like gap size, color, and scale preference are saved between sessions in your browser's local storage.
+            </div>
+        </div>
+    </div>
+    
+    <div id="shortcuts" class="tab-content">
+        <div class="section">
+            <h2>Keyboard Shortcuts</h2>
+            <p>Keyboard shortcuts can speed up your workflow:</p>
+            
+            <table>
+                <tr>
+                    <th>Key</th>
+                    <th>Action</th>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">x</span></td>
+                    <td>Swap left and right images</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">f</span></td>
+                    <td>Toggle fullscreen mode</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">a</span></td>
+                    <td>Toggle align mode (in crop mode)</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">h</span></td>
+                    <td>Toggle horizontal-only movement (in crop mode)</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">Tab</span></td>
+                    <td>Cycle between left box, right box, and both boxes (in crop mode)</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">Arrow Keys</span></td>
+                    <td>Move active crop box by 1 pixel</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">Shift</span> + <span class="shortcut">Arrow Keys</span></td>
+                    <td>Move active crop box by 5 pixels</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">Esc</span></td>
+                    <td>Exit fullscreen mode</td>
+                </tr>
+                <tr>
+                    <td><span class="shortcut">?</span></td>
+                    <td>Show this help screen</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        function openTab(tabName) {
+            // Hide all tab content
+            const tabContents = document.getElementsByClassName('tab-content');
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            
+            // Remove active class from all tabs
+            const tabs = document.getElementsByClassName('tab');
+            for (let i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+            
+            // Show the selected tab content and mark the tab as active
+            document.getElementById(tabName).classList.add('active');
+            
+            // Find the clicked tab and add active class
+            const tabButtons = document.getElementsByClassName('tab');
+            for (let i = 0; i < tabButtons.length; i++) {
+                if (tabButtons[i].textContent.toLowerCase().includes(tabName)) {
+                    tabButtons[i].classList.add('active');
+                    break;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
