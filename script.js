@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const leftImageName = document.getElementById('leftImageName');
     const rightImageName = document.getElementById('rightImageName');
     const fileInput = document.getElementById('fileInput');
+    const filenamePrefixInput = document.getElementById('filenamePrefix');
     const formatSelect = document.getElementById('format');
     const qualitySlider = document.getElementById('quality');
     const qualityValue = document.getElementById('qualityValue');
@@ -156,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         colorPicker.value = gapColor;
 
         // Reset format and jpg quality
+        filenamePrefixInput.value = getLocalStorageItem('filenamePrefix', '');
         qualitySlider.value = getLocalStorageItem('jpgQuality', DEFAULT_JPG_QUALITY);
         qualityValue.textContent = `${qualitySlider.value}%`;
         formatSelect.value = getLocalStorageItem('fileFormat', DEFAULT_FORMAT);
@@ -169,12 +171,16 @@ document.addEventListener('DOMContentLoaded', () => {
     swapButton.addEventListener('click', updateSwap);
     swapButton.disabled = true;
 
+    filenamePrefixInput.addEventListener('input', function() {
+        setLocalStorageItem('filenamePrefix', this.value);
+    });
+
     // Show/hide quality slider based on format selection
     formatSelect.addEventListener('change', function() {
         qualityContainer.style.display = this.value === 'image/jpeg' ? 'block' : 'none';
         setLocalStorageItem('fileFormat', this.value);
     });
-    
+
     // Update quality value display
     qualitySlider.addEventListener('input', function() {
         qualityValue.textContent = `${this.value}%`;
@@ -505,6 +511,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createCombinedFilename() {
+        // Get the prefix from the input field
+        const prefix = filenamePrefixInput.value.trim();
+        
         // Extract base names - handle files without extensions
         const baseName1 = imageNames[0].includes('.') ? 
             imageNames[0].split('.').slice(0, -1).join('.') : 
@@ -514,14 +523,14 @@ document.addEventListener('DOMContentLoaded', () => {
             imageNames[1].split('.').slice(0, -1).join('.') : 
             imageNames[1];
         
-        if (!baseName1) return 'combined_image';
+        if (!baseName1) return prefix ? prefix + ' combined_image' : 'combined_image';
         
         // Find common prefix up to the last separator
         const commonPrefix = findCommonPrefixLastSeparator(baseName1, baseName2);
         
         // If we have no common prefix, create a combined name with both full names
         if (!commonPrefix) {
-            return `${baseName1} & ${baseName2}`;
+            return prefix ? `${prefix} ${baseName1} & ${baseName2}` : `${baseName1} & ${baseName2}`;
         }
         
         // Extract the parts after the last separator
@@ -535,9 +544,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Create the combined name
         const cleanPrefix = commonPrefix.replace(/[-_\s]+$/, ''); // Remove trailing separators
         
-        return cleanSuffix2 ? `${cleanPrefix} - ${cleanSuffix1} & ${cleanSuffix2}` : baseName1;
+        // Add user-provided prefix if it exists
+        if (prefix) {
+            return cleanSuffix2 ? 
+                `${prefix} ${cleanPrefix} - ${cleanSuffix1} & ${cleanSuffix2}` : 
+                `${prefix} ${baseName1}`;
+        } else {
+            return cleanSuffix2 ? 
+                `${cleanPrefix} - ${cleanSuffix1} & ${cleanSuffix2}` : 
+                baseName1;
+        }
     }
-    
+
     // Find common prefix up to the last separator
     function findCommonPrefixLastSeparator(str1, str2) {
         // Check if the first character is different - truly no common prefix
