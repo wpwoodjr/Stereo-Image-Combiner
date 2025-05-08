@@ -175,50 +175,48 @@
             
             <h3>Starting Crop Mode</h3>
             <ol>
-                <li>Click the "Crop Images" button to enter crop mode</li>
-                <li>The images will be displayed with crop boxes overlaid</li>
+                <li>Click the "Crop Images" button to enter crop mode.  By default align mode is active.</li>
+                <li>The images will be displayed with a crop box overlaid</li>
             </ol>
             
             <h3>Crop Box Controls</h3>
             <ul>
                 <li><strong>Resize:</strong> Drag any handle (corner or edge) to resize both crop boxes simultaneously while maintaining the same dimensions</li>
-                <li><strong>Move:</strong> Click inside a crop box and drag to reposition that box</li>
-                <li><strong>Moving Both Boxes:</strong> Click outside both crop boxes to enable simultaneous movement of both boxes</li>
-                <li><strong>Tab Key:</strong> Press Tab to cycle between left box, right box, and both boxes</li>
+                <li><strong>Move:</strong> Click inside a crop box and drag to reposition the image</li>
+                <li><strong>Moving Both Images Together:</strong> Click outside both crop boxes to enable simultaneous movement of both images</li>
             </ul>
             
+            <h3>Align Mode</h3>
+            <p>Align mode (default) provides a special overlay view to help you precisely align the two images.</p>
+            <ul>
+                <li>Click inside the crop box, and the images appear overlaid with inverse grayscale coloring to highlight differences</li>
+                <li>Click and drag the image to align key features.  A feature is aligned when it turns a consistent gray color.
+                    Typically you want to align the objects which are closest to the viewer so that the image appears behind the viewing window
+                    and doesn't appear to "violate" the edge of the viewing window. 
+                    For example, for a view of a mountain with a tree close by a side of the window, align the tree.
+                </li>
+                <li>Click the "Align Mode" checkbox or press the <span class="shortcut">a</span> key to toggle align mode and side-by-side mode</li>
+            </ul>
+
             <h3>Movement Controls</h3>
             <ul>
                 <li>When dragging a crop box, you'll initially have freedom to move in any direction</li>
-                <li>As you drag further, the system detects your primary direction of movement:
+                <li>As you drag a bit further, the system detects your primary direction of movement:
                     <ul>
                         <li>Horizontal movement locks to left/right only</li>
                         <li>Vertical movement locks to up/down only</li>
                         <li>Diagonal movement allows movement in both directions</li>
                     </ul>
                 </li>
-                <li>Fine-grained control is available when moving near the starting point</li>
-            </ul>
-            
-            <h3>Align Mode</h3>
-            <p>Align mode provides a special overlay view to help you precisely align the two images.</p>
-            <ul>
-                <li>Click the "Align Mode" checkbox or press <span class="shortcut">a</span> key to toggle align mode</li>
-                <li>Images appear overlaid with inverse grayscale coloring to highlight differences</li>
-                <li>Position the images to align key features</li>
-                <li>Boxes automatically expand to maximum available size after positioning</li>
+                <li>Fine-grained control is active when moving near the starting point</li>
             </ul>
             
             <h3>Applying or Canceling Crop</h3>
             <ul>
                 <li>Click "Apply Crop" to confirm your selection</li>
                 <li>Click "Cancel" to exit crop mode without changes</li>
-                <li>After applying a crop, you can click "Reset Crop" to restore the original images</li>
+                <li>After applying a crop, you can click "Reset Crop" to restore the original images, or "Crop Images" to continue where you left off.</li>
             </ul>
-            
-            <div class="warning">
-                <strong>Note:</strong> The crop operation cannot be undone after saving the image, but you can always reset the crop as long as you haven't closed the application.
-            </div>
         </div>
     </div>
     
@@ -229,7 +227,7 @@
             <h3>Horizontal-Only Movement</h3>
             <p>When in crop mode, you can enable horizontal-only movement to restrict adjustments to the left-right axis.</p>
             <ul>
-                <li>Check the "Horizontal Only" checkbox or press <span class="shortcut">h</span> key</li>
+                <li>Check the "Horizontal Only" checkbox or press the <span class="shortcut">h</span> key</li>
                 <li>Useful for maintaining vertical alignment between stereo pairs</li>
             </ul>
             
@@ -247,16 +245,17 @@
             <h3>Fine-Tuning with Arrow Keys</h3>
             <p>When in crop mode, you can use arrow keys for precise adjustments:</p>
             <ul>
-                <li>Arrow keys move the active crop box by 1 pixel</li>
+                <li>Arrow keys move the active image(s) by 1 pixel</li>
                 <li>Hold <span class="shortcut">Shift</span> + arrow keys for 5-pixel movements</li>
-                <li>Press <span class="shortcut">Tab</span> to change which box is active</li>
+                <li>Press <span class="shortcut">Tab</span> to to cycle between moving the left image, the right image, and both images.
+                In align mode, <span class="shortcut">Tab</span> toggles between moving the images together under the crop box, or moving one image relative to the other.</li>
             </ul>
             
             <h3>Image Replacement</h3>
             <p>To replace your images without resetting all settings:</p>
             <ul>
                 <li>Drag and drop new images directly onto the canvas area</li>
-                <li>Or click on the canvas to open the file browser</li>
+                <li>Or click on the canvas to open the file browser (only works when not in crop mode)</li>
             </ul>
             
             <div class="tip">
@@ -293,15 +292,15 @@
                 </tr>
                 <tr>
                     <td><span class="shortcut">Tab</span></td>
-                    <td>Cycle between left box, right box, and both boxes (in crop mode)</td>
+                    <td>Cycle between selecting left box, right box, and both boxes (in crop mode)</td>
                 </tr>
                 <tr>
                     <td><span class="shortcut">Arrow Keys</span></td>
-                    <td>Move active crop box by 1 pixel</td>
+                    <td>Move image(s) under the active crop box(es) by 1 pixel</td>
                 </tr>
                 <tr>
                     <td><span class="shortcut">Shift</span> + <span class="shortcut">Arrow Keys</span></td>
-                    <td>Move active crop box by 5 pixels</td>
+                    <td>Move image(s) under the active crop box(es) by 5 pixels</td>
                 </tr>
                 <tr>
                     <td><span class="shortcut">Esc</span></td>
