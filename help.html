@@ -112,7 +112,10 @@
         }
         
         /* Additional responsive styles */
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 24px;
+            }
             .tab {
                 padding: 8px 15px;
                 font-size: 14px;
@@ -190,11 +193,7 @@
             <p>Align mode (default) provides a special overlay view to help you precisely align the two images.</p>
             <ul>
                 <li>Click inside the crop box, and the images appear overlaid with inverse grayscale coloring to highlight differences</li>
-                <li>Click and drag the image to align key features.  A feature is aligned when it turns a consistent gray color.
-                    Typically you want to align the objects which are closest to the viewer so that the image appears behind the viewing window
-                    and doesn't appear to "violate" the edge of the viewing window. 
-                    For example, for a view of a mountain with a tree close by a side of the window, align the tree.
-                </li>
+                <li>Click and drag the image to align key features.  A feature is aligned when it turns a consistent gray color.</li>
                 <li>Click the "Align Mode" checkbox or press the <span class="shortcut">a</span> key to toggle align mode and side-by-side mode</li>
             </ul>
 
@@ -217,6 +216,13 @@
                 <li>Click "Cancel" to exit crop mode without changes</li>
                 <li>After applying a crop, you can click "Reset Crop" to restore the original images, or "Crop Images" to continue where you left off.</li>
             </ul>
+
+            <div class="tip">
+                <strong>Tip:</strong> In align mode, typically you want to align the objects which are closest to the viewer 
+                so that the image extends behind the viewing window
+                and doesn't stick out in front of the border of the window. 
+                For example, in an image of a mountain with a tree closer to the viewer, align the tree, or the ground in front of the tree.
+            </div>
         </div>
     </div>
     

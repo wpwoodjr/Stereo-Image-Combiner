@@ -46,10 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const HANDLE_SIZE = 16;
     const GRAB_SIZE = 3 * HANDLE_SIZE;
+    const MIN_CROP_SIZE_PIXELS = 3 * HANDLE_SIZE;
     let handleSize = HANDLE_SIZE;
-
-    const MIN_CROP_SIZE_PERCENT = 1 / 8;
-    let minCropSizePixels = 0;
 
     // Original scale before any cropping
     let resetScalePercent = 0;
@@ -262,7 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Update cursor based on handle
-        [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+        const [x, y] = getXY(e.changedTouches[0]);
+        [ currentHandle, activeCropBox ] = getHandle(x, y);
         updateCursor(currentHandle);
         // check if highlights should be shown and draw crop interface
         const wasMovable = movableBoxes;
@@ -298,7 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
         isCropping = true;
         isDragging = false;
         isArrowing = false;
-        minCropSizePixels = Math.max(16, Math.round(Math.min(images[0].width, images[0].height, images[1].width, images[1].height) * MIN_CROP_SIZE_PERCENT));
 
         // Show crop controls
         cropButton.style.display = 'none';
@@ -355,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // make sure box dimensions are valid and the same
     if (DEBUG) {
         function validateCropBoxes(msg) {
-            const minCropSizeCanvas = minCropSizePixels * currentScale;
+            const minCropSizeCanvas = MIN_CROP_SIZE_PIXELS * currentScale;
             // Get current image dimensions
             const oldCropBoxes = [ { ...cropBoxes[LEFT] },  { ...cropBoxes[RIGHT] } ];
             const img1Width = window.images[0].width * currentScale;
@@ -591,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (DEBUG) {
             // draw the touch points
-            getHandle(rightImgStart, 0);
+            getHandle(0, 0);
         }
     }
 
@@ -1147,8 +1145,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function getMovableBoxes(handle) {
         if (handle === INSIDE || handle === OUTSIDE) {
             // For moves, we need to check if boxes can actually move
-            const leftCanMove = canBoxMove(cropBoxes[LEFT], LEFT);
-            const rightCanMove = canBoxMove(cropBoxes[RIGHT], RIGHT);
+            const leftCanMove = canBoxMove(cropBoxes[LEFT], LEFT, handle);
+            const rightCanMove = canBoxMove(cropBoxes[RIGHT], RIGHT, handle);
     
             // Determine which directions are valid based on current clamp mode
             const canMoveHorizontal = clampMode !== VERTICAL_CLAMP;  // Can move horizontally in HORIZONTAL or NO_CLAMP modes
@@ -1322,9 +1320,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Shrink the boxes as much as possible while maintaining the aspect ratio
     function shrinkBoxes(box1, box2) {
-        const minCropSizeCanvas = minCropSizePixels * currentScale;
+        const minCropSizeCanvas = MIN_CROP_SIZE_PIXELS * currentScale;
 
-        const ratio = box1.width / box1.height;
+        const width = box1.width;
+        const height = box1.height;
+        const ratio = width / height;
         if (ratio > 1) {
             box1.width = box2.width = ratio * minCropSizeCanvas;
             box1.height = box2.height = minCropSizeCanvas;
@@ -1332,6 +1332,11 @@ document.addEventListener('DOMContentLoaded', () => {
             box1.width = box2.width = minCropSizeCanvas;
             box1.height = box2.height = minCropSizeCanvas / ratio;
         }
+        // shrink down to lower right
+        box1.x += width - box1.width;
+        box2.x += width - box2.width;
+        box1.y += height - box1.height;
+        box2.y += height - box2.height;
     }
 
     function growCorner(leftBox, rightBox, xGrow, yGrow, ratio) {
@@ -1359,6 +1364,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxWidth = saveCropBoxDimensions.width;
         const maxHeight = saveCropBoxDimensions.height;
         const ratio = maxWidth / maxHeight;
+
+        // top left
+        {
+            const maxX = Math.min(leftBox.x, rightBox.x, maxWidth - leftBox.width);
+            const maxY = Math.min(leftBox.y, rightBox.y, maxHeight - leftBox.height);
+
+            const { xDir, yDir } = growCorner(leftBox, rightBox, maxX, maxY, ratio);
+            leftBox.x -= xDir;
+            rightBox.x -= xDir;
+            leftBox.y -= yDir;
+            leftBox.yOffset -= yDir;
+            rightBox.y -= yDir;
+            rightBox.yOffset -= yDir;
+        }
 
         // bottom right
         {
@@ -1400,27 +1419,13 @@ document.addEventListener('DOMContentLoaded', () => {
             rightBox.y -= yDir;
             rightBox.yOffset -= yDir;
         }
-
-        // top left
-        {
-            const maxX = Math.min(leftBox.x, rightBox.x, maxWidth - leftBox.width);
-            const maxY = Math.min(leftBox.y, rightBox.y, maxHeight - leftBox.height);
-
-            const { xDir, yDir } = growCorner(leftBox, rightBox, maxX, maxY, ratio);
-            leftBox.x -= xDir;
-            rightBox.x -= xDir;
-            leftBox.y -= yDir;
-            leftBox.yOffset -= yDir;
-            rightBox.y -= yDir;
-            rightBox.yOffset -= yDir;
-        }
     }
 
     // Small tolerance value
     const epsilon = 0.001;
     // Helper function to check if a box is within bounds
     function isBoxInBounds(box, maxWidth, maxHeight) {
-        const minCropSizeCanvas = minCropSizePixels * currentScale;
+        const minCropSizeCanvas = MIN_CROP_SIZE_PIXELS * currentScale;
         
         // Check all constraints
         if (box.x < -epsilon) return false;
@@ -1450,27 +1455,37 @@ document.addEventListener('DOMContentLoaded', () => {
         return { x: actualDeltaX, y: actualDeltaY };
     }
 
-    function canBoxMove(box, boxType) {
-        // Determine if a box has any room to move in any direction
-        const maxWidth = boxType === LEFT ? 
-                         window.images[0].width * currentScale : 
-                         window.images[1].width * currentScale;
-        const maxHeight = boxType === LEFT ? 
-                          window.images[0].height * currentScale : 
-                          window.images[1].height * currentScale;
-        
+    // Determine if a box has any room to move in any direction
+    function canBoxMove(box, boxPos, handle) {
+        let { x, y, width, height } = box;
+        // in alignMode we shrink the boxes so they can move
+        if (alignMode && handle === INSIDE) {
+            const minCropSizeCanvas = MIN_CROP_SIZE_PIXELS * currentScale;
+            const ratio = width / height;
+            if (ratio > 1) {
+                width = ratio * minCropSizeCanvas;
+                height = minCropSizeCanvas;
+            } else {
+                width = minCropSizeCanvas;
+                height = minCropSizeCanvas / ratio;
+            }
+            x += width - box.width;
+            y += height - box.height;
+        }
+
+        const maxWidth = window.images[boxPos].width * currentScale;
+        const maxHeight = window.images[boxPos].height * currentScale;
+
         // Check if there's room to move in any direction
-        const canMoveLeft = box.x > epsilon;
-        const canMoveRight = box.x + box.width < maxWidth - epsilon;
-        const canMoveUp = box.y > epsilon;
-        const canMoveDown = box.y + box.height < maxHeight - epsilon;
-        return {
-            canMoveLeft, canMoveRight, canMoveUp, canMoveDown
-        };
+        const canMoveLeft = x > epsilon;
+        const canMoveRight = x + width < maxWidth - epsilon;
+        const canMoveUp = y > epsilon;
+        const canMoveDown = y + height < maxHeight - epsilon;
+        return { canMoveLeft, canMoveRight, canMoveUp, canMoveDown };
     }
 
     function resizeBox(box, handle, deltaX, deltaY, maxWidth, maxHeight) {
-        const minCropSizeCanvas = minCropSizePixels * currentScale;
+        const minCropSizeCanvas = MIN_CROP_SIZE_PIXELS * currentScale;
         const boxAspectRatio = box.width / box.height;
         
         // Handle corner resize cases (maintains aspect ratio)
@@ -2201,7 +2216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // adjust crop boxes to new scale
         adjustToNewScale();
 
-        [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+        [ currentHandle, activeCropBox ] = [ INSIDE, LEFT ];
         updateCursor(currentHandle);
         movableBoxes = getMovableBoxes(currentHandle);
         drawCropInterface(movableBoxes);

@@ -1,11 +1,5 @@
 Update readme
 
-Any way to position box better when growing? Such as bottom having priority?
-
-Shrink latch? Or don't use in align mode?
-
-cursor disappears after handling a keypress
-
 Initial state in alignmode shows crop boxes can't be moved (orange)
 
 Mac cropbox drawing all screwed up
@@ -86,3 +80,5 @@ reducing 1 from full display scale moves right filename and fullscreen icon to t
 May want to revert scale after fullscreen mode
 
 Add 1/3 crop lines in align mode
+
+cursor disappears after handling a keypress

@@ -59,15 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Make icon more visible and tappable on mobile
-    if (isMobileDevice()) {
-        helpIconContainer.style.width = '48px';
-        helpIconContainer.style.height = '48px';
+    // if (isMobileDevice()) {
+    //     helpIconContainer.style.width = '48px';
+    //     helpIconContainer.style.height = '48px';
         
-        // Add a bit more space on smaller screens
-        if (window.innerWidth < 600) {
-            helpIconContainer.style.right = '70px';
-        }
-    }
+    //     // Add a bit more space on smaller screens
+    //     if (window.innerWidth < 768) {
+    //         helpIconContainer.style.right = '70px';
+    //     }
+    // }
 });
 
 // 3. Function to open help in a new tab
