@@ -1,6 +1,6 @@
 # Stereo Image Combiner
 
-A simple web-based tool for combining two images side by side with customizable options. Particularly useful for stereo slide pairs.
+A web-based tool for combining two images side by side with customizable options. Particularly useful for stereo image pairs.
 
 ![image](https://github.com/user-attachments/assets/3c18baea-2d0b-439a-8508-388e82e7625c)
 
@@ -9,8 +9,8 @@ A simple web-based tool for combining two images side by side with customizable 
 Image Combiner is a lightweight browser-based application that allows users to:
 - Combine two images side by side into a single image
 - Crop both images simultaneously with synchronized dimensions
-- Adjust the gap between images
-- Change the color of the gap between images
+- Align images precisely using an interactive overlay mode
+- Adjust the gap between images and set its color
 - Scale the preview display
 - Swap image positions
 - Save the resulting combined image as a PNG or JPG file
@@ -21,34 +21,55 @@ No server processing or uploading is required - all operations happen directly i
 
 - **Drag and Drop Interface**: Simply drag and drop your images onto the application, or use the file browser
 - **Live Preview**: See how your combined image will look as you adjust settings
-- **Image Cropping**: Precisely crop both images with synchronized dimensions to focus on specific areas
+- **Advanced Image Alignment**: Use the align mode to precisely overlay images with inverse grayscale highlighting for perfect stereo alignment
+- **Sophisticated Cropping**: Multiple cropping modes with synchronized dimensions and fine-grained positioning controls
 - **Customizable Gap**: Adjust the space between images from 0 to 20% of average image width
 - **Gap Color Selection**: Choose any color for the space between your images
-- **Image Swapping**: Easily change the order of images with a single click
+- **Image Swapping**: Easily swap the images with a single click or keyboard shortcut for cross and parallel viewing
 - **Scalable Preview**: Adjust the preview size without affecting the final output
 - **High-Quality Export**: Save the combined image in PNG format at full resolution or JPG at your selected quality
-- **Optimized for desktop and mobile**
+- **Keyboard Shortcuts**: Speed up your workflow with convenient keyboard shortcuts
+- **Fullscreen Mode**: View and edit your images in fullscreen for more detailed work
+- **Responsive Design**: Optimized for both desktop and mobile devices
+- **Comprehensive Help**: Detailed documentation available via the help icon
 
 ## Usage
 
 1. Browse to https://wpwoodjr.github.io/Stereo-Image-Combiner/
    - Images are not uploaded anywhere and all operations are handled locally in your browser
-2. Drag and drop two images onto the designated drop zone
+2. Drag and drop two images onto the designated drop zone or click to browse
 3. Use the controls to adjust:
-   - Scale (for preview only)
+   - Display Scale (for preview only)
    - Gap between images
    - Gap color
-4. Click "Swap Images" to change their order, for instance to switch from cross-eyed viewing to parallel viewing of a stereo image
-5. Click "Crop Images" to enter crop mode, where you can select matching regions from both images:
-   - Adjust crop box dimensions by dragging resize handles
-   - Click inside a box to move the entire box
-   - When you first drag inside a crop box, it becomes the primary box and dragging it will move both boxes simultaneously
-   - The other crop box may be moved independently of the primary box
-   - Crop dimensions are synchronized between both images
+4. Click "Swap Images" (or press `x`) to change their order, for instance to switch from cross-eyed viewing to parallel viewing of stereo images
+5. Click "Crop Images" to enter crop mode:
+   - By default, you'll be in align mode with the images overlaid using inverse grayscale coloring
+   - Adjust the crop box by dragging its handles
+   - Click inside the crop box to move the image beneath it
+   - Click outside to move both images together
+   - Use `Tab` to cycle between selecting the left image, right image, or both
+   - Press `a` to toggle between align mode and side-by-side mode
+   - Press `h` to toggle horizontal-only movement
+   - Use arrow keys for 1-pixel precision movements (hold `Shift` for 5-pixel movements)
    - Click "Apply Crop" to confirm or "Cancel" to exit crop mode
    - After applying, you may enter crop mode again to continue where you left off
    - Click "Reset Crop" to restore original images
 6. Click "Save Image" to download the combined image in PNG or JPG format
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `x` | Swap left and right images |
+| `f` | Toggle fullscreen mode |
+| `a` | Toggle align mode (in crop mode) |
+| `h` | Toggle horizontal-only movement (in crop mode) |
+| `Tab` | Cycle between selecting left box, right box, and both boxes (in crop mode) |
+| `Arrow Keys` | Move image(s) under the active crop box(es) by 1 pixel |
+| `Shift` + `Arrow Keys` | Move image(s) under the active crop box(es) by 5 pixels |
+| `Esc` | Exit fullscreen mode |
+| `?` | Show help screen |
 
 ## Technical Details
 
@@ -57,6 +78,7 @@ No server processing or uploading is required - all operations happen directly i
 - Uses HTML5 Canvas for image manipulation and rendering
 - Handles various input image formats supported by your browser (JPG, PNG, GIF, etc.)
 - The final output is saved as a JPG with selectable quality setting, or optionally a PNG with full transparency support
+- Settings are saved in local storage for persistence between sessions
 
 ## Browser Compatibility
 
@@ -67,7 +89,7 @@ Works in all modern browsers that support:
 
 ## Installation
 
-To run it locally, download the repository and point your browser at index.html
+To run it locally, download the repository and open index.html in your browser. No server or build process is required.
 
 ## License
 

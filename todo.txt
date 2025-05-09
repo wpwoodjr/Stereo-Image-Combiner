@@ -1,7 +1,5 @@
 Update readme
 
-Initial state in alignmode shows crop boxes can't be moved (orange)
-
 Mac cropbox drawing all screwed up
 
 Check drawImage in alignMode works with Safari
