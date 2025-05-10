@@ -467,9 +467,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let glowAnimationFrameId = null;
 
     function drawCropInterface(highlights = [ false, false ]) {
-        const [ leftBoxHighlight, rightBoxHighlight ] = highlights;
         // Start glow animation if any box went active
-        if (leftBoxHighlight || rightBoxHighlight) {
+        if (highlights[LEFT] || highlights[RIGHT]) {
             startGlowAnimation();
         }
         
@@ -1128,18 +1127,10 @@ document.addEventListener('DOMContentLoaded', () => {
         previousDeltaY = currentDeltaY;
         cropBoxes[LEFT].yOffset -= currentIncrement;
         cropBoxes[RIGHT].yOffset -= currentIncrement;
+        drawCropInterface();
             
         // Continue animation if not complete
-        if (progress < 1) {
-            // Redraw with the new offsets
-            drawCropInterface();
-            animateOffsetChangeFrameId = requestAnimationFrame(animateOffsetStep);
-        } else {
-            const wasMovable = movableBoxes;
-            movableBoxes = getMovableBoxes(currentHandle);
-            drawCropInterface(movableBoxHighlights(wasMovable));
-            animateOffsetChangeFrameId = null;
-        }
+        animateOffsetChangeFrameId = progress < 1 ? requestAnimationFrame(animateOffsetStep) : null;
     }
 
     function getMovableBoxes(handle) {
@@ -1725,7 +1716,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Swap crop boxes with appropriate width calculations
             swapBoxes(cropBoxes);
-            drawCropInterface();
+            [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+            updateCursor(currentHandle);
+            movableBoxes = getMovableBoxes(currentHandle);
+            drawCropInterface(movableBoxes);
         } else {
             window.drawImages();
         }
@@ -1760,7 +1754,10 @@ document.addEventListener('DOMContentLoaded', () => {
         adjustToNewScale();
 
         // Redraw with updated boxes
-        drawCropInterface();
+        [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
+        updateCursor(currentHandle);
+        movableBoxes = getMovableBoxes(currentHandle);
+        drawCropInterface(movableBoxes);
     }
 
     // adjust crop boxes to new scale

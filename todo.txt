@@ -1,11 +1,6 @@
-Update readme
-
 Mac cropbox drawing all screwed up
 
 Check drawImage in alignMode works with Safari
-
-need to updatemovableboxes on entering and exiting fullscreen mode.
-  well how do onScaleChange and onSwap do it without calling movableboxes?
 
 ========== Maybe later ==========
 Use currentparams for imgages[0].width etc
@@ -16,10 +11,6 @@ Can remove yOffset?
 only look at some mouse movements to decrease CPU?
 
 move other box in side by side mode, like in align mode?
-
-*Fullscreen*
-fullscreen on Firefox does weird things with moving the image down, does Chrome?
-fs generally takes scalePercent from current mode, should it just be full screen at 100% scale?
 
 lines on shadow, maybe due to off by one issue?  timing?
 
