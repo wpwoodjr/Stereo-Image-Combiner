@@ -24,8 +24,6 @@ iOS may need to call onResize after a timeout, as documented in MB:
 
 cursor changes on mobile? esp. with touch
 ^^^^^^^ try on chromebook
-desktop, crop / resize, mobile, desktop, cancel, crop - crop window too small
-^^^^^^^ try on chromebook
 
 *Align Mode*
 need better indicators of what will move in align mode, esp arrow mode

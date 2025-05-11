@@ -278,20 +278,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // Save original scale in case we reset the crop while not in crop mode
             resetScalePercent = preCropScalePercent;
             originalImages = [
-                window.images[0].cloneNode(true),
-                window.images[1].cloneNode(true)
+                window.images[0],
+                window.images[1]
             ];
         } else {
             // For subsequent crops, temporarily restore original images for display
             // but keep the currently cropped images for later restoration in case of a cancel
             tempCroppedImages = [
-                window.images[0].cloneNode(true),
-                window.images[1].cloneNode(true)
+                window.images[0],
+                window.images[1]
             ];
             
             // Restore original images for display during cropping
-            window.images[0] = originalImages[0].cloneNode(true);
-            window.images[1] = originalImages[1].cloneNode(true);
+            window.images[0] = originalImages[0];
+            window.images[1] = originalImages[1];
         }
         
         isCropping = true;
@@ -1785,8 +1785,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Restore original images if images are currently being displayed
             if (window.images.length === 2) {
-                window.images[0] = originalImages[0].cloneNode(true);
-                window.images[1] = originalImages[1].cloneNode(true);
+                window.images[0] = originalImages[0];
+                window.images[1] = originalImages[1];
                 // reset scale to uncropped
                 updateScalePercent(resetScalePercent);
                 // Redraw with original images
