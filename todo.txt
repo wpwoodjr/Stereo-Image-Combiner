@@ -1,3 +1,7 @@
+Transparent option
+
+thin line at 0% gap with rounded corners
+
 Mac cropbox drawing all screwed up
 
 Check drawImage in alignMode works with Safari

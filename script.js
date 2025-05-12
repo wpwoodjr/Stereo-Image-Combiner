@@ -407,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {Object} options.xOffsets - Optional X offsets for each image {left: number, right: number}
      * @param {Object} options.yOffsets - Optional Y offsets for each image {left: number, right: number}
      * @param {number} options.avgWidth - Average width of images for calculating renderGap
-     * @param {number} options.radiusPercent - corner radius in percent
+     * @param {number} options.radiusPercent - Corner radius in percent
      * @returns {Object} - Parameters used for the rendering (dimensions, etc.)
      */
     function renderCombinedImage(targetCanvas, renderScale, options = {}) {
@@ -445,7 +445,6 @@ document.addEventListener('DOMContentLoaded', () => {
         targetCanvas.width = totalWidth;
         targetCanvas.height = maxHeight;
 
-        const xFactor = xOffsets.right / renderScale;
         if (radiusPercent > 0) {
             // Fill background with selected color
             targetCtx.fillStyle = gapColor;
@@ -455,34 +454,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 totalWidth,
                 maxHeight
             );
-    
-            // Calculate corner radius in render scale
-            const radiusPx = Math.min(img1Width, img2Width, img1Height, img2Height) / 2;
-            const renderCornerRadius = radiusPercent / 100 * radiusPx;
-
-            // Draw the left image with offsets and rounded corners
-            drawRoundedImage(
-                targetCtx,
-                images[0],
-                xOffsets.left, yOffsets.left,                  // Destination position with offsets
-                img1Width - xOffsets.left, img1Height,         // Destination dimensions
-                renderCornerRadius,
-                [true, true, true, true],
-                renderScale
-            );
-
-            // Draw the right image with offsets and rounded corners
-            drawRoundedImage(
-                targetCtx,
-                images[1],
-                rightImgStart, yOffsets.right,                  // Destination position with offset
-                img2Width + xOffsets.right, img2Height,         // Destination dimensions
-                renderCornerRadius,
-                [true, true, true, true],
-                renderScale,
-                -xFactor, 0 // Source position offset
-            );
-
         } else {
             // Clear the canvas
             targetCtx.clearRect(0, 0, totalWidth, maxHeight);
@@ -497,24 +468,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderGap,                  // Width (just the gap)
                 gapHeight                   // Height (full height)
             );
-
-            targetCtx.drawImage(
-                images[0],
-                0, 0,                                                               // Source position
-                images[0].width - xOffsets.left / renderScale, images[0].height,    // Source dimensions
-                xOffsets.left, yOffsets.left,                                       // Destination position with offsets
-                img1Width - xOffsets.left, img1Height                               // Destination dimensions
-            );
-
-            targetCtx.drawImage(
-                images[1],
-                -xFactor, 0,                                    // Source position
-                images[1].width + xFactor, images[1].height,    // Source dimensions
-                rightImgStart, yOffsets.right,                  // Destination position with offset
-                img2Width + xOffsets.right, img2Height          // Destination dimensions
-            );
         }
 
+        targetCtx.save();
+        if (radiusPercent > 0) {
+            // Calculate corner radius in render scale
+            const radiusPx = Math.min(img1Width, img2Width, img1Height, img2Height) / 2;
+            const renderCornerRadius = radiusPercent / 100 * radiusPx;
+
+            // Create a single clipping path for both images
+            targetCtx.beginPath();
+            
+            // Left image clipping region (all corners rounded)
+            targetCtx.roundRect(
+                xOffsets.left, 
+                yOffsets.left,
+                img1Width - xOffsets.left, 
+                img1Height,
+                renderCornerRadius
+            );
+            
+            // Right image clipping region (all corners rounded)
+            targetCtx.roundRect(
+                rightImgStart, 
+                yOffsets.right,
+                img2Width + xOffsets.right, 
+                img2Height,
+                renderCornerRadius
+            );
+            
+            targetCtx.clip();
+        }
+
+        // Draw the left image with offsets
+        targetCtx.drawImage(
+            images[0],
+            0, 0,                                                               // Source position
+            images[0].width - xOffsets.left / renderScale, images[0].height,    // Source dimensions
+            xOffsets.left, yOffsets.left,                                       // Destination position with offsets
+            img1Width - xOffsets.left, img1Height                               // Destination dimensions
+        );
+
+        // Right image
+        const xFactor = xOffsets.right / renderScale;
+        targetCtx.drawImage(
+            images[1],
+            -xFactor, 0,                                    // Source position
+            images[1].width + xFactor, images[1].height,    // Source dimensions
+            rightImgStart, yOffsets.right,                  // Destination position with offset
+            img2Width + xOffsets.right, img2Height          // Destination dimensions
+        );
+        targetCtx.restore();
+    
         // Store the last render parameters for reference by crop module
         lastRenderParams = {
             img1Width,
@@ -526,66 +531,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Return parameters used for rendering (useful for saving)
         return lastRenderParams;
-    }
-
-    /**
-     * Draw an image with rounded corners
-     * @param {CanvasRenderingContext2D} ctx - Canvas context
-     * @param {HTMLImageElement} image - Image to draw
-     * @param {number} x - Destination x position
-     * @param {number} y - Destination y position
-     * @param {number} width - Destination width
-     * @param {number} height - Destination height
-     * @param {number} radius - Corner radius
-     * @param {boolean[]} corners - Array of 4 booleans [topLeft, topRight, bottomRight, bottomLeft]
-     * @param {number} renderScale - Scale factor for the render
-     * @param {number} sx - Source x position (optional)
-     * @param {number} sy - Source y position (optional)
-     */
-    function drawRoundedImage(ctx, image, x, y, width, height, radius, corners = [true, true, true, true], renderScale = 1, sx = 0, sy = 0) {
-        // Calculate source dimensions
-        const sw = width / renderScale;
-        const sh = height / renderScale;
-
-        // Create a clipping path for rounded corners
-        ctx.save();
-        ctx.beginPath();
-        
-        // Top left corner
-        if (corners[0]) {
-            ctx.arc(x + radius, y + radius, radius, Math.PI, Math.PI * 1.5);
-        } else {
-            ctx.moveTo(x, y);
-        }
-        
-        // Top right corner
-        if (corners[1]) {
-            ctx.arc(x + width - radius, y + radius, radius, Math.PI * 1.5, 0);
-        } else {
-            ctx.lineTo(x + width, y);
-        }
-        
-        // Bottom right corner
-        if (corners[2]) {
-            ctx.arc(x + width - radius, y + height - radius, radius, 0, Math.PI * 0.5);
-        } else {
-            ctx.lineTo(x + width, y + height);
-        }
-        
-        // Bottom left corner
-        if (corners[3]) {
-            ctx.arc(x + radius, y + height - radius, radius, Math.PI * 0.5, Math.PI);
-        } else {
-            ctx.lineTo(x, y + height);
-        }
-        
-        ctx.closePath();
-        ctx.clip();
-        
-        // Draw the image within the clipped area
-        ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
-        
-        ctx.restore();
     }
 
     function drawImages(options = {}) {

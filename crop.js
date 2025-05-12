@@ -505,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // draw gap based on crop box size
-        const avgWidth = (cropBoxes[LEFT].width + cropBoxes[RIGHT].width)/2;
+        const avgWidth = cropBoxes[LEFT].width;
         
         // Draw images with both x and y offsets
         currentParams = window.drawImages({
