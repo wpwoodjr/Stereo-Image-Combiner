@@ -7,12 +7,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Stereo Image Combiner</title>
     <style>
+        :root {
+            /* --body-bg-color: #121212; */
+            --body-bg-color: #700000;
+        }
         body {
             font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            background-color: #121212;
+            background-color: var(--body-bg-color);
             color: #e0e0e0;
             margin: 0;
             padding: 20px 15px 20px 5px;
@@ -202,6 +206,26 @@
         .file-input {
             display: none;
         }
+        input[type="color"]:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(1);
+        }
+        #canvas.transparent-bg {
+            background-image: 
+                repeating-conic-gradient(#e5e5e5 0deg 90deg, white 90deg 180deg);
+            background-size: 16px 16px;
+        }
+        /* Alternative approach if the above doesn't work in all browsers: */
+        /*
+        #canvasContainer.transparent-bg {
+            background-image: 
+                linear-gradient(0deg, #e5e5e5 50%, white 50%),
+                linear-gradient(90deg, #e5e5e5 50%, white 50%);
+            background-size: 32px 32px, 32px 32px;
+            background-position: 0 0, 16px 16px;
+        }
+        */
         @media (max-width: 768px) {
             h1 {
                 text-align: left;
@@ -325,9 +349,14 @@
                     </div>
                     
                     <div class="control-row" style="margin-top: 5px;">
-                        <label for="color">Gap Color:</label>
+                        <label for="color">Color:</label>
                         <input type="color" id="color" value="#000000" style="margin-left: 10px;">
+                        <div style="display: flex; align-items: center; margin-left: 15px;">
+                            <input type="checkbox" id="transparent" style="margin-right: 5px;">
+                            <label for="transparent" style="margin: 0;">Transparent</label>
+                        </div>
                     </div>
+
                     <label for="cornerRadius">Corner Radius:</label>
                     <div class="control-row">
                         <input type="range" id="cornerRadius" min="0" max="100" value="0" step="1" style="margin-top: 0px;">

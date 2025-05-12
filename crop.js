@@ -512,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
             xOffsets,
             yOffsets,
             avgWidth: avgWidth,
-            radiusPercent: 0
+            radiusPercent: -1
         });
 
         // Calculate image dimensions and positions

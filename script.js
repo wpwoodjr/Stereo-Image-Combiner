@@ -8,6 +8,7 @@ var isCropped;
 // main script 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
+    const BODY_BG_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--body-bg-color').trim();
     const dropzone = document.getElementById('dropzone');
     const dropzoneMessage = document.getElementById('dropzoneMessage');
     const canvas = document.getElementById('canvas');
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gapSlider = document.getElementById('gap');
     const gapValue = document.getElementById('gapValue');
     const colorPicker = document.getElementById('color');
+    const transparentCheckbox = document.getElementById('transparent');
     const cornerRadiusSlider = document.getElementById('cornerRadius');
     const cornerRadiusValue = document.getElementById('cornerRadiusValue');
     saveButton = document.getElementById('save');
@@ -35,17 +37,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_SCALE = 100;
     const DEFAULT_GAP_PERCENT = 3.0; // Gap as percentage
     const DEFAULT_COLOR = '#000000';
+    const DEFAULT_TRANSPARENT = false;
+    const DEFAULT_CORNER_RADIUS = 0;
     const DEFAULT_FORMAT = 'image/jpeg';
     const DEFAULT_JPG_QUALITY = 90;
-    const DEFAULT_CORNER_RADIUS = 0;
     // Delay resetting controls in case of "duplicate tab"
     // Otherwise slider values and slider text don't match up
     setTimeout(resetControlsToDefaults, 100);
 
     // State variables
     let imageNames = [];
-    let gapColor = DEFAULT_COLOR;
     let gapPercent = DEFAULT_GAP_PERCENT;
+    let gapColor = DEFAULT_COLOR;
+    let isTransparent = DEFAULT_TRANSPARENT;
     let cornerRadius = DEFAULT_CORNER_RADIUS;
 
     // dropzone message
@@ -159,6 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset color
         gapColor = getLocalStorageItem('gapColor', DEFAULT_COLOR);
         colorPicker.value = gapColor;
+        isTransparent = getLocalStorageItem('isTransparent', DEFAULT_TRANSPARENT);
+        transparentCheckbox.checked = isTransparent;
+        updateColorPickerState();
 
         // Reset corner radius
         cornerRadius = getLocalStorageItem('cornerRadius', DEFAULT_CORNER_RADIUS);
@@ -177,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     scaleSlider.addEventListener('input', updateScale);
     gapSlider.addEventListener('input', updateGap);
     colorPicker.addEventListener('input', updateColor);
+    transparentCheckbox.addEventListener('input', updateTransparent);
     cornerRadiusSlider.addEventListener('input', updateCornerRadius);
     swapButton.addEventListener('click', updateSwap);
     swapButton.disabled = true;
@@ -376,6 +384,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateTransparent() {
+        isTransparent = this.checked;
+        setLocalStorageItem('isTransparent', isTransparent);
+        updateColorPickerState();
+        if (window.cropModule.isCropping()) {
+            window.cropModule.drawCropInterface();
+        } else {
+            drawImages();
+        }
+    }
+
+    function updateColorPickerState() {
+        colorPicker.disabled = isTransparent;
+        if (isTransparent) {
+            colorPicker.style.opacity = '0.5';
+            colorPicker.style.pointerEvents = 'none';
+            colorPicker.style.filter = 'grayscale(1)';
+            canvas.classList.add('transparent-bg');
+        } else {
+            colorPicker.style.opacity = '1';
+            colorPicker.style.pointerEvents = 'auto';
+            colorPicker.style.filter = 'none';
+            canvas.classList.remove('transparent-bg');
+        }
+    }
+
     function updateCornerRadius() {
         cornerRadius = parseInt(this.value);
         setLocalStorageItem('cornerRadius', cornerRadius);
@@ -445,29 +479,43 @@ document.addEventListener('DOMContentLoaded', () => {
         targetCanvas.width = totalWidth;
         targetCanvas.height = maxHeight;
 
-        if (radiusPercent > 0) {
-            // Fill background with selected color
-            targetCtx.fillStyle = gapColor;
-            targetCtx.fillRect(
-                0,
-                0,
-                totalWidth,
-                maxHeight
-            );
+        if (radiusPercent >= 0) {
+            if (isTransparent) {
+                // Clear the canvas
+                targetCtx.clearRect(0, 0, totalWidth, maxHeight);
+            } else {
+                // Fill background with selected color
+                targetCtx.fillStyle = gapColor;
+                targetCtx.fillRect(0, 0, totalWidth, maxHeight);
+            }
         } else {
-            // Clear the canvas
-            targetCtx.clearRect(0, 0, totalWidth, maxHeight);
+            // crop mode
+            // Fill background with body background color
+            targetCtx.fillStyle = BODY_BG_COLOR;
+            targetCtx.fillRect(0, 0, totalWidth, maxHeight);
 
             // Fill background with selected color (ONLY the gap)
             const gapStart = Math.max(yOffsets.left, yOffsets.right);
             const gapHeight = Math.min(img1Height + yOffsets.left, img2Height + yOffsets.right) - gapStart;
-            targetCtx.fillStyle = gapColor;
-            targetCtx.fillRect(
-                img1Width,                  // X position (after first image)
-                gapStart,                   // Y position (top)
-                renderGap,                  // Width (just the gap)
-                gapHeight                   // Height (full height)
-            );
+
+            if (isTransparent) {
+                // Clear the gap
+                targetCtx.clearRect(
+                    img1Width,                  // X position (after first image)
+                    gapStart,                   // Y position (top)
+                    renderGap,                  // Width (just the gap)
+                    gapHeight                   // Height (full height)
+                );
+            } else {
+                // Fill gap with selected color
+                targetCtx.fillStyle = gapColor;
+                targetCtx.fillRect(
+                    img1Width,                  // X position (after first image)
+                    gapStart,                   // Y position (top)
+                    renderGap,                  // Width (just the gap)
+                    gapHeight                   // Height (full height)
+                );
+            }
         }
 
         targetCtx.save();
@@ -538,6 +586,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveImage() {
+        // Check if trying to save as JPG with transparency
+        const format = formatSelect.value;
+        if (isTransparent && format === 'image/jpeg') {
+            alert('JPG format does not support transparency. Please choose PNG format to preserve the transparent gap, or uncheck the Transparent option.');
+            return;
+        }
+
         const saveCanvas = document.createElement('canvas');
         
         // Render at 100% scale for saving
@@ -547,7 +602,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileName = createCombinedFilename();
 
         // Get selected format and set appropriate extension
-        const format = formatSelect.value;
         const extension = format === 'image/jpeg' ? 'jpg' : 'png';
         link.download = `${fileName}.${extension}`;
 
