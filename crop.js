@@ -511,7 +511,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentParams = window.drawImages({
             xOffsets,
             yOffsets,
-            avgWidth: avgWidth
+            avgWidth: avgWidth,
+            radiusPercent: 0
         });
 
         // Calculate image dimensions and positions
