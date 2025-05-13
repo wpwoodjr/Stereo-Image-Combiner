@@ -10,7 +10,8 @@ Image Combiner is a lightweight browser-based application that allows users to:
 - Combine two images side by side into a single image
 - Crop both images simultaneously with synchronized dimensions
 - Align images precisely using an interactive overlay mode
-- Adjust the gap between images and set its color
+- Adjust the size and color (optionally transparent) of the border between images
+- Round the image corners
 - Scale the preview display
 - Swap image positions
 - Save the resulting combined image as a PNG or JPG file
@@ -23,8 +24,8 @@ No server processing or uploading is required - all operations happen directly i
 - **Live Preview**: See how your combined image will look as you adjust settings
 - **Advanced Image Alignment**: Use the align mode to precisely overlay images with inverse grayscale highlighting for perfect stereo alignment
 - **Sophisticated Cropping**: Multiple cropping modes with synchronized dimensions and fine-grained positioning controls
-- **Customizable Gap**: Adjust the space between images from 0 to 20% of average image width
-- **Gap Color Selection**: Choose any color for the space between your images
+- **Customizable Borders**: Adjust the border around images from 0 to 20% of average image width and apply curved styling
+- **Border Color Selection**: Choose any color for the space between your images, including transparent (must save as a PNG file)
 - **Image Swapping**: Easily swap the images with a single click or keyboard shortcut for cross and parallel viewing
 - **Scalable Preview**: Adjust the preview size without affecting the final output
 - **High-Quality Export**: Save the combined image in PNG format at full resolution or JPG at your selected quality
@@ -40,8 +41,11 @@ No server processing or uploading is required - all operations happen directly i
 2. Drag and drop two images onto the designated drop zone or click to browse
 3. Use the controls to adjust:
    - Display Scale (for preview only)
-   - Gap between images
+   - Gap size between images
    - Gap color
+   - Optional borders with gap size and color
+   - Optional transparency for gap and borders
+   - Size of curved image corners
 4. Click "Swap Images" (or press `x`) to change their order, for instance to switch from cross-eyed viewing to parallel viewing of stereo images
 5. Click "Crop Images" to enter crop mode:
    - By default, you'll be in align mode with the images overlaid using inverse grayscale coloring

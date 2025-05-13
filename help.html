@@ -151,8 +151,11 @@
             <h3>Basic Controls</h3>
             <ul>
                 <li><strong>Scale Slider:</strong> Adjusts the preview size without affecting the final output</li>
-                <li><strong>Gap Slider:</strong> Controls the space between images (0-20% of average image width)</li>
-                <li><strong>Gap Color:</strong> Changes the color of the gap between images</li>
+                <li><strong>Gap Size Slider:</strong> Adjusts the space between images (0-20% of average image width)</li>
+                <li><strong>Color:</strong> Changes the color of the gap between images</li>
+                <li><strong>Borders:</strong> Draws a border around the images equal in size to the Gap</li>
+                <li><strong>Transparent:</strong> Makes the gap and borders transparent instead of colored</li>
+                <li><strong>Corner Radius:</strong> Sets the size of the curved image corners</li>
                 <li><strong>Swap Images:</strong> Switches the left and right images (useful for changing from cross-eyed to parallel viewing)</li>
             </ul>
             
@@ -217,9 +220,15 @@
             </ul>
 
             <div class="tip">
-                <strong>Tip:</strong> In align mode, typically you want to align the objects which are closest to the viewer for proper stereo depth,
+                <strong>Tip:</strong>
+                When cropping, align the images first in align mode.
+                Then switch to side-by-side mode (<span class="shortcut">a</span> key) if necessary for other adjustments.
+                Any changes made in side-by-side mode won't affect the alignment unless you move one image and not the other.
+                <p>
+                Use align mode to ensure proper stereo depth. Typically you want to align the objects which are closest to the viewer,
                 so that the image extends behind the viewing window and not in front of the border of the window. 
                 For example, in an image of a mountain with a tree closer to the viewer, align the tree, or the ground in front of the tree.
+                </p>
             </div>
         </div>
     </div>
