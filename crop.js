@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // restore scale
-            updateScalePercent(lastCropState.scalePercent);
+            updateScalePercent(lastCropState.scalePercent, false, false);
             // now we've got the scale
             currentScale = window.scale;
 
@@ -333,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 validateCropBoxes("startCrop");
             }
         } else {
+            updateScalePercent(window.scale / window.maxScale, false, false);
             currentScale = window.scale;
             initCropBoxes();
         }
@@ -511,8 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentParams = window.drawImages({
             xOffsets,
             yOffsets,
-            avgWidth: avgWidth,
-            radiusPercent: -1
+            avgWidth: avgWidth
         });
 
         // Calculate image dimensions and positions
@@ -1652,7 +1652,7 @@ document.addEventListener('DOMContentLoaded', () => {
             newImg2.onload = function() {
                 window.images[1] = newImg2;
                 const scalePercent = getLocalStorageItem('croppedScalePercent', preCropScalePercent);
-                updateScalePercent(scalePercent);
+                updateScalePercent(scalePercent, false, true);
                 // Redraw with cropped images
                 window.drawImages();
             };
@@ -1672,7 +1672,7 @@ document.addEventListener('DOMContentLoaded', () => {
         exitCrop();
         // resetScalePercent is kept up to date with latest uncroppedScalePercent
         const scalePercent = window.isCropped ? preCropScalePercent : resetScalePercent;
-        updateScalePercent(scalePercent);
+        updateScalePercent(scalePercent, false, true);
 
         // Redraw the images without crop overlay
         window.drawImages();
@@ -1691,10 +1691,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.saveButton.disabled = false;
     }
 
-    function updateScalePercent(scalePercent) {
-        // Calculate maximum scale for current images
-        // console.log("scalePercent =", scalePercent);
-        const optimalScale = window.calculateMaxScale(window.images[0], window.images[1]);
+    // Calculate maximum scale for current images
+    function updateScalePercent(scalePercent, overlaid, borders) {
+        const optimalScale = window.calculateMaxScale(window.images[0], window.images[1], overlaid, borders);
         window.setScalePercent(scalePercent, optimalScale);
     }
 
@@ -1747,8 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.setScalePercent(scalePercent);
         } else {
             // just adjust to new max scale
-            const optimalScale = window.calculateMaxScale(window.images[0], window.images[1], alignMode);
-            window.setScalePercent(currentScale / window.maxScale, optimalScale);
+            updateScalePercent(currentScale / window.maxScale, alignMode, false);
         }
 
         // adjust crop boxes to new scale
@@ -1789,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.images[0] = originalImages[0];
                 window.images[1] = originalImages[1];
                 // reset scale to uncropped
-                updateScalePercent(resetScalePercent);
+                updateScalePercent(resetScalePercent, false, true);
                 // Redraw with original images
                 window.drawImages();
             } else {
@@ -2208,8 +2206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alignModeScalePercent = window.getLocalStorageItem('alignModeScalePercent', alignModeSavePreviousScalePercent);
         }
         // we are displaying overlaid images so get the new max scale
-        const optimalScale = window.calculateMaxScale(window.images[0], window.images[1], true);
-        window.setScalePercent(alignModeScalePercent, optimalScale);
+        updateScalePercent(alignModeScalePercent, true, false);
 
         // adjust crop boxes to new scale
         adjustToNewScale();
@@ -2253,7 +2250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function alignModeRestorePreviousScalePercent() {
         if (alignMode) {
-            updateScalePercent(alignModeSavePreviousScalePercent);
+            updateScalePercent(alignModeSavePreviousScalePercent, false, false);
             // adjust crop boxes to new scale
             adjustToNewScale();
         }

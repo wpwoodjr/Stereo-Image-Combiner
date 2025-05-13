@@ -347,13 +347,19 @@
                         <input type="range" id="gap" min="0" max="200" value="30" step="1" style="margin-top: 0px;">
                         <span id="gapValue" class="value-display">3.0%</span>
                     </div>
-                    
+
                     <div class="control-row" style="margin-top: 5px;">
                         <label for="color">Color:</label>
                         <input type="color" id="color" value="#000000" style="margin-left: 10px;">
-                        <div style="display: flex; align-items: center; margin-left: 15px;">
-                            <input type="checkbox" id="transparent" style="margin-right: 5px;">
-                            <label for="transparent" style="margin: 0;">Transparent</label>
+                        <div style="display: flex; flex-direction: column; margin-left: 15px; gap: 5px;">
+                            <div style="display: flex; align-items: center;">
+                                <input type="checkbox" id="borders" style="margin-right: 5px;">
+                                <label for="borders" style="margin: 0;">Borders</label>
+                            </div>
+                            <div style="display: flex; align-items: center;">
+                                <input type="checkbox" id="transparent" style="margin-right: 5px;">
+                                <label for="transparent" style="margin: 0;">Transparent</label>
+                            </div>
                         </div>
                     </div>
 

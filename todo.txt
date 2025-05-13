@@ -1,12 +1,10 @@
-Transparent option
-
-thin line at 0% gap with rounded corners
-
 Mac cropbox drawing all screwed up
 
 Check drawImage in alignMode works with Safari
 
 ========== Maybe later ==========
+thin line at 0% gap (but not in saved image)
+
 Use currentparams for imgages[0].width etc
 need currentScale?
 

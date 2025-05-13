@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gapSlider = document.getElementById('gap');
     const gapValue = document.getElementById('gapValue');
     const colorPicker = document.getElementById('color');
+    const bordersCheckbox = document.getElementById('borders');
     const transparentCheckbox = document.getElementById('transparent');
     const cornerRadiusSlider = document.getElementById('cornerRadius');
     const cornerRadiusValue = document.getElementById('cornerRadiusValue');
@@ -37,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_SCALE = 100;
     const DEFAULT_GAP_PERCENT = 3.0; // Gap as percentage
     const DEFAULT_COLOR = '#000000';
+    const DEFAULT_BORDERS = true;
+    const GAP_TO_BORDER_RATIO = 1;
     const DEFAULT_TRANSPARENT = false;
     const DEFAULT_CORNER_RADIUS = 0;
     const DEFAULT_FORMAT = 'image/jpeg';
@@ -49,8 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let imageNames = [];
     let gapPercent = DEFAULT_GAP_PERCENT;
     let gapColor = DEFAULT_COLOR;
+    let hasBorders = DEFAULT_BORDERS;
     let isTransparent = DEFAULT_TRANSPARENT;
-    let cornerRadius = DEFAULT_CORNER_RADIUS;
+    let cornerRadiusPercent = DEFAULT_CORNER_RADIUS;
 
     // dropzone message
     let dropzoneMessageText = "Drag and drop two images here or click to browse"
@@ -163,14 +167,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset color
         gapColor = getLocalStorageItem('gapColor', DEFAULT_COLOR);
         colorPicker.value = gapColor;
+        hasBorders = getLocalStorageItem('hasBorders', DEFAULT_BORDERS);
+        bordersCheckbox.checked = hasBorders;
         isTransparent = getLocalStorageItem('isTransparent', DEFAULT_TRANSPARENT);
         transparentCheckbox.checked = isTransparent;
         updateColorPickerState();
 
         // Reset corner radius
-        cornerRadius = getLocalStorageItem('cornerRadius', DEFAULT_CORNER_RADIUS);
-        cornerRadiusSlider.value = cornerRadius;
-        cornerRadiusValue.textContent = `${cornerRadius}%`;
+        cornerRadiusPercent = getLocalStorageItem('cornerRadiusPercent', DEFAULT_CORNER_RADIUS);
+        cornerRadiusSlider.value = cornerRadiusPercent;
+        cornerRadiusValue.textContent = `${cornerRadiusPercent}%`;
 
         // Reset format and jpg quality
         filenamePrefixInput.value = getLocalStorageItem('filenamePrefix', '');
@@ -184,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     scaleSlider.addEventListener('input', updateScale);
     gapSlider.addEventListener('input', updateGap);
     colorPicker.addEventListener('input', updateColor);
+    bordersCheckbox.addEventListener('input', updateBorders);
     transparentCheckbox.addEventListener('input', updateTransparent);
     cornerRadiusSlider.addEventListener('input', updateCornerRadius);
     swapButton.addEventListener('click', updateSwap);
@@ -295,15 +302,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Calculate the optimal scale
-    function calculateMaxScale(img1, img2, overlaid = false) {
+    function calculateMaxScale(img1, img2, overlaid = false, borders = true) {
         // get image area
         const viewportWidth = getViewPortWidth();
 
         let totalWidthAt100;
         if (!overlaid) {
             // Calculate total width at 100% scale (using the current pixel gap)
-            const gapWidthAt100 = pixelGap(img1, img2);
-            totalWidthAt100 = img1.width + img2.width + gapWidthAt100;
+            const gapWidthAt100 = Math.round(pixelGap(img1, img2) / GAP_TO_BORDER_RATIO) * GAP_TO_BORDER_RATIO;
+            const borderSpace = hasBorders && borders ? gapWidthAt100 / GAP_TO_BORDER_RATIO : 0;
+            totalWidthAt100 = img1.width + img2.width + gapWidthAt100 + borderSpace * 2;
         } else {
             // get the max image width
             totalWidthAt100 = Math.max(img1.width, img2.width);
@@ -371,7 +379,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function pixelGap(img1, img2) {
         const avgWidth = (img1.width + img2.width) / 2;
         return avgWidth * (gapPercent / 100);
-        // return Math.round(avgWidth * (gapPercent / 100));
     }
 
     function updateColor() {
@@ -380,6 +387,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.cropModule.isCropping()) {
             window.cropModule.drawCropInterface();
         } else {
+            drawImages();
+        }
+    }
+
+    function updateBorders() {
+        hasBorders = this.checked;
+        setLocalStorageItem('hasBorders', hasBorders);
+
+        if (images.length !== 2) return;
+
+        if (window.cropModule.isCropping()) {
+            // alert crop interface that max scale has changed
+            window.cropModule.onScaleChange(0);
+        } else {
+            const optimalScale = calculateMaxScale(images[0], images[1]);
+            setScalePercent(scale / maxScale, optimalScale);
+            // Only redraw images if not in crop mode (crop module handles redrawing in crop mode)
             drawImages();
         }
     }
@@ -411,9 +435,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateCornerRadius() {
-        cornerRadius = parseInt(this.value);
-        setLocalStorageItem('cornerRadius', cornerRadius);
-        cornerRadiusValue.textContent = `${cornerRadius}%`;
+        cornerRadiusPercent = parseInt(this.value);
+        setLocalStorageItem('cornerRadiusPercent', cornerRadiusPercent);
+        cornerRadiusValue.textContent = `${cornerRadiusPercent}%`;
         if (window.cropModule.isCropping()) {
             window.cropModule.drawCropInterface();
         } else {
@@ -440,8 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {Object} options - Options for rendering the combined image
      * @param {Object} options.xOffsets - Optional X offsets for each image {left: number, right: number}
      * @param {Object} options.yOffsets - Optional Y offsets for each image {left: number, right: number}
-     * @param {number} options.avgWidth - Average width of images for calculating renderGap
-     * @param {number} options.radiusPercent - Corner radius in percent
+     * @param {number} options.avgWidth - Average width of images for calculating renderGap; -1 or crop box width if cropping
      * @returns {Object} - Parameters used for the rendering (dimensions, etc.)
      */
     function renderCombinedImage(targetCanvas, renderScale, options = {}) {
@@ -450,36 +473,47 @@ document.addEventListener('DOMContentLoaded', () => {
         const {
             xOffsets = {left: 0, right: 0},
             yOffsets = {left: 0, right: 0},
-            avgWidth = -1,
-            radiusPercent = cornerRadius
+            avgWidth = -1
         } = options;
+        const cropping = avgWidth !== -1;
 
         const targetCtx = targetCanvas.getContext('2d');
         
-        // Calculate gap - either scaled for display or full size for saving
+        // Calculate gap
         let renderGap;
-        if (avgWidth === -1) {
-            renderGap = pixelGap(images[0], images[1]) * renderScale;
+        let borderSpace = 0;
+        if (!cropping) {
+            // Calculate gap and border spacing, ensure they are integers (assume GAP_TO_BORDER_RATIO is an integer)
+            renderGap = Math.round(pixelGap(images[0], images[1]) / GAP_TO_BORDER_RATIO) * GAP_TO_BORDER_RATIO * renderScale;
+            if (hasBorders) {
+                borderSpace = renderGap / GAP_TO_BORDER_RATIO;
+            }
         } else {
+            // base gap on crop box width
             renderGap = avgWidth * (gapPercent / 100);
-            // renderGap = Math.round(avgWidth * (gapPercent / 100));
         }
-        
-        // Calculate dimensions
+
+        // Calculate dimensions (without borders)
         const img1Width = images[0].width * renderScale;
         const img2Width = images[1].width * renderScale;
         const rightImgStart = img1Width + renderGap;
-        const totalWidth = rightImgStart + img2Width;
+        
+        // Canvas width grows to accommodate borders
+        const totalWidth = rightImgStart + img2Width + (borderSpace * 2); // Add border space on left and right
 
         const img1Height = images[0].height * renderScale;
         const img2Height = images[1].height * renderScale;
-        const maxHeight = Math.max(img1Height + yOffsets.left, img2Height + yOffsets.right);
+        
+        // Canvas height grows to accommodate borders
+        const maxImageHeight = Math.max(img1Height + yOffsets.left, img2Height + yOffsets.right);
+        const maxHeight = maxImageHeight + (borderSpace * 2); // Add border space top and bottom
 
-        // Set canvas dimensions
+        // Set canvas dimensions (both width and height grow for borders)
         targetCanvas.width = totalWidth;
         targetCanvas.height = maxHeight;
 
-        if (radiusPercent >= 0) {
+        // Handle background fill
+        if (!cropping) {
             if (isTransparent) {
                 // Clear the canvas
                 targetCtx.clearRect(0, 0, totalWidth, maxHeight);
@@ -501,36 +535,38 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isTransparent) {
                 // Clear the gap
                 targetCtx.clearRect(
-                    img1Width,                  // X position (after first image)
-                    gapStart,                   // Y position (top)
-                    renderGap,                  // Width (just the gap)
-                    gapHeight                   // Height (full height)
+                    img1Width + borderSpace,            // X position (after first image + border)
+                    gapStart + borderSpace,             // Y position (top + border)
+                    renderGap,                          // Width (just the gap)
+                    gapHeight                           // Height (full height)
                 );
             } else {
                 // Fill gap with selected color
                 targetCtx.fillStyle = gapColor;
                 targetCtx.fillRect(
-                    img1Width,                  // X position (after first image)
-                    gapStart,                   // Y position (top)
-                    renderGap,                  // Width (just the gap)
-                    gapHeight                   // Height (full height)
+                    img1Width + borderSpace,            // X position (after first image + border)
+                    gapStart + borderSpace,             // Y position (top + border)
+                    renderGap,                          // Width (just the gap)
+                    gapHeight                           // Height (full height)
                 );
             }
         }
 
         targetCtx.save();
-        if (radiusPercent > 0) {
-            // Calculate corner radius in render scale
-            const radiusPx = Math.min(img1Width, img2Width, img1Height, img2Height) / 2;
-            const renderCornerRadius = radiusPercent / 100 * radiusPx;
+        
+        // Handle rounded corners clipping if needed
+        if (!cropping && cornerRadiusPercent > 0) {
+            // Get radius for corners
+            const maxRadius = Math.min(img1Width, img2Width, img1Height, img2Height) / 2;
+            const renderCornerRadius = cornerRadiusPercent / 100 * maxRadius;
 
             // Create a single clipping path for both images
             targetCtx.beginPath();
             
             // Left image clipping region (all corners rounded)
             targetCtx.roundRect(
-                xOffsets.left, 
-                yOffsets.left,
+                xOffsets.left + borderSpace, 
+                yOffsets.left + borderSpace,
                 img1Width - xOffsets.left, 
                 img1Height,
                 renderCornerRadius
@@ -538,8 +574,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Right image clipping region (all corners rounded)
             targetCtx.roundRect(
-                rightImgStart, 
-                yOffsets.right,
+                rightImgStart + borderSpace, 
+                yOffsets.right + borderSpace,
                 img2Width + xOffsets.right, 
                 img2Height,
                 renderCornerRadius
@@ -548,33 +584,35 @@ document.addEventListener('DOMContentLoaded', () => {
             targetCtx.clip();
         }
 
-        // Draw the left image with offsets
+        // Draw the left image (position offset by border space)
         targetCtx.drawImage(
             images[0],
             0, 0,                                                               // Source position
             images[0].width - xOffsets.left / renderScale, images[0].height,    // Source dimensions
-            xOffsets.left, yOffsets.left,                                       // Destination position with offsets
+            xOffsets.left + borderSpace, yOffsets.left + borderSpace,           // Destination position with border space
             img1Width - xOffsets.left, img1Height                               // Destination dimensions
         );
 
-        // Right image
+        // Draw the right image (position offset by border space)
         const xFactor = xOffsets.right / renderScale;
         targetCtx.drawImage(
             images[1],
-            -xFactor, 0,                                    // Source position
-            images[1].width + xFactor, images[1].height,    // Source dimensions
-            rightImgStart, yOffsets.right,                  // Destination position with offset
-            img2Width + xOffsets.right, img2Height          // Destination dimensions
+            -xFactor, 0,                                                        // Source position
+            images[1].width + xFactor, images[1].height,                        // Source dimensions
+            rightImgStart + borderSpace, yOffsets.right + borderSpace,          // Destination position with border space
+            img2Width + xOffsets.right, img2Height                              // Destination dimensions
         );
+        
         targetCtx.restore();
-    
+
         // Store the last render parameters for reference by crop module
+        // Note: these remain the original sizes without border adjustments
         lastRenderParams = {
             img1Width,
             img1Height,
             img2Width,
             img2Height,
-            rightImgStart
+            rightImgStart: rightImgStart + borderSpace // Adjust for border space
         };
         
         // Return parameters used for rendering (useful for saving)
