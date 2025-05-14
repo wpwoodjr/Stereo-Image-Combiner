@@ -893,7 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Check if inside the crop box for dragging
-        if (x >= xCanvas && x <= xCanvas + box.width &&
+        if (!lockedCheckbox.checked && x >= xCanvas && x <= xCanvas + box.width &&
             y >= yCanvas && y <= yCanvas + box.height) {
             return { id: INSIDE };
         }
@@ -2099,6 +2099,23 @@ document.addEventListener('DOMContentLoaded', () => {
         alignWrapper.appendChild(alignCheckbox);
         alignWrapper.appendChild(alignLabel);
         
+        // Create the locked checkbox (images move in tandem)
+        const lockedCheckbox = document.createElement('input');
+        lockedCheckbox.type = 'checkbox';
+        lockedCheckbox.id = 'lockedCheckbox';
+        
+        // Create the locked label
+        const lockedLabel = document.createElement('label');
+        lockedLabel.htmlFor = 'lockedCheckbox';
+        lockedLabel.textContent = 'Synchronized Movement';
+        
+        // Create wrapper div for checkbox and label
+        const lockedWrapper = document.createElement('div');
+        lockedWrapper.className = 'control-row';
+        lockedWrapper.style.marginBottom = '10px';
+        lockedWrapper.appendChild(lockedCheckbox);
+        lockedWrapper.appendChild(lockedLabel);
+        
         // Create the clamp checkbox (horizontal only)
         const clampCheckbox = document.createElement('input');
         clampCheckbox.type = 'checkbox';
@@ -2134,11 +2151,15 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Add to control group in left panel
         cropOptionsControlGroup.appendChild(alignWrapper);
+        cropOptionsControlGroup.appendChild(lockedWrapper);
         cropOptionsControlGroup.appendChild(clampWrapper);
         cropOptionsControlGroup.appendChild(drawBoxesWrapper);
 
         // Add event listener for align checkbox change
         alignCheckbox.addEventListener('change', toggleAlignMode);
+
+        // Add event listener for locked boxes checkbox change
+        lockedCheckbox.addEventListener('change', toggleLockedCheckbox);
 
         // Add event listener for clamp checkbox change
         clampCheckbox.addEventListener('change', () => toggleClampCheckbox(false));
@@ -2150,15 +2171,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Initialize from local storage with default values
-        alignCheckbox.checked = window.getLocalStorageItem('alignCheckBox', true);
-        alignMode = alignCheckbox.checked;
+        alignMode = alignCheckbox.checked = window.getLocalStorageItem('alignCheckBox', true);
+        lockedCheckbox.checked = window.getLocalStorageItem('lockedCheckBox', true);
         clampCheckbox.checked = window.getLocalStorageItem('clampCheckBox', false);
         drawBoxesCheckbox.checked = window.getLocalStorageItem('drawCropBoxes', true);
         
         // Make checkboxes available globally
+        window.lockedCheckbox = lockedCheckbox;
         window.clampCheckbox = clampCheckbox;
         window.drawBoxesCheckbox = drawBoxesCheckbox;
     }    
+
+    function toggleLockedCheckbox() {
+        window.setLocalStorageItem('locked', this.checked);
+
+        updateCursor(currentHandle);
+        const wasMovable = movableBoxes;
+        movableBoxes = getMovableBoxes(currentHandle);
+        drawCropInterface(movableBoxHighlights(wasMovable));
+    }
 
     function toggleClampCheckbox(key = false) {
         if (key) {
@@ -2195,11 +2226,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // transformed images for aligning
     let alignImage0, alignImage1 = null;
 
+    // save locked state
+    saveLockedCheckbox = true;
+
     function enterAlignMode() {
         alignMode = true;
         window.setLocalStorageItem('alignCheckBox', true);
         alignCheckbox.checked = true;
+        saveLockedCheckbox = lockedCheckbox.checked;
+        lockedCheckbox.checked = false;
+        lockedCheckbox.disabled = true;
         alignModeCropRatio = cropBoxes[LEFT].width / cropBoxes[LEFT].height;
+
+        // disable transparent background image
+        canvas.classList.remove('transparent-bg');
 
         alignModeSavePreviousScalePercent = currentScale / window.maxScale;
         if (alignModeScalePercent === 0) {
@@ -2233,6 +2273,13 @@ document.addEventListener('DOMContentLoaded', () => {
         alignMode = false;
         window.setLocalStorageItem('alignCheckBox', false);
         alignCheckbox.checked = false;
+        lockedCheckbox.disabled = false;
+        lockedCheckbox.checked = saveLockedCheckbox;
+
+        // restore transparent background image if in tranparent mode
+        if (window.isTransparent) {
+            canvas.classList.add('transparent-bg');
+        }
 
         [ currentHandle, activeCropBox ] = [ OUTSIDE, LEFT ];
         updateCursor(currentHandle);

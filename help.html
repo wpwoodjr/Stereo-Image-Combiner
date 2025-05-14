@@ -139,7 +139,9 @@
     <div id="basics" class="tab-content active">
         <div class="section">
             <h2>Getting Started</h2>
-            <p>Stereo Image Combiner is a web-based tool that lets you combine two images side by side for stereo viewing, with customizable gap, color, and cropping options.</p>
+            <p>Stereo Image Combiner is a web-based tool that lets you combine two images side by side for stereo viewing, with customizable gap, color, and cropping options.
+                It works on mobile, touch devices, and desktop.
+            </p>
             
             <h3>Loading Images</h3>
             <ol>
@@ -187,15 +189,18 @@
             <h3>Crop Box Controls</h3>
             <ul>
                 <li><strong>Resize:</strong> Drag any handle (corner or edge) to resize both crop boxes simultaneously while maintaining the same dimensions</li>
-                <li><strong>Move:</strong> Click inside a crop box and drag to reposition the image</li>
-                <li><strong>Moving Both Images Together:</strong> Click outside both crop boxes to enable simultaneous movement of both images</li>
+                <li><strong>Move:</strong> Click inside a crop box and drag to reposition the image relative to the other image.
+                    <b>**Note:** If `Synchronized Movement` is checked, images always move together.
+                </li>
+                <li><strong>Moving Both Images Together:</strong> Click outside both crop boxes (or check `Synchronized Movement`) to enable synchronized
+                 movement of both images</li>
             </ul>
             
             <h3>Align Mode</h3>
             <p>Align mode (default) provides a special overlay view to help you precisely align the two images.</p>
             <ul>
                 <li>Click inside the crop box, and the images appear overlaid with inverse grayscale coloring to highlight differences</li>
-                <li>Click and drag the image to align key features.  A feature is aligned when it turns a consistent gray color.</li>
+                <li>Click and drag the image to align key features.  A feature is aligned when it turns a uniform gray color.</li>
                 <li>Click the "Align Mode" checkbox or press the <span class="shortcut">a</span> key to toggle align mode and side-by-side mode</li>
             </ul>
 
@@ -222,12 +227,14 @@
             <div class="tip">
                 <strong>Tip:</strong>
                 When cropping, align the images first in align mode.
-                Then switch to side-by-side mode (<span class="shortcut">a</span> key) if necessary for other adjustments.
+                Then switch to side-by-side mode (<span class="shortcut">a</span> key) for other adjustments.
                 Any changes made in side-by-side mode won't affect the alignment unless you move one image and not the other.
+                `Synchronized Movement` is checked by default in side-by-side mode, which prevents changes in alignment.
                 <p>
-                Use align mode to ensure proper stereo depth. Typically you want to align the objects which are closest to the viewer,
-                so that the image extends behind the viewing window and not in front of the border of the window. 
-                For example, in an image of a mountain with a tree closer to the viewer, align the tree, or the ground in front of the tree.
+                Use align mode to achieve pleasing stereo depth. Typically you want to align the objects which are closest to the viewer,
+                so that the image extends behind the viewing window and not in front of the border of the window (a "window violation"). 
+                </p><p>
+                For example, in a stereo image of a mountain with a bush close to the viewer, align the bush, or the ground in front of the bush.
                 </p>
             </div>
         </div>
@@ -237,6 +244,16 @@
         <div class="section">
             <h2>Advanced Features</h2>
             
+            <h3>Synchronized Movement</h3>
+            <p>When in side-by-side crop mode, you can enable synchronized image movement so that images keep their alignment.</p>
+            <ul>
+                <li>Check the "Synchronized Movement" checkbox</li>
+                <li>Useful for maintaining alignment between stereo pairs</li>
+                <li>Images always move together when using touch or the mouse</li>
+                <li>In align mode, synchronized movement is disabled to allow relative image movement</li>
+                <li>When using the arrow keys, relative movement between images is still allowed for fine tuning</li>
+            </ul>
+
             <h3>Horizontal-Only Movement</h3>
             <p>When in crop mode, you can enable horizontal-only movement to restrict adjustments to the left-right axis.</p>
             <ul>
@@ -261,6 +278,7 @@
                 <li>Arrow keys move the active image(s) by 1 pixel</li>
                 <li>Hold <span class="shortcut">Shift</span> + arrow keys for 5-pixel movements</li>
                 <li>Press <span class="shortcut">Tab</span> to to cycle between moving the left image, the right image, and both images.
+                    (**Note:** Even if `Synchronized Movement` is checked, images can move relative to each other when using the arrow keys.)<b>
                 In align mode, <span class="shortcut">Tab</span> toggles between moving the images together under the crop box, or moving one image relative to the other.</li>
             </ul>
             

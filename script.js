@@ -4,6 +4,7 @@ var scale;
 var saveButton;
 var maxScale;
 var isCropped;
+var isTransparent;
 
 // main script 
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let gapPercent = DEFAULT_GAP_PERCENT;
     let gapColor = DEFAULT_COLOR;
     let hasBorders = DEFAULT_BORDERS;
-    let isTransparent = DEFAULT_TRANSPARENT;
     let cornerRadiusPercent = DEFAULT_CORNER_RADIUS;
 
     // dropzone message

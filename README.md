@@ -6,16 +6,15 @@ A web-based tool for combining two images side by side with customizable options
 
 ## Overview
 
-Image Combiner is a lightweight browser-based application that allows users to:
-- Combine two images side by side into a single image
+Stereo Image Combiner is a lightweight browser-based application that allows users to:
+- Combine two images side by side into a single stereo image (cross or parallel)
 - Crop both images simultaneously with synchronized dimensions
 - Align images precisely using an interactive overlay mode
-- Adjust the size and color (optionally transparent) of the border between images
+- Adjust the size and color (optionally transparent) of the border around images
 - Round the image corners
-- Scale the preview display
-- Swap image positions
 - Save the resulting combined image as a PNG or JPG file
 
+It works on mobile, touch devices, and desktop.
 No server processing or uploading is required - all operations happen directly in your browser.
 
 ## Features
@@ -49,13 +48,14 @@ No server processing or uploading is required - all operations happen directly i
 4. Click "Swap Images" (or press `x`) to change their order, for instance to switch from cross-eyed viewing to parallel viewing of stereo images
 5. Click "Crop Images" to enter crop mode:
    - By default, you'll be in align mode with the images overlaid using inverse grayscale coloring
-   - Adjust the crop box by dragging its handles
    - Click inside the crop box to move the image beneath it
+   - Adjust the crop box by dragging its handles
    - Click outside to move both images together
-   - Use `Tab` to cycle between selecting the left image, right image, or both
    - Press `a` to toggle between align mode and side-by-side mode
+   - Check `Synchronized Movement` to always move both images together in side-by-side mode
    - Press `h` to toggle horizontal-only movement
    - Use arrow keys for 1-pixel precision movements (hold `Shift` for 5-pixel movements)
+   - Use `Tab` to cycle between selecting the left image, right image, or both
    - Click "Apply Crop" to confirm or "Cancel" to exit crop mode
    - After applying, you may enter crop mode again to continue where you left off
    - Click "Reset Crop" to restore original images
@@ -84,7 +84,14 @@ No server processing or uploading is required - all operations happen directly i
 - The final output is saved as a JPG with selectable quality setting, or optionally a PNG with full transparency support
 - Settings are saved in local storage for persistence between sessions
 
-## Browser Compatibility
+## Compatibility
+
+Works on mobile and desktop, including:
+- iOS / iPad
+- Android
+- Windows
+- Mac
+- Linux
 
 Works in all modern browsers that support:
 - HTML5 Canvas
