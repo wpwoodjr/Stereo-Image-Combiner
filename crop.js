@@ -184,8 +184,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function startDrag(e) {
         isDragging = true;
 
-        // set up for tweakXY
+        // check if highlights should be shown and draw crop interface
+        const wasMovable = movableBoxes;
         const [x, y] = getXY(e);
+        [ currentHandle, activeCropBox ] = getHandle(x, y);
+        updateCursor(currentHandle);
+        movableBoxes = getMovableBoxes(currentHandle);
+        startMove();
+        drawCropInterface(movableBoxHighlights(wasMovable));
+
+        // set up for tweakXY
         dragStartX = x;
         dragStartY = y;
         const activeBox = cropBoxes[activeCropBox];
@@ -197,24 +205,14 @@ document.addEventListener('DOMContentLoaded', () => {
         xLatch = 0;
         yLatch = 0;
         movementAxis = NONE;
-
-        // check if highlights should be shown and draw crop interface
-        const wasMovable = movableBoxes;
-        [ currentHandle, activeCropBox ] = getHandle(x, y);
-        updateCursor(currentHandle);
-        movableBoxes = getMovableBoxes(currentHandle);
-        startMove();
-        drawCropInterface(movableBoxHighlights(wasMovable));
     }
 
     // called before moving boxes
     function startMove() {
         resizing = currentHandle !== INSIDE && currentHandle !== OUTSIDE;
         if (alignMode && currentHandle === INSIDE) {
-            const activeBox = cropBoxes[activeCropBox];
-            const otherBox = cropBoxes[1 - activeCropBox];
             // shrink the boxes so they have room to move around
-            shrinkBoxes(activeBox, otherBox);
+            shrinkBoxes(cropBoxes[LEFT], cropBoxes[RIGHT]);
         }
     }
 
