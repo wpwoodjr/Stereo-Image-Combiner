@@ -2183,7 +2183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }    
 
     function toggleLockedCheckbox() {
-        window.setLocalStorageItem('locked', this.checked);
+        window.setLocalStorageItem('lockedCheckBox', this.checked);
 
         updateCursor(currentHandle);
         const wasMovable = movableBoxes;
