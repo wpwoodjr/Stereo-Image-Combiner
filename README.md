@@ -40,16 +40,16 @@ No server processing or uploading is required - all operations happen directly i
 2. Drag and drop two images onto the designated drop zone or click to browse
 3. Use the controls to adjust:
    - Display Scale (for preview only)
-   - Gap size between images
-   - Gap color
-   - Optional borders with gap size and color
+   - Border and gap size between images
+   - Border and gap color
    - Optional transparency for gap and borders
    - Size of curved image corners
 4. Click "Swap Images" (or press `x`) to change their order, for instance to switch from cross-eyed viewing to parallel viewing of stereo images
 5. Click "Crop Images" to enter crop mode:
-   - By default, you'll be in align mode with the images overlaid using inverse grayscale coloring
-   - Click inside the crop box to move the image beneath it
-   - Adjust the crop box by dragging its handles
+   - By default, you'll be in align mode
+   - Click inside the crop box to align the images beneath it
+   - The images are shown using inverse grayscale coloring to highlight differences
+   - Resize the crop box by dragging its handles
    - Click outside to move both images together
    - Press `a` to toggle between align mode and side-by-side mode
    - Check `Synchronized Movement` to always move both images together in side-by-side mode
@@ -59,7 +59,7 @@ No server processing or uploading is required - all operations happen directly i
    - Click "Apply Crop" to confirm or "Cancel" to exit crop mode
    - After applying, you may enter crop mode again to continue where you left off
    - Click "Reset Crop" to restore original images
-6. Click "Save Image" to download the combined image in PNG or JPG format
+6. Click "Save Image" to download the combined images in PNG or JPG format
 
 ## Keyboard Shortcuts
 
@@ -81,7 +81,7 @@ No server processing or uploading is required - all operations happen directly i
 - No external dependencies or libraries required
 - Uses HTML5 Canvas for image manipulation and rendering
 - Handles various input image formats supported by your browser (JPG, PNG, GIF, etc.)
-- The final output is saved as a JPG with selectable quality setting, or optionally a PNG with full transparency support
+- The final output is saved as a JPG with selectable quality setting, or as a PNG with full transparency support
 - Settings are saved in local storage for persistence between sessions
 
 ## Compatibility

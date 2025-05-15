@@ -132,6 +132,7 @@
     <div class="tab-container">
         <div class="tab active" onclick="openTab('basics')">Basics</div>
         <div class="tab" onclick="openTab('cropping')">Cropping</div>
+        <div class="tab" onclick="openTab('workflow')">Workflow</div>
         <div class="tab" onclick="openTab('advanced')">Advanced</div>
         <div class="tab" onclick="openTab('shortcuts')">Shortcuts</div>
     </div>
@@ -139,7 +140,8 @@
     <div id="basics" class="tab-content active">
         <div class="section">
             <h2>Getting Started</h2>
-            <p>Stereo Image Combiner is a web-based tool that lets you combine two images side by side for stereo viewing, with customizable gap, color, and cropping options.
+            <p>Stereo Image Combiner is a web-based tool that lets you combine two images side by side for stereo viewing,
+                with customizable border, color, and cropping options.
                 It works on mobile, touch devices, and desktop.
             </p>
             
@@ -152,13 +154,13 @@
             
             <h3>Basic Controls</h3>
             <ul>
-                <li><strong>Scale Slider:</strong> Adjusts the preview size without affecting the final output</li>
-                <li><strong>Gap Size Slider:</strong> Adjusts the space between images (0-20% of average image width)</li>
-                <li><strong>Color:</strong> Changes the color of the gap between images</li>
-                <li><strong>Borders:</strong> Draws a border around the images equal in size to the Gap</li>
-                <li><strong>Transparent:</strong> Makes the gap and borders transparent instead of colored</li>
-                <li><strong>Corner Radius:</strong> Sets the size of the curved image corners</li>
                 <li><strong>Swap Images:</strong> Switches the left and right images (useful for changing from cross-eyed to parallel viewing)</li>
+                <li><strong>Scale Slider:</strong> Adjusts the preview size without affecting the final output</li>
+                <li><strong>Gap / Border Width Slider:</strong> Adjusts the space around images (0-20% of average image width)</li>
+                <li><strong>Color:</strong> Changes the color of the gap and borders</li>
+                <li><strong>Borders:</strong> Toggles drawing a border around the images equal in width to the gap</li>
+                <li><strong>Transparent:</strong> Makes the gap and borders transparent instead of colored</li>
+                <li><strong>Corner Radius:</strong> Sets the radius of the curved image corners</li>
             </ul>
             
             <h3>Saving Your Image</h3>
@@ -181,19 +183,21 @@
             <p>The cropping feature allows you to select matching regions from both images with synchronized dimensions.</p>
             
             <h3>Starting Crop Mode</h3>
-            <ol>
                 <li>Click the "Crop Images" button to enter crop mode.  By default align mode is active.</li>
                 <li>The images will be displayed with a crop box overlaid</li>
-            </ol>
             
             <h3>Crop Box Controls</h3>
             <ul>
                 <li><strong>Resize:</strong> Drag any handle (corner or edge) to resize both crop boxes simultaneously while maintaining the same dimensions</li>
                 <li><strong>Move:</strong> Click inside a crop box and drag to reposition the image relative to the other image.
-                    <br><i><b>Note:</i></b> If `Synchronized Movement` is checked, images always move together.
                 </li>
-                <li><strong>Moving Both Images Together:</strong> Click outside both crop boxes (or check `Synchronized Movement`) to enable synchronized
-                 movement of both images</li>
+                <li><strong>Moving Both Images Together:</strong> Click and drag outside both crop boxes for synchronized movement of both images
+                <ul>
+                    <li>When "Synchronized Movement" is checked, movement is synchoronized even when clicking inside the crop boxes</li>
+                    <li>In align mode, images always move relative to each other when clicking and dragging <i>inside</i> the crop box,
+                        and move together when clicking and dragging <i>outside</i> the crop box</li>
+                </ul>
+                </li>
             </ul>
             
             <h3>Align Mode</h3>
@@ -201,7 +205,7 @@
             <ul>
                 <li>Click inside the crop box, and the images appear overlaid with inverse grayscale coloring to highlight differences</li>
                 <li>Click and drag the image to align key features.  A feature is aligned when it turns a uniform gray color.</li>
-                <li>Click the "Align Mode" checkbox or press the <span class="shortcut">a</span> key to toggle align mode and side-by-side mode</li>
+                <li>Click the "Align Mode" checkbox or press the <span class="shortcut">a</span> key to toggle between align mode and side-by-side mode</li>
             </ul>
 
             <h3>Movement Controls</h3>
@@ -217,26 +221,79 @@
                 <li>Fine-grained control is active when moving near the starting point</li>
             </ul>
             
-            <h3>Applying or Canceling Crop</h3>
+            <h3>Applying or Canceling a Crop</h3>
             <ul>
                 <li>Click "Apply Crop" to confirm your selection</li>
                 <li>Click "Cancel" to exit crop mode without changes</li>
-                <li>After applying a crop, you can click "Reset Crop" to restore the original images, or "Crop Images" to continue where you left off.</li>
+                <li>Click "Reset Crop" to restore the original images, or "Crop Images" to continue where you left off.</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div id="workflow" class="tab-content">
+        <div class="section">
+            <h2>Workflow</h2>
+            <p>For smooth workflow, the steps below are recommended.</p>
+            
+            <h3>Load Images</h3>
+                <li>Click on the dropzone or drag and drop two images onto the dropzone to load the images</li>
+                <li>The images will be displayed side by side</li>
+                <li>Swap the images as needed to achieve a cross stereo view or parallel stereo view</li>
+            
+            <h3>Aligning</h3>
+            <ul>
+                <li>Enter crop mode and activate align mode initially</li>
+                <li>The images are overlaid and a crop box is shown</li>
+                <li>Adjust "Display Scale" as necessary</li>
+                <li>Click and drag inside the crop box to align a region or feature in the images</li>
+                <ul>
+                    <li>The images appear overlaid with inverse grayscale coloring to highlight differences</li>
+                    <li>To achieve pleasing stereo depth, typically you want to align the objects which are closest to the viewer,
+                    so that the image extends behind the viewing window and not in front of the border of the window (creating a "window violation")</li>
+                    <li>For example, for a stereo image of a mountain with a bush close to the viewer, align the bush, or the ground in front of the bush</li>
+                    <li>An area is aligned when it looks a uniform gray</li>
+                    <li>Use the arrow keys for precision aligning at the pixel level</li>
+                </ul>
+                <li>Adjust the crop box size</li>
+                <li>Move the crop box by clicking and dragging on the images outside the crop box
+                <ul>
+                    <li>The crop box will move over both images allowing them to be framed</li>
+                </ul>
+            </ul>
+            
+            <h3>Refining</h3>
+            <p>Side-by-side mode provides a preview of how the images will look when cropped, while also allowing adjustments to the crop.</p>
+            <ul>
+                <li>Uncheck "Align Mode" or press the <span class="shortcut">a</span> key to switch to side-by-side mode</li>
+                <li>The images are displayed with crop boxes overlaid on each image for viewing in stereo</li>
+                <ul>
+                    <li>Check that the stereo view is pleasing</li>
+                    <li>Return to align mode to tweak the alignment</li>
+                </ul>
+                <li>Adjust the crop boxes' size with the resize handles and position by clicking and dragging</li>
+                <ul>
+                    <li>Images can be moved independently if "Synchronized Movement" is unchecked, however this isn't recommended if they were aligned properly in align mode</li>
+                    <li>You can check "Horizontal Only" to prevent further relative vertical movement of the images</li>
+                </ul>
+                <li>Adjust the gap width for comfortable viewing</li>
             </ul>
 
-            <div class="tip">
-                <strong>Tip:</strong>
-                When cropping, align the images first in align mode.
-                Then switch to side-by-side mode (<span class="shortcut">a</span> key) for other adjustments.
-                Any changes made in side-by-side mode won't affect the alignment unless you move one image and not the other.
-                `Synchronized Movement` is checked by default in side-by-side mode, which prevents changes in alignment.
-                <p>
-                Use align mode to achieve pleasing stereo depth. Typically you want to align the objects which are closest to the viewer,
-                so that the image extends behind the viewing window and not in front of the border of the window (a "window violation"). 
-                </p><p>
-                For example, in a stereo image of a mountain with a bush close to the viewer, align the bush, or the ground in front of the bush.
-                </p>
-            </div>
+            <h3>Finishing</h3>
+            <ul>
+                <li>Apply the crop</li>
+                <li>Tweak border / gap width, corner radius, and color settings</li>
+                <ul>
+                    <li>Transparency is useful when you don't know the color of the page the image will be displayed on</li>
+                    <li>Borders are optional and would depend on how the image is to be displayed</li>
+                </ul>
+                <li>Enter a filename prefix to help identify the images, for example "cross -" or "parallel -"</li>
+                <li>Save the images</li>
+                <ul>
+                    <li>A file name with prefix is generated automatically</li>
+                    <li>On some systems the file name can be modified before saving</li>
+                </ul>
+                <li>To process new images, click on the cropped images or drag and drop two files onto the cropped images</li>
+            </ul>
         </div>
     </div>
     
@@ -244,14 +301,22 @@
         <div class="section">
             <h2>Advanced Features</h2>
             
+            <h3>Fullscreen Mode</h3>
+            <p>For a larger view of your images:</p>
+            <ul>
+                <li>Click the fullscreen button in the top-right corner of the canvas</li>
+                <li>Or press the <span class="shortcut">f</span> key</li>
+                <li>Press <span class="shortcut">Esc</span> to exit fullscreen mode</li>
+            </ul>
+            
             <h3>Synchronized Movement</h3>
             <p>When in side-by-side crop mode, you can enable synchronized image movement so that images keep their alignment.</p>
             <ul>
                 <li>Check the "Synchronized Movement" checkbox</li>
                 <li>Useful for maintaining alignment between stereo pairs</li>
-                <li>Images always move together when using touch or the mouse</li>
-                <li>In align mode, synchronized movement is disabled to allow relative image movement</li>
+                <li>Images move together when using touch or the mouse</li>
                 <li>When using the arrow keys, relative movement between images is still allowed for fine tuning</li>
+                <li>In align mode, synchronized movement is disabled to allow relative image movement</li>
             </ul>
 
             <h3>Horizontal-Only Movement</h3>
@@ -264,22 +329,16 @@
             <h3>Draw Boxes Option</h3>
             <p>Toggle the display of crop box outlines with the "Draw Boxes" checkbox.</p>
             
-            <h3>Fullscreen Mode</h3>
-            <p>For a larger view of your images:</p>
-            <ul>
-                <li>Click the fullscreen button in the top-right corner of the canvas</li>
-                <li>Or press the <span class="shortcut">f</span> key</li>
-                <li>Press <span class="shortcut">Esc</span> to exit fullscreen mode</li>
-            </ul>
-            
             <h3>Fine-Tuning with Arrow Keys</h3>
             <p>When in crop mode, you can use arrow keys for precise adjustments:</p>
             <ul>
                 <li>Arrow keys move the active image(s) by 1 pixel</li>
                 <li>Hold <span class="shortcut">Shift</span> + arrow keys for 5-pixel movements</li>
-                <li>Press <span class="shortcut">Tab</span> to to cycle between moving the left image, the right image, and both images.
-                    (<i><b>Note:</i></b> Even if `Synchronized Movement` is checked, images can move relative to each other when using the arrow keys.)<br>
-                In align mode, <span class="shortcut">Tab</span> toggles between moving the images together under the crop box, or moving one image relative to the other.</li>
+                <li>In side-by-side mode, press <span class="shortcut">Tab</span> to to cycle between moving the left image, the right image, and both images</li>
+                <ul>
+                    <li>In align mode, <span class="shortcut">Tab</span> toggles between moving the images together under the crop box, or moving one image relative to the other.</li>
+                    <li>Even if "Synchronized Movement" is checked, images can move relative to each other when using the arrow keys.</li>
+                </ul>
             </ul>
             
             <h3>Image Replacement</h3>
