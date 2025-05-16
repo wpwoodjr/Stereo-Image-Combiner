@@ -22,6 +22,8 @@ class StereoImageCombiner {
         this.storageManager = new StorageManager(this);
         this.fullscreenManager = new FullscreenManager(this);
         this.helpManager = new HelpManager(this);
+        // cropManager will be set by crop.js
+        this.cropManager = null;
         
         this.setupInitialState();
     }
@@ -615,21 +617,22 @@ class ImageRenderer {
     }
 
     calculateMaxScale(img1, img2, overlaid = false, borders = true) {
-        const viewportWidth = this.getViewPortWidth();
         let totalWidthAt100;
+        let imageHeight = Math.max(img1.height, img2.height);
 
         if (!overlaid) {
             const gapWidthAt100 = Math.round(this.pixelGap(img1, img2) / this.app.state.GAP_TO_BORDER_RATIO) * this.app.state.GAP_TO_BORDER_RATIO;
             const borderSpace = this.app.state.hasBorders && borders ? gapWidthAt100 / this.app.state.GAP_TO_BORDER_RATIO : 0;
             totalWidthAt100 = img1.width + img2.width + gapWidthAt100 + borderSpace * 2;
+            imageHeight += borderSpace * 2;
         } else {
             totalWidthAt100 = Math.max(img1.width, img2.width);
         }
 
-        const imageHeight = Math.max(img1.height, img2.height);
         const maxHeight = screen.height;
+        const viewportWidth = this.getViewPortWidth();
         const optimalScale = viewportWidth / totalWidthAt100;
-        
+
         return Math.min(maxHeight / imageHeight, optimalScale);
     }
 
@@ -874,13 +877,15 @@ class FullscreenManager {
         document.head.appendChild(style);
     }
 
-    handleFullscreenChange() {
-        const isFullscreen = document.fullscreenElement || 
-                           document.webkitFullscreenElement || 
-                           document.mozFullScreenElement || 
-                           document.msFullscreenElement;
+    isFullscreen() {
+        return document.fullscreenElement || 
+            document.webkitFullscreenElement || 
+            document.mozFullScreenElement || 
+            document.msFullscreenElement;
+    }
 
-        if (isFullscreen) {
+    handleFullscreenChange() {
+        if (this.isFullscreen) {
             this.fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
         } else {
             this.fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
@@ -892,10 +897,7 @@ class FullscreenManager {
     toggle() {
         const element = this.app.domElements.canvasContainer;
         
-        if (!document.fullscreenElement && 
-            !document.mozFullScreenElement && 
-            !document.webkitFullscreenElement && 
-            !document.msFullscreenElement) {
+        if (!this.isFullscreen()) {
             // Enter fullscreen
             if (element.requestFullscreen) {
                 element.requestFullscreen();
