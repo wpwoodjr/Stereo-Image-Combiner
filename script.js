@@ -791,7 +791,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.calculateMaxScale = calculateMaxScale;
     window.updateSwap = updateSwap;
     window.onResize = onResize;
-    window.getViewPortWidth = getViewPortWidth;
     window.getLocalStorageItem = getLocalStorageItem;
     window.setLocalStorageItem = setLocalStorageItem;
 });
