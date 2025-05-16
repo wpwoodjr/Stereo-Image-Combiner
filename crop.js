@@ -100,16 +100,21 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('touchcancel', onTouchEnd);
 
     // =========================
+    // Classes from main app
+    // =========================
+
+    const renderer = window.app.renderer;
+    const storageManager = window.app.storageManager;
+
+    // =========================
     // Functions
     // =========================
 
     // Touch handlers
-
     /**
      * Detects if the current device supports touch input
      * Uses multiple detection methods for reliability across browsers
      * @returns {boolean} True if the device supports touch, false otherwise
-     */
     function isTouch() {
         // Primary checks for touch support
         if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
@@ -145,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Not a touch device
         return false;
     }
+    */
 
     // Get the x, y position relative to canvas
     function getXY(e) {
@@ -507,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const avgWidth = cropBoxes[LEFT].width;
         
         // Draw images with both x and y offsets
-        currentParams = window.drawImages({
+        currentParams = renderer.drawImages({
             xOffsets,
             yOffsets,
             avgWidth: avgWidth
@@ -1649,10 +1655,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             newImg2.onload = function() {
                 window.images[1] = newImg2;
-                const scalePercent = getLocalStorageItem('croppedScalePercent', preCropScalePercent);
+                const scalePercent = storageManager.getItem('croppedScalePercent', preCropScalePercent);
                 updateScalePercent(scalePercent, false, true);
                 // Redraw with cropped images
-                window.drawImages();
+                renderer.drawImages();
             };
             newImg2.src = tempCanvas2.toDataURL();
         };
@@ -1673,7 +1679,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateScalePercent(scalePercent, false, true);
 
         // Redraw the images without crop overlay
-        window.drawImages();
+        renderer.drawImages();
     }
 
     // reset buttons etc to non-cropping state
@@ -1691,8 +1697,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Calculate maximum scale for current images
     function updateScalePercent(scalePercent, overlaid, borders) {
-        const optimalScale = window.calculateMaxScale(window.images[0], window.images[1], overlaid, borders);
-        window.setScalePercent(scalePercent, optimalScale);
+        const optimalScale = renderer.calculateMaxScale(window.images[0], window.images[1], overlaid, borders);
+        renderer.setScalePercent(scalePercent, optimalScale);
     }
 
     function onSwap() {
@@ -1719,7 +1725,7 @@ document.addEventListener('DOMContentLoaded', () => {
             movableBoxes = getMovableBoxes(currentHandle);
             drawCropInterface(movableBoxes);
         } else {
-            window.drawImages();
+            renderer.drawImages();
         }
     }
 
@@ -1735,13 +1741,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // new scale percent
             if (alignMode) {
                 alignModeScalePercent = scalePercent;
-                window.setLocalStorageItem('alignModeScalePercent', scalePercent);
+                storageManager.setItem('alignModeScalePercent', scalePercent);
             } else {
                 // keeping resetScalePercent up to date in case local storage is not working
                 resetScalePercent = scalePercent;
-                window.setLocalStorageItem('uncroppedScalePercent', scalePercent);
+                storageManager.setItem('uncroppedScalePercent', scalePercent);
             }
-            window.setScalePercent(scalePercent);
+            renderer.setScalePercent(scalePercent);
         } else {
             // just adjust to new max scale
             updateScalePercent(currentScale / window.maxScale, alignMode, false);
@@ -1787,10 +1793,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // reset scale to uncropped
                 updateScalePercent(resetScalePercent, false, true);
                 // Redraw with original images
-                window.drawImages();
+                renderer.drawImages();
             } else {
                 // reset scale to uncropped
-                window.setScalePercent(resetScalePercent);
+                renderer.setScalePercent(resetScalePercent);
             }
 
             // Reset original images array and last crop state
@@ -1801,152 +1807,6 @@ document.addEventListener('DOMContentLoaded', () => {
             movableBoxes = [ false, false ];
         }
     }
-
-    const canvasContainer = document.getElementById('canvasContainer');
-
-    // Add a fullscreen toggle
-    function addFullscreenOption() {
-        // Create fullscreen button
-        const fullscreenButton = document.createElement('button');
-        fullscreenButton.id = 'fullscreenToggle';
-        fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
-        fullscreenButton.title = 'Toggle fullscreen';
-        fullscreenButton.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background-color: rgba(0, 0, 0, 0.5);
-            border-radius: 50%;
-            padding: 8px;
-            display: none;
-            width: 36px;
-            height: 36px;
-            align-items: center;
-            justify-content: center;
-        `;
-        
-        // Find the appropriate container to append the button
-        canvasContainer.style.position = 'relative';
-        canvasContainer.appendChild(fullscreenButton);
-        
-        // Show button when canvas is displayed
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.attributeName === 'style' && 
-                    canvasContainer.style.display !== 'none') {
-                    fullscreenButton.style.display = 'flex';
-                }
-            });
-        });
-        
-        observer.observe(canvasContainer, { attributes: true });
-        
-        // Toggle fullscreen mode
-        fullscreenButton.addEventListener('click', function() {
-            toggleFullscreen(canvasContainer);
-        });
-
-        // Listen for fullscreen change events to update button
-        document.addEventListener('fullscreenchange', fullScreenChange);
-        document.addEventListener('webkitfullscreenchange', fullScreenChange);
-        document.addEventListener('mozfullscreenchange', fullScreenChange);
-        document.addEventListener('MSFullscreenChange', fullScreenChange);
-
-        function fullScreenChange() {
-            // console.log("uFSB:", document.fullscreenElement === null ? "ffs" : "tfs");
-            if (document.fullscreenElement || 
-                document.webkitFullscreenElement || 
-                document.mozFullScreenElement || 
-                document.msFullscreenElement) {
-                // To fullscreen mode
-                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
-            } else {
-                // Not in fullscreen mode
-                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
-            }
-            setTimeout(() => {
-                window.onResize(null, "uFSB");
-            }, 250);
-        }
-        
-        // Add fullscreen styles
-        const style = document.createElement('style');
-        style.textContent = `
-            #canvasContainer:fullscreen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-                overflow: auto;
-            }
-            #canvasContainer:fullscreen #canvas {
-                // max-height: 95vh !important;
-                object-fit: contain;
-            }
-            
-            /* Vendor prefixed versions */
-            #canvasContainer:-webkit-full-screen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-            }
-            #canvasContainer:-moz-full-screen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-            }
-            #canvasContainer:-ms-fullscreen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    // Fullscreen toggle function
-    function toggleFullscreen(element) {
-        if (!document.fullscreenElement && 
-            !document.mozFullScreenElement && 
-            !document.webkitFullscreenElement && 
-            !document.msFullscreenElement) {
-            // Enter fullscreen
-            // console.log("tfs");
-            if (element.requestFullscreen) {
-                element.requestFullscreen();
-            } else if (element.msRequestFullscreen) {
-                element.msRequestFullscreen();
-            } else if (element.mozRequestFullScreen) {
-                element.mozRequestFullScreen();
-            } else if (element.webkitRequestFullscreen) {
-                element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-            }
-        } else {
-            // Exit fullscreen
-            // console.log("ffs");
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            }
-        }
-    }
-
-    // Initialize fullscreen option
-    addFullscreenOption();
-
 
     // Arrow key navigation state
     let arrowKeyMultiplier = 1;     // Default step size multiplier
@@ -1973,16 +1833,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check if an input element is focused
         if (document.activeElement.tagName === 'INPUT' || 
             document.activeElement.tagName === 'TEXTAREA') {
-            return;
-        }
-
-        if (e.key === 'x') {
-            window.updateSwap();
-            e.preventDefault();
-            return;
-        } else if (e.key === 'f') {
-            toggleFullscreen(canvasContainer);
-            e.preventDefault();
             return;
         }
 
@@ -2164,15 +2014,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
         // Add event listener for draw boxes checkbox change
         drawBoxesCheckbox.addEventListener('change', function() {
-            window.setLocalStorageItem('drawCropBoxes', this.checked);
+            storageManager.setItem('drawCropBoxes', this.checked);
             drawCropInterface();
         });
 
         // Initialize from local storage with default values
-        alignMode = alignCheckbox.checked = window.getLocalStorageItem('alignCheckBox', true);
-        lockedCheckbox.checked = window.getLocalStorageItem('lockedCheckBox', true);
-        clampCheckbox.checked = window.getLocalStorageItem('clampCheckBox', false);
-        drawBoxesCheckbox.checked = window.getLocalStorageItem('drawCropBoxes', true);
+        alignMode = alignCheckbox.checked = storageManager.getItem('alignCheckBox', true);
+        lockedCheckbox.checked = storageManager.getItem('lockedCheckBox', true);
+        clampCheckbox.checked = storageManager.getItem('clampCheckBox', false);
+        drawBoxesCheckbox.checked = storageManager.getItem('drawCropBoxes', true);
         
         // Make checkboxes available globally
         window.lockedCheckbox = lockedCheckbox;
@@ -2181,7 +2031,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }    
 
     function toggleLockedCheckbox() {
-        window.setLocalStorageItem('lockedCheckBox', this.checked);
+        storageManager.setItem('lockedCheckBox', this.checked);
 
         updateCursor(currentHandle);
         const wasMovable = movableBoxes;
@@ -2195,7 +2045,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clampCheckbox.checked = !clampCheckbox.checked;
         }
 
-        window.setLocalStorageItem('clampCheckBox', clampCheckbox.checked);
+        storageManager.setItem('clampCheckBox', clampCheckbox.checked);
         clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
         updateCursor(currentHandle);
@@ -2229,7 +2079,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function enterAlignMode() {
         alignMode = true;
-        window.setLocalStorageItem('alignCheckBox', true);
+        storageManager.setItem('alignCheckBox', true);
         alignCheckbox.checked = true;
         saveLockedCheckbox = lockedCheckbox.checked;
         lockedCheckbox.checked = false;
@@ -2241,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         alignModeSavePreviousScalePercent = currentScale / window.maxScale;
         if (alignModeScalePercent === 0) {
-            alignModeScalePercent = window.getLocalStorageItem('alignModeScalePercent', alignModeSavePreviousScalePercent);
+            alignModeScalePercent = storageManager.getItem('alignModeScalePercent', alignModeSavePreviousScalePercent);
         }
         // we are displaying overlaid images so get the new max scale
         updateScalePercent(alignModeScalePercent, true, false);
@@ -2269,7 +2119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function exitAlignMode() {
         alignModeRestorePreviousScalePercent();
         alignMode = false;
-        window.setLocalStorageItem('alignCheckBox', false);
+        storageManager.setItem('alignCheckBox', false);
         alignCheckbox.checked = false;
         lockedCheckbox.disabled = false;
         lockedCheckbox.checked = saveLockedCheckbox;
@@ -2431,12 +2281,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 // Expose functions to global scope and the isCropping flag
-    window.cropModule = {
+    const cropModule = {
         resetCrop,
         onScaleChange,
         onSwap,
         drawCropInterface,
         isCropping: function() { return isCropping; },
         cropButton
-    }
+    };
+    window.setCropModule(cropModule);
 });
