@@ -105,6 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderer = window.app.renderer;
     const storageManager = window.app.storageManager;
+    const cropManager = window.app.cropManager;
+    const domElements = window.app.domElements;
 
     // =========================
     // Functions
@@ -307,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCropButton.style.display = 'block';
         cancelCropButton.style.display = 'block';
         cropOptionsControlGroup.style.display = 'block'; // Show crop options in left panel
-        window.saveButton.disabled = true;
+        domElements.saveButton.disabled = true;
 
         // If we have a previous crop state, restore those dimensions
         if (lastCropState) {
@@ -1692,7 +1694,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cropOptionsControlGroup.style.display = 'none'; // Hide crop options in left panel
         cropButton.style.display = 'block';
         canvas.style.cursor = 'default';
-        window.saveButton.disabled = false;
+        domElements.saveButton.disabled = false;
     }
 
     // Calculate maximum scale for current images
@@ -2280,7 +2282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.globalAlpha = 1;
     }
 
-// Expose functions to global scope and the isCropping flag
+    // Expose functions to global scope and the isCropping flag
     const cropModule = {
         resetCrop,
         onScaleChange,
@@ -2289,5 +2291,5 @@ document.addEventListener('DOMContentLoaded', () => {
         isCropping: function() { return isCropping; },
         cropButton
     };
-    window.setCropModule(cropModule);
+    cropManager.setCropModule(cropModule);
 });

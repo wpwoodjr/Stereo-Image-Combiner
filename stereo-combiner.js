@@ -1032,12 +1032,6 @@ document.addEventListener('DOMContentLoaded', () => {
         get: () => window.app.isTransparent,
         // set: (value) => { window.app.isTransparent = value; }
     });
-    
-    // Direct reference to DOM element (this one is okay as a direct assignment)
-    window.saveButton = window.app.domElements.saveButton;
-
-    // Expose functions that crop.js and other modules expect
-    window.setCropModule = (cropModule) => window.app.cropManager.setCropModule(cropModule);
 });
 
 // ===================================
