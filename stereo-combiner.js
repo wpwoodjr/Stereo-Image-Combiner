@@ -7,7 +7,6 @@ class StereoImageCombiner {
         this.imageNames = [];
         this.scale = 1;
         this.maxScale = 1;
-        this.isCropped = false;
         this.isTransparent = false;
         
         this.init();
@@ -19,7 +18,6 @@ class StereoImageCombiner {
         this.eventManager = new EventManager(this);
         this.renderer = new ImageRenderer(this);
         this.fileManager = new FileManager(this);
-        this.cropManager = new CropManager(this);
         this.uiManager = new UIManager(this);
         this.storageManager = new StorageManager(this);
         this.fullscreenManager = new FullscreenManager(this);
@@ -92,7 +90,7 @@ class StereoImageCombiner {
 
     onResize(msg = "resize event") {
         if (this.images.length === 2) {
-            if (this.cropManager.isCropping()) {
+            if (this.cropManager.isCropping) {
                 this.cropManager.onScaleChange(0);
             } else {
                 const optimalScale = this.renderer.calculateMaxScale(this.images[0], this.images[1]);
@@ -200,7 +198,7 @@ class EventManager {
         });
 
         canvasContainer.addEventListener('click', (e) => {
-            if (this.app.cropManager.isCropping()) return;
+            if (this.app.cropManager.isCropping) return;
             if (e.target === canvas || e.target === canvasContainer) {
                 fileInput.click();
             }
@@ -264,7 +262,6 @@ class UIManager {
         // Reset scale
         const uncroppedScalePercent = storage.getItem('uncroppedScalePercent', state.DEFAULT_SCALE);
         this.app.renderer.setScalePercent(uncroppedScalePercent, 1);
-        this.app.isCropped = false;
 
         // Reset gap
         state.gapPercent = storage.getItem('gapPercent', state.DEFAULT_GAP_PERCENT);
@@ -296,11 +293,11 @@ class UIManager {
     updateScale() {
         const newScalePercent = parseInt(this.app.domElements.scaleSlider.value) / 100;
 
-        if (this.app.cropManager.isCropping()) {
+        if (this.app.cropManager.isCropping) {
             this.app.cropManager.onScaleChange(newScalePercent);
         } else {
             this.app.renderer.setScalePercent(newScalePercent);
-            if (this.app.isCropped) {
+            if (this.app.cropManager.isCropped) {
                 this.app.storageManager.setItem('croppedScalePercent', newScalePercent);
             } else {
                 this.app.storageManager.setItem('uncroppedScalePercent', newScalePercent);
@@ -317,7 +314,7 @@ class UIManager {
 
         if (this.app.images.length !== 2) return;
 
-        if (this.app.cropManager.isCropping()) {
+        if (this.app.cropManager.isCropping) {
             this.app.cropManager.onScaleChange(0);
         } else {
             const optimalScale = this.app.renderer.calculateMaxScale(this.app.images[0], this.app.images[1]);
@@ -329,7 +326,7 @@ class UIManager {
     updateColor() {
         this.app.state.gapColor = this.app.domElements.colorPicker.value;
         this.app.storageManager.setItem('gapColor', this.app.state.gapColor);
-        if (this.app.cropManager.isCropping()) {
+        if (this.app.cropManager.isCropping) {
             this.app.cropManager.drawCropInterface();
         } else {
             this.app.renderer.drawImages();
@@ -342,7 +339,7 @@ class UIManager {
 
         if (this.app.images.length !== 2) return;
 
-        if (this.app.cropManager.isCropping()) {
+        if (this.app.cropManager.isCropping) {
             this.app.cropManager.onScaleChange(0);
         } else {
             const optimalScale = this.app.renderer.calculateMaxScale(this.app.images[0], this.app.images[1]);
@@ -355,7 +352,7 @@ class UIManager {
         this.app.isTransparent = this.app.domElements.transparentCheckbox.checked;
         this.app.storageManager.setItem('isTransparent', this.app.isTransparent);
         this.updateColorPickerState();
-        if (this.app.cropManager.isCropping()) {
+        if (this.app.cropManager.isCropping) {
             this.app.cropManager.drawCropInterface();
         } else {
             this.app.renderer.drawImages();
@@ -384,7 +381,7 @@ class UIManager {
         this.app.state.cornerRadiusPercent = parseInt(this.app.domElements.cornerRadiusSlider.value);
         this.app.storageManager.setItem('cornerRadiusPercent', this.app.state.cornerRadiusPercent);
         this.app.domElements.cornerRadiusValue.textContent = `${this.app.state.cornerRadiusPercent}%`;
-        if (this.app.cropManager.isCropping()) {
+        if (this.app.cropManager.isCropping) {
             this.app.cropManager.drawCropInterface();
         } else {
             this.app.renderer.drawImages();
@@ -802,29 +799,6 @@ class ImageRenderer {
 }
 
 // ===================================
-// CROP MANAGER - Handles cropping functionality
-// ===================================
-class CropManager {
-    constructor(app) {
-        this.app = app;
-        this.cropModule = null;
-        this.cropButton = null;
-    }
-
-    // Called by CropController when it's initialized
-    setCropModule(cropModule) {
-        this.isCropping = cropModule.isCropping;
-        this.onScaleChange = cropModule.onScaleChange;
-        this.onSwap = cropModule.onSwap;
-        this.resetCrop = cropModule.resetCrop;
-        this.drawCropInterface = cropModule.drawCropInterface;
-        this.cropButton = cropModule.cropButton;
-        this.cropButton.disabled = true;
-        return window.app;
-    }
-}
-
-// ===================================
 // FULLSCREEN MANAGER - Handles fullscreen functionality
 // ===================================
 class FullscreenManager {
@@ -1005,33 +979,6 @@ class HelpManager {
 document.addEventListener('DOMContentLoaded', () => {
     // Create global app instance
     window.app = new StereoImageCombiner();
-    
-    // Expose legacy global variables and functions for backward compatibility
-    // Use getters/setters to maintain live references
-    Object.defineProperty(window, 'images', {
-        get: () => window.app.images,
-        // set: (value) => { window.app.images = value; }
-    });
-    
-    Object.defineProperty(window, 'scale', {
-        get: () => window.app.scale,
-        // set: (value) => { window.app.scale = value; }
-    });
-    
-    Object.defineProperty(window, 'maxScale', {
-        get: () => window.app.maxScale,
-        // set: (value) => { window.app.maxScale = value; }
-    });
-    
-    Object.defineProperty(window, 'isCropped', {
-        get: () => window.app.isCropped,
-        set: (value) => { window.app.isCropped = value; }
-    });
-    
-    Object.defineProperty(window, 'isTransparent', {
-        get: () => window.app.isTransparent,
-        // set: (value) => { window.app.isTransparent = value; }
-    });
 });
 
 // ===================================
