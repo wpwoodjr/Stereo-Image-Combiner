@@ -2281,6 +2281,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===================================
+    // IMAGE TRANSFORMATION UTILITIES
+    // ===================================
+    function transformImagePixels(imageData, transformFunction) {
+        const newImageData = new ImageData(
+            new Uint8ClampedArray(imageData.data),
+            imageData.width,
+            imageData.height
+        );
+        
+        const data = newImageData.data;
+        const width = newImageData.width;
+        const height = newImageData.height;
+        
+        for (let y = 0; y < height; y++) {
+            const rowIndex = y * width;
+            for (let x = 0; x < width; x++) {
+                const i = (rowIndex + x) * 4;
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3];
+                
+                const [newR, newG, newB, newA] = transformFunction(r, g, b, a, x, y);
+                
+                data[i] = newR;
+                data[i + 1] = newG;
+                data[i + 2] = newB;
+                data[i + 3] = newA;
+            }
+        }
+        
+        return newImageData;
+    }
+
+    function transformImage(imgElement, transformFunction) {
+        const canvas = document.createElement('canvas');
+        canvas.width = imgElement.naturalWidth || imgElement.width;
+        canvas.height = imgElement.naturalHeight || imgElement.height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const transformedImageData = transformImagePixels(imageData, transformFunction);
+        
+        ctx.putImageData(transformedImageData, 0, 0);
+        return canvas;
+    }
+
+    // ===================================
     // CROP MANAGER - Handles cropping functionality
     // ===================================
     // Expose functions to global scope and the isCropping & isCropped flags
