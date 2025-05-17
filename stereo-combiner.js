@@ -2,18 +2,28 @@
 // CORE MODULE - Main application state and initialization
 // ===================================
 class StereoImageCombiner {
+    static BODY_BG_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--body-bg-color').trim();
+    static GAP_TO_BORDER_RATIO = 1;
+    static DEFAULT_SCALE = 100;
+    static DEFAULT_GAP_PERCENT = 3.0;
+    static DEFAULT_COLOR = '#000000';
+    static DEFAULT_BORDERS = true;
+    static DEFAULT_TRANSPARENT = false;
+    static DEFAULT_CORNER_RADIUS = 0;
+    static DEFAULT_FORMAT = 'image/jpeg';
+    static DEFAULT_JPG_QUALITY = 90;
+
     constructor() {
         this.images = [];
         this.imageNames = [];
         this.scale = 1;
         this.maxScale = 1;
 
-        this.constants = this.initConstants();
-        this.gapPercent = this.constants.DEFAULT_GAP_PERCENT;
-        this.hasBorders = this.constants.DEFAULT_BORDERS;
-        this.gapColor = this.constants.DEFAULT_COLOR;
-        this.isTransparent = this.constants.DEFAULT_TRANSPARENT;
-        this.cornerRadiusPercent = this.constants.DEFAULT_CORNER_RADIUS;
+        this.gapPercent = StereoImageCombiner.DEFAULT_GAP_PERCENT;
+        this.hasBorders = StereoImageCombiner.DEFAULT_BORDERS;
+        this.gapColor = StereoImageCombiner.DEFAULT_COLOR;
+        this.isTransparent = StereoImageCombiner.DEFAULT_TRANSPARENT;
+        this.cornerRadiusPercent = StereoImageCombiner.DEFAULT_CORNER_RADIUS;
 
         this.domElements = this.initDOMElements();
 
@@ -23,7 +33,7 @@ class StereoImageCombiner {
         this.fileManager = new FileManager(this);
         this.uiManager = new UIManager(this);
         this.storageManager = new StorageManager(this);
-        this.fullscreenManager = new FullscreenManager(this);
+        this.displayManager = new DisplayManager(this);
         this.helpManager = new HelpManager(this);
         // cropManager will be set by crop.js
         this.cropManager = null;
@@ -59,21 +69,6 @@ class StereoImageCombiner {
         };
     }
 
-    initConstants() {
-        return {
-            BODY_BG_COLOR: getComputedStyle(document.documentElement).getPropertyValue('--body-bg-color').trim(),
-            GAP_TO_BORDER_RATIO: 1,
-            DEFAULT_SCALE: 100,
-            DEFAULT_GAP_PERCENT: 3.0,
-            DEFAULT_COLOR: '#000000',
-            DEFAULT_BORDERS: true,
-            DEFAULT_TRANSPARENT: false,
-            DEFAULT_CORNER_RADIUS: 0,
-            DEFAULT_FORMAT: 'image/jpeg',
-            DEFAULT_JPG_QUALITY: 90
-        };
-    }
-
     setupInitialState() {
         // Set up dropzone message
         this.uiManager.setupDropzoneMessage();
@@ -81,24 +76,9 @@ class StereoImageCombiner {
         // Reset controls to defaults with a small delay
         setTimeout(() => this.uiManager.resetControlsToDefaults(), 100);
         
-        // Set up window resize handler
-        window.addEventListener('resize', () => this.onResize());
-        
         // Disable buttons initially
         this.domElements.saveButton.disabled = true;
         this.domElements.swapButton.disabled = true;
-    }
-
-    onResize() {
-        if (this.images.length === 2) {
-            if (this.cropManager.isCropping) {
-                this.cropManager.onScaleChange(0);
-            } else {
-                const optimalScale = this.renderer.calculateMaxScale(this.images[0], this.images[1]);
-                this.renderer.setScalePercent(this.scale / this.maxScale, optimalScale);
-                this.renderer.drawImages();
-            }
-        }
     }
 }
 
@@ -220,7 +200,7 @@ class EventManager {
                     e.preventDefault();
                     break;
                 case 'f':
-                    this.app.fullscreenManager.toggle();
+                    this.app.displayManager.toggleFullscreen();
                     e.preventDefault();
                     break;
                 case '?':
@@ -258,36 +238,35 @@ class UIManager {
     resetControlsToDefaults() {
         const storage = this.app.storageManager;
         const elements = this.app.domElements;
-        const constants = this.app.constants;
 
         // Reset scale
-        const uncroppedScalePercent = storage.getItem('uncroppedScalePercent', constants.DEFAULT_SCALE);
+        const uncroppedScalePercent = storage.getItem('uncroppedScalePercent', StereoImageCombiner.DEFAULT_SCALE);
         this.app.renderer.setScalePercent(uncroppedScalePercent, 1);
 
         // Reset gap and borders
-        this.app.gapPercent = storage.getItem('gapPercent', constants.DEFAULT_GAP_PERCENT);
+        this.app.gapPercent = storage.getItem('gapPercent', StereoImageCombiner.DEFAULT_GAP_PERCENT);
         elements.gapSlider.value = this.app.gapPercent * 10;
         elements.gapValue.textContent = `${this.app.gapPercent.toFixed(1)}%`;
-        this.app.hasBorders = storage.getItem('hasBorders', constants.DEFAULT_BORDERS);
+        this.app.hasBorders = storage.getItem('hasBorders', StereoImageCombiner.DEFAULT_BORDERS);
         elements.bordersCheckbox.checked = this.app.hasBorders;
 
         // Reset color and transparency
-        this.app.gapColor = storage.getItem('gapColor', constants.DEFAULT_COLOR);
+        this.app.gapColor = storage.getItem('gapColor', StereoImageCombiner.DEFAULT_COLOR);
         elements.colorPicker.value = this.app.gapColor;
-        this.app.isTransparent = storage.getItem('isTransparent', constants.DEFAULT_TRANSPARENT);
+        this.app.isTransparent = storage.getItem('isTransparent', StereoImageCombiner.DEFAULT_TRANSPARENT);
         elements.transparentCheckbox.checked = this.app.isTransparent;
         this.updateColorPickerState();
 
         // Reset corner radius
-        this.app.cornerRadiusPercent = storage.getItem('cornerRadiusPercent', constants.DEFAULT_CORNER_RADIUS);
+        this.app.cornerRadiusPercent = storage.getItem('cornerRadiusPercent', StereoImageCombiner.DEFAULT_CORNER_RADIUS);
         elements.cornerRadiusSlider.value = this.app.cornerRadiusPercent;
         elements.cornerRadiusValue.textContent = `${this.app.cornerRadiusPercent}%`;
 
         // Reset format and quality
         elements.filenamePrefixInput.value = storage.getItem('filenamePrefix', '');
-        elements.qualitySlider.value = storage.getItem('jpgQuality', constants.DEFAULT_JPG_QUALITY);
+        elements.qualitySlider.value = storage.getItem('jpgQuality', StereoImageCombiner.DEFAULT_JPG_QUALITY);
         elements.qualityValue.textContent = `${elements.qualitySlider.value}%`;
-        elements.formatSelect.value = storage.getItem('fileFormat', constants.DEFAULT_FORMAT);
+        elements.formatSelect.value = storage.getItem('fileFormat', StereoImageCombiner.DEFAULT_FORMAT);
         elements.qualityContainer.style.display = elements.formatSelect.value === 'image/jpeg' ? 'block' : 'none';
     }
 
@@ -468,7 +447,7 @@ class FileManager {
         
         // Check if trying to save as JPG with transparency
         if (this.app.isTransparent && format === 'image/jpeg') {
-            alert('JPG format does not support transparency. Please choose PNG format to preserve the transparent gap, or uncheck the Transparent option.');
+            alert('JPG format does not support transparency. Please choose PNG format to preserve transparency, or uncheck the Transparent option.');
             return;
         }
 
@@ -608,21 +587,13 @@ class ImageRenderer {
         this.app = app;
     }
 
-    getViewPortWidth() {
-        const mainContainer = document.getElementById('main-container');
-        const isVerticalLayout = window.getComputedStyle(mainContainer).flexDirection === 'column';
-        const leftPanelWidth = document.fullscreenElement ? 0 : document.getElementById('left-panel').offsetWidth;
-        return isVerticalLayout ? window.innerWidth - 15 : window.innerWidth - leftPanelWidth - 50;
-    }
-
     calculateMaxScale(img1, img2, overlaid = false, borders = true) {
         let totalWidthAt100;
         let imageHeight = Math.max(img1.height, img2.height);
 
         if (!overlaid) {
-            const GAP_TO_BORDER_RATIO = this.app.constants.GAP_TO_BORDER_RATIO;
-            const gapWidthAt100 = Math.round(this.pixelGap(img1, img2) / GAP_TO_BORDER_RATIO) * GAP_TO_BORDER_RATIO;
-            const borderSpace = this.app.hasBorders && borders ? gapWidthAt100 / GAP_TO_BORDER_RATIO : 0;
+            const gapWidthAt100 = Math.round(this.pixelGap(img1, img2) / StereoImageCombiner.GAP_TO_BORDER_RATIO) * StereoImageCombiner.GAP_TO_BORDER_RATIO;
+            const borderSpace = this.app.hasBorders && borders ? gapWidthAt100 / StereoImageCombiner.GAP_TO_BORDER_RATIO : 0;
             totalWidthAt100 = img1.width + img2.width + gapWidthAt100 + borderSpace * 2;
             imageHeight += borderSpace * 2;
         } else {
@@ -630,7 +601,7 @@ class ImageRenderer {
         }
 
         const maxHeight = screen.height;
-        const viewportWidth = this.getViewPortWidth();
+        const viewportWidth = this.app.displayManager.getViewPortWidth();
         const optimalScale = viewportWidth / totalWidthAt100;
 
         return Math.min(maxHeight / imageHeight, optimalScale);
@@ -664,10 +635,9 @@ class ImageRenderer {
         // Calculate gap and border spacing
         let renderGap, borderSpace = 0;
         if (!cropping) {
-            const GAP_TO_BORDER_RATIO = this.app.constants.GAP_TO_BORDER_RATIO;
-            renderGap = Math.round(this.pixelGap(this.app.images[0], this.app.images[1]) / GAP_TO_BORDER_RATIO) * GAP_TO_BORDER_RATIO * renderScale;
+            renderGap = Math.round(this.pixelGap(this.app.images[0], this.app.images[1]) / StereoImageCombiner.GAP_TO_BORDER_RATIO) * StereoImageCombiner.GAP_TO_BORDER_RATIO * renderScale;
             if (this.app.hasBorders) {
-                borderSpace = renderGap / GAP_TO_BORDER_RATIO;
+                borderSpace = renderGap / StereoImageCombiner.GAP_TO_BORDER_RATIO;
             }
         } else {
             renderGap = avgWidth * (this.app.gapPercent / 100);
@@ -717,7 +687,7 @@ class ImageRenderer {
             }
         } else {
             // Crop mode background
-            ctx.fillStyle = this.app.constants.BODY_BG_COLOR;
+            ctx.fillStyle = StereoImageCombiner.BODY_BG_COLOR;
             ctx.fillRect(0, 0, totalWidth, maxHeight);
 
             // Fill gap area
@@ -803,13 +773,14 @@ class ImageRenderer {
 }
 
 // ===================================
-// FULLSCREEN MANAGER - Handles fullscreen functionality
+// DISPLAY MANAGER - Handles display modes, screen adjustments and rendering context
 // ===================================
-class FullscreenManager {
+class DisplayManager {
     constructor(app) {
         this.app = app;
         this.setupFullscreenButton();
         this.setupFullscreenEvents();
+        this.setupResizeHandler();
     }
 
     setupFullscreenButton() {
@@ -844,7 +815,7 @@ class FullscreenManager {
         });
         observer.observe(canvasContainer, { attributes: true });
 
-        fullscreenButton.addEventListener('click', () => this.toggle());
+        fullscreenButton.addEventListener('click', () => this.toggleFullscreen());
         this.fullscreenButton = fullscreenButton;
     }
 
@@ -878,6 +849,29 @@ class FullscreenManager {
         document.head.appendChild(style);
     }
 
+    setupResizeHandler() {
+        // Listen for window resize events
+        window.addEventListener('resize', () => this.handleResize());
+    }
+
+    handleResize() {
+        if (this.app.images.length === 2) {
+            if (this.app.cropManager.isCropping) {
+                this.app.cropManager.onScaleChange(0);
+            } else {
+                const optimalScale = this.app.renderer.calculateMaxScale(
+                    this.app.images[0], 
+                    this.app.images[1]
+                );
+                this.app.renderer.setScalePercent(
+                    this.app.scale / this.app.maxScale, 
+                    optimalScale
+                );
+                this.app.renderer.drawImages();
+            }
+        }
+    }
+
     isFullscreen() {
         return document.fullscreenElement || 
             document.webkitFullscreenElement || 
@@ -886,16 +880,17 @@ class FullscreenManager {
     }
 
     handleFullscreenChange() {
-        if (this.isFullscreen) {
+        if (this.isFullscreen()) {
             this.fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
         } else {
             this.fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
         }
-
-        setTimeout(() => this.app.onResize("fullscreen change"), 250);
+        
+        // Allow time for fullscreen transition to complete, then resize
+        setTimeout(() => this.handleResize(), 250);
     }
 
-    toggle() {
+    toggleFullscreen() {
         const element = this.app.domElements.canvasContainer;
         
         if (!this.isFullscreen()) {
@@ -921,6 +916,13 @@ class FullscreenManager {
                 document.webkitExitFullscreen();
             }
         }
+    }
+
+    getViewPortWidth() {
+        const mainContainer = document.getElementById('main-container');
+        const isVerticalLayout = window.getComputedStyle(mainContainer).flexDirection === 'column';
+        const leftPanelWidth = document.fullscreenElement ? 0 : document.getElementById('left-panel').offsetWidth;
+        return isVerticalLayout ? window.innerWidth - 15 : window.innerWidth - leftPanelWidth - 50;
     }
 }
 
