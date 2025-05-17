@@ -1,7 +1,7 @@
 // ===================================
-// CORE MODULE - Main application state and initialization
+// CORE StereoImageCombiner MODULE - Main application state and initialization
 // ===================================
-class StereoImageCombiner {
+class SIC {
     static BODY_BG_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--body-bg-color').trim();
     static GAP_TO_BORDER_RATIO = 1;
     static DEFAULT_SCALE = 100;
@@ -13,35 +13,32 @@ class StereoImageCombiner {
     static DEFAULT_FORMAT = 'image/jpeg';
     static DEFAULT_JPG_QUALITY = 90;
 
+    // cropManager will be set by crop.js
+    static cropManager = null;
+    static domElements = SIC.initDOMElements();
+
     constructor() {
         this.images = [];
         this.imageNames = [];
         this.scale = 1;
         this.maxScale = 1;
 
-        this.gapPercent = StereoImageCombiner.DEFAULT_GAP_PERCENT;
-        this.hasBorders = StereoImageCombiner.DEFAULT_BORDERS;
-        this.gapColor = StereoImageCombiner.DEFAULT_COLOR;
-        this.isTransparent = StereoImageCombiner.DEFAULT_TRANSPARENT;
-        this.cornerRadiusPercent = StereoImageCombiner.DEFAULT_CORNER_RADIUS;
+        this.gapPercent = SIC.DEFAULT_GAP_PERCENT;
+        this.hasBorders = SIC.DEFAULT_BORDERS;
+        this.gapColor = SIC.DEFAULT_COLOR;
+        this.isTransparent = SIC.DEFAULT_TRANSPARENT;
+        this.cornerRadiusPercent = SIC.DEFAULT_CORNER_RADIUS;
 
-        this.domElements = this.initDOMElements();
-
-        // initialize modules
+        // initialize classes
         this.eventManager = new EventManager(this);
         this.renderer = new ImageRenderer(this);
         this.fileManager = new FileManager(this);
         this.uiManager = new UIManager(this);
-        this.storageManager = new StorageManager(this);
         this.displayManager = new DisplayManager(this);
-        this.helpManager = new HelpManager(this);
-        // cropManager will be set by crop.js
-        this.cropManager = null;
-        
-        this.setupInitialState();
+        HelpManager.initialize();
     }
 
-    initDOMElements() {
+    static initDOMElements() {
         return {
             dropzone: document.getElementById('dropzone'),
             dropzoneMessage: document.getElementById('dropzoneMessage'),
@@ -68,18 +65,6 @@ class StereoImageCombiner {
             qualityContainer: document.getElementById('qualityContainer')
         };
     }
-
-    setupInitialState() {
-        // Set up dropzone message
-        this.uiManager.setupDropzoneMessage();
-        
-        // Reset controls to defaults with a small delay
-        setTimeout(() => this.uiManager.resetControlsToDefaults(), 100);
-        
-        // Disable buttons initially
-        this.domElements.saveButton.disabled = true;
-        this.domElements.swapButton.disabled = true;
-    }
 }
 
 // ===================================
@@ -99,7 +84,7 @@ class EventManager {
     }
 
     setupDropzoneEvents() {
-        const { dropzone, dropzoneMessage, fileInput } = this.app.domElements;
+        const { dropzone, dropzoneMessage, fileInput } = SIC.domElements;
         
         dropzone.addEventListener('click', (e) => {
             if (e.target === dropzone || e.target === dropzoneMessage) {
@@ -134,7 +119,7 @@ class EventManager {
     }
 
     setupControlEvents() {
-        const elements = this.app.domElements;
+        const elements = SIC.domElements;
         
         elements.scaleSlider.addEventListener('input', () => this.app.uiManager.updateScale());
         elements.gapSlider.addEventListener('input', () => this.app.uiManager.updateGap());
@@ -146,22 +131,22 @@ class EventManager {
         elements.saveButton.addEventListener('click', () => this.app.fileManager.saveImage());
         
         elements.filenamePrefixInput.addEventListener('input', function() {
-            window.app.storageManager.setItem('filenamePrefix', this.value);
+            StorageManager.setItem('filenamePrefix', this.value);
         });
 
         elements.formatSelect.addEventListener('change', function() {
             elements.qualityContainer.style.display = this.value === 'image/jpeg' ? 'block' : 'none';
-            window.app.storageManager.setItem('fileFormat', this.value);
+            StorageManager.setItem('fileFormat', this.value);
         });
 
         elements.qualitySlider.addEventListener('input', function() {
             elements.qualityValue.textContent = `${this.value}%`;
-            window.app.storageManager.setItem('jpgQuality', this.value);
+            StorageManager.setItem('jpgQuality', this.value);
         });
     }
 
     setupCanvasEvents() {
-        const { canvasContainer, canvas, fileInput } = this.app.domElements;
+        const { canvasContainer, canvas, fileInput } = SIC.domElements;
 
         canvasContainer.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -179,7 +164,7 @@ class EventManager {
         });
 
         canvasContainer.addEventListener('click', (e) => {
-            if (this.app.cropManager.isCropping) return;
+            if (SIC.cropManager.isCropping) return;
             if (e.target === canvas || e.target === canvasContainer) {
                 fileInput.click();
             }
@@ -206,7 +191,7 @@ class EventManager {
                 case '?':
                 case '/':
                     if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
-                        this.app.helpManager.openHelp();
+                        HelpManager.openHelp();
                         e.preventDefault();
                     }
                     break;
@@ -221,6 +206,18 @@ class EventManager {
 class UIManager {
     constructor(app) {
         this.app = app;
+        this.setupInitialState();
+    }
+
+    setupInitialState() {
+        // Set up dropzone message
+        this.setupDropzoneMessage();
+        
+        // Disable buttons initially
+        SIC.domElements.saveButton.disabled = true;
+        SIC.domElements.swapButton.disabled = true;
+
+        this.resetControlsToDefaults();
     }
 
     getDropzoneMessageText() {
@@ -232,70 +229,69 @@ class UIManager {
     }
 
     setupDropzoneMessage() {
-        this.app.domElements.dropzoneMessage.innerHTML = this.getDropzoneMessageText();
+        SIC.domElements.dropzoneMessage.innerHTML = this.getDropzoneMessageText();
     }
 
     resetControlsToDefaults() {
-        const storage = this.app.storageManager;
-        const elements = this.app.domElements;
+        const elements = SIC.domElements;
 
         // Reset scale
-        const uncroppedScalePercent = storage.getItem('uncroppedScalePercent', StereoImageCombiner.DEFAULT_SCALE);
+        const uncroppedScalePercent = StorageManager.getItem('uncroppedScalePercent', SIC.DEFAULT_SCALE);
         this.app.renderer.setScalePercent(uncroppedScalePercent, 1);
 
         // Reset gap and borders
-        this.app.gapPercent = storage.getItem('gapPercent', StereoImageCombiner.DEFAULT_GAP_PERCENT);
+        this.app.gapPercent = StorageManager.getItem('gapPercent', SIC.DEFAULT_GAP_PERCENT);
         elements.gapSlider.value = this.app.gapPercent * 10;
         elements.gapValue.textContent = `${this.app.gapPercent.toFixed(1)}%`;
-        this.app.hasBorders = storage.getItem('hasBorders', StereoImageCombiner.DEFAULT_BORDERS);
+        this.app.hasBorders = StorageManager.getItem('hasBorders', SIC.DEFAULT_BORDERS);
         elements.bordersCheckbox.checked = this.app.hasBorders;
 
         // Reset color and transparency
-        this.app.gapColor = storage.getItem('gapColor', StereoImageCombiner.DEFAULT_COLOR);
+        this.app.gapColor = StorageManager.getItem('gapColor', SIC.DEFAULT_COLOR);
         elements.colorPicker.value = this.app.gapColor;
-        this.app.isTransparent = storage.getItem('isTransparent', StereoImageCombiner.DEFAULT_TRANSPARENT);
+        this.app.isTransparent = StorageManager.getItem('isTransparent', SIC.DEFAULT_TRANSPARENT);
         elements.transparentCheckbox.checked = this.app.isTransparent;
         this.updateColorPickerState();
 
         // Reset corner radius
-        this.app.cornerRadiusPercent = storage.getItem('cornerRadiusPercent', StereoImageCombiner.DEFAULT_CORNER_RADIUS);
+        this.app.cornerRadiusPercent = StorageManager.getItem('cornerRadiusPercent', SIC.DEFAULT_CORNER_RADIUS);
         elements.cornerRadiusSlider.value = this.app.cornerRadiusPercent;
         elements.cornerRadiusValue.textContent = `${this.app.cornerRadiusPercent}%`;
 
         // Reset format and quality
-        elements.filenamePrefixInput.value = storage.getItem('filenamePrefix', '');
-        elements.qualitySlider.value = storage.getItem('jpgQuality', StereoImageCombiner.DEFAULT_JPG_QUALITY);
+        elements.filenamePrefixInput.value = StorageManager.getItem('filenamePrefix', '');
+        elements.qualitySlider.value = StorageManager.getItem('jpgQuality', SIC.DEFAULT_JPG_QUALITY);
         elements.qualityValue.textContent = `${elements.qualitySlider.value}%`;
-        elements.formatSelect.value = storage.getItem('fileFormat', StereoImageCombiner.DEFAULT_FORMAT);
+        elements.formatSelect.value = StorageManager.getItem('fileFormat', SIC.DEFAULT_FORMAT);
         elements.qualityContainer.style.display = elements.formatSelect.value === 'image/jpeg' ? 'block' : 'none';
     }
 
     updateScale() {
-        const newScalePercent = parseInt(this.app.domElements.scaleSlider.value) / 100;
+        const newScalePercent = parseInt(SIC.domElements.scaleSlider.value) / 100;
 
-        if (this.app.cropManager.isCropping) {
-            this.app.cropManager.onScaleChange(newScalePercent);
+        if (SIC.cropManager.isCropping) {
+            SIC.cropManager.onScaleChange(newScalePercent);
         } else {
             this.app.renderer.setScalePercent(newScalePercent);
-            if (this.app.cropManager.isCropped) {
-                this.app.storageManager.setItem('croppedScalePercent', newScalePercent);
+            if (SIC.cropManager.isCropped) {
+                StorageManager.setItem('croppedScalePercent', newScalePercent);
             } else {
-                this.app.storageManager.setItem('uncroppedScalePercent', newScalePercent);
+                StorageManager.setItem('uncroppedScalePercent', newScalePercent);
             }
             this.app.renderer.drawImages();
         }
     }
 
     updateGap() {
-        const sliderValue = parseInt(this.app.domElements.gapSlider.value);
+        const sliderValue = parseInt(SIC.domElements.gapSlider.value);
         this.app.gapPercent = sliderValue / 10;
-        this.app.storageManager.setItem('gapPercent', this.app.gapPercent);
-        this.app.domElements.gapValue.textContent = `${this.app.gapPercent.toFixed(1)}%`;
+        StorageManager.setItem('gapPercent', this.app.gapPercent);
+        SIC.domElements.gapValue.textContent = `${this.app.gapPercent.toFixed(1)}%`;
 
         if (this.app.images.length !== 2) return;
 
-        if (this.app.cropManager.isCropping) {
-            this.app.cropManager.onScaleChange(0);
+        if (SIC.cropManager.isCropping) {
+            SIC.cropManager.onScaleChange(0);
         } else {
             const optimalScale = this.app.renderer.calculateMaxScale(this.app.images[0], this.app.images[1]);
             this.app.renderer.setScalePercent(this.app.scale / this.app.maxScale, optimalScale);
@@ -304,23 +300,23 @@ class UIManager {
     }
 
     updateColor() {
-        this.app.gapColor = this.app.domElements.colorPicker.value;
-        this.app.storageManager.setItem('gapColor', this.app.gapColor);
-        if (this.app.cropManager.isCropping) {
-            this.app.cropManager.drawCropInterface();
+        this.app.gapColor = SIC.domElements.colorPicker.value;
+        StorageManager.setItem('gapColor', this.app.gapColor);
+        if (SIC.cropManager.isCropping) {
+            SIC.cropManager.drawCropInterface();
         } else {
             this.app.renderer.drawImages();
         }
     }
 
     updateBorders() {
-        this.app.hasBorders = this.app.domElements.bordersCheckbox.checked;
-        this.app.storageManager.setItem('hasBorders', this.app.hasBorders);
+        this.app.hasBorders = SIC.domElements.bordersCheckbox.checked;
+        StorageManager.setItem('hasBorders', this.app.hasBorders);
 
         if (this.app.images.length !== 2) return;
 
-        if (this.app.cropManager.isCropping) {
-            this.app.cropManager.onScaleChange(0);
+        if (SIC.cropManager.isCropping) {
+            SIC.cropManager.onScaleChange(0);
         } else {
             const optimalScale = this.app.renderer.calculateMaxScale(this.app.images[0], this.app.images[1]);
             this.app.renderer.setScalePercent(this.app.scale / this.app.maxScale, optimalScale);
@@ -329,19 +325,19 @@ class UIManager {
     }
 
     updateTransparent() {
-        this.app.isTransparent = this.app.domElements.transparentCheckbox.checked;
-        this.app.storageManager.setItem('isTransparent', this.app.isTransparent);
+        this.app.isTransparent = SIC.domElements.transparentCheckbox.checked;
+        StorageManager.setItem('isTransparent', this.app.isTransparent);
         this.updateColorPickerState();
-        if (this.app.cropManager.isCropping) {
-            this.app.cropManager.drawCropInterface();
+        if (SIC.cropManager.isCropping) {
+            SIC.cropManager.drawCropInterface();
         } else {
             this.app.renderer.drawImages();
         }
     }
 
     updateColorPickerState() {
-        const colorPicker = this.app.domElements.colorPicker;
-        const canvas = this.app.domElements.canvas;
+        const colorPicker = SIC.domElements.colorPicker;
+        const canvas = SIC.domElements.canvas;
         
         colorPicker.disabled = this.app.isTransparent;
         if (this.app.isTransparent) {
@@ -358,11 +354,11 @@ class UIManager {
     }
 
     updateCornerRadius() {
-        this.app.cornerRadiusPercent = parseInt(this.app.domElements.cornerRadiusSlider.value);
-        this.app.storageManager.setItem('cornerRadiusPercent', this.app.cornerRadiusPercent);
-        this.app.domElements.cornerRadiusValue.textContent = `${this.app.cornerRadiusPercent}%`;
-        if (this.app.cropManager.isCropping) {
-            this.app.cropManager.drawCropInterface();
+        this.app.cornerRadiusPercent = parseInt(SIC.domElements.cornerRadiusSlider.value);
+        StorageManager.setItem('cornerRadiusPercent', this.app.cornerRadiusPercent);
+        SIC.domElements.cornerRadiusValue.textContent = `${this.app.cornerRadiusPercent}%`;
+        if (SIC.cropManager.isCropping) {
+            SIC.cropManager.drawCropInterface();
         } else {
             this.app.renderer.drawImages();
         }
@@ -372,13 +368,12 @@ class UIManager {
         [this.app.images[0], this.app.images[1]] = [this.app.images[1], this.app.images[0]];
         [this.app.imageNames[0], this.app.imageNames[1]] = [this.app.imageNames[1], this.app.imageNames[0]];
         this.updateImageNames();
-        this.app.cropManager.onSwap();
+        SIC.cropManager.onSwap();
     }
 
     updateImageNames() {
-        const elements = this.app.domElements;
-        elements.leftImageName.textContent = this.app.imageNames[0] || '';
-        elements.rightImageName.textContent = this.app.imageNames[1] || '';
+        SIC.domElements.leftImageName.textContent = this.app.imageNames[0] || '';
+        SIC.domElements.rightImageName.textContent = this.app.imageNames[1] || '';
     }
 }
 
@@ -414,13 +409,13 @@ class FileManager {
                     
                     if (newImages.length === 2) {
                         this.app.images = [];
-                        this.app.cropManager.resetCrop();
+                        SIC.cropManager.resetCrop();
                         this.app.images = newImages;
                         this.app.imageNames = newImageNames;
 
                         // Show canvas and hide dropzone
-                        this.app.domElements.canvasContainer.style.display = 'block';
-                        this.app.domElements.dropzone.style.display = 'none';
+                        SIC.domElements.canvasContainer.style.display = 'block';
+                        SIC.domElements.dropzone.style.display = 'none';
                         this.app.uiManager.updateImageNames();
 
                         // Calculate and set optimal scale
@@ -431,9 +426,9 @@ class FileManager {
                         this.app.renderer.drawImages();
 
                         // Enable buttons
-                        this.app.domElements.saveButton.disabled = false;
-                        this.app.domElements.swapButton.disabled = false;
-                        this.app.cropManager.cropButton.disabled = false;
+                        SIC.domElements.saveButton.disabled = false;
+                        SIC.domElements.swapButton.disabled = false;
+                        SIC.cropManager.cropButton.disabled = false;
                     }
                 };
                 img.src = event.target.result;
@@ -443,7 +438,7 @@ class FileManager {
     }
 
     saveImage() {
-        const format = this.app.domElements.formatSelect.value;
+        const format = SIC.domElements.formatSelect.value;
         
         // Check if trying to save as JPG with transparency
         if (this.app.isTransparent && format === 'image/jpeg') {
@@ -461,7 +456,7 @@ class FileManager {
         link.download = `${fileName}.${extension}`;
 
         if (format === 'image/jpeg') {
-            const quality = parseInt(this.app.domElements.qualitySlider.value) / 100;
+            const quality = parseInt(SIC.domElements.qualitySlider.value) / 100;
             link.href = saveCanvas.toDataURL(format, quality);
         } else {
             link.href = saveCanvas.toDataURL(format);
@@ -471,7 +466,7 @@ class FileManager {
     }
 
     createCombinedFilename() {
-        const prefix = this.app.domElements.filenamePrefixInput.value.trim();
+        const prefix = SIC.domElements.filenamePrefixInput.value.trim();
         const imageNames = this.app.imageNames;
         
         // Extract base names
@@ -551,7 +546,7 @@ class FileManager {
 // STORAGE MANAGER - Handles localStorage operations
 // ===================================
 class StorageManager {
-    getItem(item, defaultVal) {
+    static getItem(item, defaultVal) {
         try {
             let value = localStorage.getItem(item);
             if (value === null) {
@@ -569,7 +564,7 @@ class StorageManager {
         }
     }
 
-    setItem(item, value) {
+    static setItem(item, value) {
         try {
             localStorage.setItem(item, value);
             return true;
@@ -592,8 +587,8 @@ class ImageRenderer {
         let imageHeight = Math.max(img1.height, img2.height);
 
         if (!overlaid) {
-            const gapWidthAt100 = Math.round(this.pixelGap(img1, img2) / StereoImageCombiner.GAP_TO_BORDER_RATIO) * StereoImageCombiner.GAP_TO_BORDER_RATIO;
-            const borderSpace = this.app.hasBorders && borders ? gapWidthAt100 / StereoImageCombiner.GAP_TO_BORDER_RATIO : 0;
+            const gapWidthAt100 = Math.round(this.pixelGap(img1, img2) / SIC.GAP_TO_BORDER_RATIO) * SIC.GAP_TO_BORDER_RATIO;
+            const borderSpace = this.app.hasBorders && borders ? gapWidthAt100 / SIC.GAP_TO_BORDER_RATIO : 0;
             totalWidthAt100 = img1.width + img2.width + gapWidthAt100 + borderSpace * 2;
             imageHeight += borderSpace * 2;
         } else {
@@ -611,8 +606,8 @@ class ImageRenderer {
         this.app.scale = Math.min(scalePercent * newMaxScale, newMaxScale);
         this.app.maxScale = newMaxScale;
         const displayScale = Math.round(this.app.scale / this.app.maxScale * 100);
-        this.app.domElements.scaleSlider.value = displayScale;
-        this.app.domElements.scaleValue.textContent = `${displayScale}%`;
+        SIC.domElements.scaleSlider.value = displayScale;
+        SIC.domElements.scaleValue.textContent = `${displayScale}%`;
     }
 
     pixelGap(img1, img2) {
@@ -635,9 +630,9 @@ class ImageRenderer {
         // Calculate gap and border spacing
         let renderGap, borderSpace = 0;
         if (!cropping) {
-            renderGap = Math.round(this.pixelGap(this.app.images[0], this.app.images[1]) / StereoImageCombiner.GAP_TO_BORDER_RATIO) * StereoImageCombiner.GAP_TO_BORDER_RATIO * renderScale;
+            renderGap = Math.round(this.pixelGap(this.app.images[0], this.app.images[1]) / SIC.GAP_TO_BORDER_RATIO) * SIC.GAP_TO_BORDER_RATIO * renderScale;
             if (this.app.hasBorders) {
-                borderSpace = renderGap / StereoImageCombiner.GAP_TO_BORDER_RATIO;
+                borderSpace = renderGap / SIC.GAP_TO_BORDER_RATIO;
             }
         } else {
             renderGap = avgWidth * (this.app.gapPercent / 100);
@@ -687,7 +682,7 @@ class ImageRenderer {
             }
         } else {
             // Crop mode background
-            ctx.fillStyle = StereoImageCombiner.BODY_BG_COLOR;
+            ctx.fillStyle = SIC.BODY_BG_COLOR;
             ctx.fillRect(0, 0, totalWidth, maxHeight);
 
             // Fill gap area
@@ -768,7 +763,7 @@ class ImageRenderer {
     }
 
     drawImages(options = {}) {
-        return this.renderCombinedImage(this.app.domElements.canvas, this.app.scale, options);
+        return this.renderCombinedImage(SIC.domElements.canvas, this.app.scale, options);
     }
 }
 
@@ -784,7 +779,7 @@ class DisplayManager {
     }
 
     setupFullscreenButton() {
-        const canvasContainer = this.app.domElements.canvasContainer;
+        const canvasContainer = SIC.domElements.canvasContainer;
         const fullscreenButton = document.createElement('button');
         fullscreenButton.id = 'fullscreenToggle';
         fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
@@ -856,8 +851,8 @@ class DisplayManager {
 
     handleResize() {
         if (this.app.images.length === 2) {
-            if (this.app.cropManager.isCropping) {
-                this.app.cropManager.onScaleChange(0);
+            if (SIC.cropManager.isCropping) {
+                SIC.cropManager.onScaleChange(0);
             } else {
                 const optimalScale = this.app.renderer.calculateMaxScale(
                     this.app.images[0], 
@@ -891,7 +886,7 @@ class DisplayManager {
     }
 
     toggleFullscreen() {
-        const element = this.app.domElements.canvasContainer;
+        const element = SIC.domElements.canvasContainer;
         
         if (!this.isFullscreen()) {
             // Enter fullscreen
@@ -930,12 +925,7 @@ class DisplayManager {
 // HELP MANAGER - Handles help functionality
 // ===================================
 class HelpManager {
-    constructor(app) {
-        this.app = app;
-        this.setupHelpButton();
-    }
-
-    setupHelpButton() {
+    static initialize() {
         const headerContainer = document.querySelector('.header-container');
         const helpIconContainer = document.createElement('div');
         helpIconContainer.className = 'help-icon';
@@ -969,11 +959,11 @@ class HelpManager {
             helpIconContainer.style.backgroundColor = '#333333';
         });
 
-        helpIconContainer.addEventListener('click', () => this.openHelp());
+        helpIconContainer.addEventListener('click', HelpManager.openHelp);
         headerContainer.appendChild(helpIconContainer);
     }
 
-    openHelp() {
+    static openHelp() {
         window.open('help.html', '_blank');
     }
 }
@@ -983,7 +973,7 @@ class HelpManager {
 // ===================================
 document.addEventListener('DOMContentLoaded', () => {
     // Create global app instance
-    window.app = new StereoImageCombiner();
+    window.app = new SIC();
 });
 
 // ===================================

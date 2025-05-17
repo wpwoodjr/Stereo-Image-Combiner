@@ -104,8 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const app = window.app;
     const renderer = app.renderer;
-    const storageManager = app.storageManager;
-    const domElements = app.domElements;
 
     // =========================
     // Functions
@@ -309,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCropButton.style.display = 'block';
         cancelCropButton.style.display = 'block';
         cropOptionsControlGroup.style.display = 'block'; // Show crop options in left panel
-        domElements.saveButton.disabled = true;
+        SIC.domElements.saveButton.disabled = true;
 
         // If we have a previous crop state, restore those dimensions
         if (lastCropState) {
@@ -1657,7 +1655,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             newImg2.onload = function() {
                 app.images[1] = newImg2;
-                const scalePercent = storageManager.getItem('croppedScalePercent', preCropScalePercent);
+                const scalePercent = StorageManager.getItem('croppedScalePercent', preCropScalePercent);
                 updateScalePercent(scalePercent, false, true);
                 // Redraw with cropped images
                 renderer.drawImages();
@@ -1694,7 +1692,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cropOptionsControlGroup.style.display = 'none'; // Hide crop options in left panel
         cropButton.style.display = 'block';
         canvas.style.cursor = 'default';
-        domElements.saveButton.disabled = false;
+        SIC.domElements.saveButton.disabled = false;
     }
 
     // Calculate maximum scale for current images
@@ -1743,11 +1741,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // new scale percent
             if (alignMode) {
                 alignModeScalePercent = scalePercent;
-                storageManager.setItem('alignModeScalePercent', scalePercent);
+                StorageManager.setItem('alignModeScalePercent', scalePercent);
             } else {
                 // keeping resetScalePercent up to date in case local storage is not working
                 resetScalePercent = scalePercent;
-                storageManager.setItem('uncroppedScalePercent', scalePercent);
+                StorageManager.setItem('uncroppedScalePercent', scalePercent);
             }
             renderer.setScalePercent(scalePercent);
         } else {
@@ -2016,15 +2014,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
         // Add event listener for draw boxes checkbox change
         drawBoxesCheckbox.addEventListener('change', function() {
-            storageManager.setItem('drawCropBoxes', this.checked);
+            StorageManager.setItem('drawCropBoxes', this.checked);
             drawCropInterface();
         });
 
         // Initialize from local storage with default values
-        alignMode = alignCheckbox.checked = storageManager.getItem('alignCheckBox', true);
-        lockedCheckbox.checked = storageManager.getItem('lockedCheckBox', true);
-        clampCheckbox.checked = storageManager.getItem('clampCheckBox', false);
-        drawBoxesCheckbox.checked = storageManager.getItem('drawCropBoxes', true);
+        alignMode = alignCheckbox.checked = StorageManager.getItem('alignCheckBox', true);
+        lockedCheckbox.checked = StorageManager.getItem('lockedCheckBox', true);
+        clampCheckbox.checked = StorageManager.getItem('clampCheckBox', false);
+        drawBoxesCheckbox.checked = StorageManager.getItem('drawCropBoxes', true);
         
         // Make checkboxes available globally
         window.lockedCheckbox = lockedCheckbox;
@@ -2033,7 +2031,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }    
 
     function toggleLockedCheckbox() {
-        storageManager.setItem('lockedCheckBox', this.checked);
+        StorageManager.setItem('lockedCheckBox', this.checked);
 
         updateCursor(currentHandle);
         const wasMovable = movableBoxes;
@@ -2047,7 +2045,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clampCheckbox.checked = !clampCheckbox.checked;
         }
 
-        storageManager.setItem('clampCheckBox', clampCheckbox.checked);
+        StorageManager.setItem('clampCheckBox', clampCheckbox.checked);
         clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
         updateCursor(currentHandle);
@@ -2081,7 +2079,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function enterAlignMode() {
         alignMode = true;
-        storageManager.setItem('alignCheckBox', true);
+        StorageManager.setItem('alignCheckBox', true);
         alignCheckbox.checked = true;
         saveLockedCheckbox = lockedCheckbox.checked;
         lockedCheckbox.checked = false;
@@ -2093,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         alignModeSavePreviousScalePercent = currentScale / app.maxScale;
         if (alignModeScalePercent === 0) {
-            alignModeScalePercent = storageManager.getItem('alignModeScalePercent', alignModeSavePreviousScalePercent);
+            alignModeScalePercent = StorageManager.getItem('alignModeScalePercent', alignModeSavePreviousScalePercent);
         }
         // we are displaying overlaid images so get the new max scale
         updateScalePercent(alignModeScalePercent, true, false);
@@ -2121,7 +2119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function exitAlignMode() {
         alignModeRestorePreviousScalePercent();
         alignMode = false;
-        storageManager.setItem('alignCheckBox', false);
+        StorageManager.setItem('alignCheckBox', false);
         alignCheckbox.checked = false;
         lockedCheckbox.disabled = false;
         lockedCheckbox.checked = saveLockedCheckbox;
@@ -2295,5 +2293,5 @@ document.addEventListener('DOMContentLoaded', () => {
         isCropped: false,
         cropButton
     };
-    app.cropManager = cropManager;
+    SIC.cropManager = cropManager;
 });
