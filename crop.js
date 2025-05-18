@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCropButton.style.display = 'block';
         cancelCropButton.style.display = 'block';
         cropOptionsControlGroup.style.display = 'block'; // Show crop options in left panel
-        SIC.domElements.saveButton.disabled = true;
+        UIManager.domElements.saveButton.disabled = true;
 
         // If we have a previous crop state, restore those dimensions
         if (lastCropState) {
@@ -1642,7 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cropOptionsControlGroup.style.display = 'none'; // Hide crop options in left panel
         cropButton.style.display = 'block';
         canvas.style.cursor = 'default';
-        SIC.domElements.saveButton.disabled = false;
+        UIManager.domElements.saveButton.disabled = false;
     }
 
     // Calculate maximum scale for current images
@@ -2269,13 +2269,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const canvas = document.createElement('canvas');
         canvas.width = imgElement.naturalWidth || imgElement.width;
         canvas.height = imgElement.naturalHeight || imgElement.height;
-        
+
         const ctx = canvas.getContext('2d');
         ctx.drawImage(imgElement, 0, 0);
-        
+
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const transformedImageData = transformImagePixels(imageData, transformFunction);
-        
+
         ctx.putImageData(transformedImageData, 0, 0);
         return canvas;
     }
