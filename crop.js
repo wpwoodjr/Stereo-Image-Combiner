@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     controlGroup.appendChild(resetCropButton);
     
     // Crop state
-    let isCropping = false;
     let originalImages = null;
     let tempCroppedImages = null; // Store temporarily during crop operations
     let lastCropState = null;
@@ -102,49 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================
     // Functions
     // =========================
-
-    // Touch handlers
-
-    /**
-     * Detects if the current device supports touch input
-     * Uses multiple detection methods for reliability across browsers
-     * @returns {boolean} True if the device supports touch, false otherwise
-     */
-    function isTouch() {
-        // Primary checks for touch support
-        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-            return true;
-        }
-        
-        // Secondary check for Windows Touch devices or special browsers
-        if (navigator.msMaxTouchPoints > 0) {
-            return true;
-        }
-        
-        // Check for touch via media query (most reliable for modern browsers)
-        if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
-            return true;
-        }
-        
-        // Check for touch via pointer media query (Windows-friendly alternative)
-        if (window.matchMedia && window.matchMedia('(any-pointer: coarse)').matches) {
-            return true;
-        }
-        
-        // Fall back to user agent sniffing as a last resort
-        // Less reliable but catches some edge cases
-        const userAgent = navigator.userAgent.toLowerCase();
-        if (userAgent.includes('android') || 
-            userAgent.includes('iphone') || 
-            userAgent.includes('ipad') || 
-            userAgent.includes('ipod') || 
-            userAgent.includes('windows phone')) {
-            return true;
-        }
-        
-        // Not a touch device
-        return false;
-    }
 
     // Get the x, y position relative to canvas
     function getXY(e) {
@@ -217,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onTouchStart(e) {
-        if (!isCropping) return;
+        if (!CropManager.isCropping) return;
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
         if (isArrowing) return;
@@ -225,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onTouchMove(e) {
-        if (!isCropping) return;
+        if (!CropManager.isCropping) return;
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
         if (!isDragging) return;
@@ -242,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onTouchEnd(e) {
-        if (!isCropping) return;
+        if (!CropManager.isCropping) return;
         // Prevent default to avoid scrolling/zooming while cropping
         e.preventDefault();
         if (!isDragging) return;
@@ -269,30 +225,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function startCrop() {
         // Store current scale before changing it
-        preCropScalePercent = window.scale / window.maxScale;
+        preCropScalePercent = ImageRenderer.currentScalePercent();
 
         // Store original images if not already stored
         if (!originalImages) {
             // Save original scale in case we reset the crop while not in crop mode
             resetScalePercent = preCropScalePercent;
             originalImages = [
-                window.images[0],
-                window.images[1]
+                SIC.images[0],
+                SIC.images[1]
             ];
         } else {
             // For subsequent crops, temporarily restore original images for display
             // but keep the currently cropped images for later restoration in case of a cancel
             tempCroppedImages = [
-                window.images[0],
-                window.images[1]
+                SIC.images[0],
+                SIC.images[1]
             ];
             
             // Restore original images for display during cropping
-            window.images[0] = originalImages[0];
-            window.images[1] = originalImages[1];
+            SIC.images[0] = originalImages[0];
+            SIC.images[1] = originalImages[1];
         }
         
-        isCropping = true;
+        CropManager.isCropping = true;
         isDragging = false;
         isArrowing = false;
 
@@ -301,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCropButton.style.display = 'block';
         cancelCropButton.style.display = 'block';
         cropOptionsControlGroup.style.display = 'block'; // Show crop options in left panel
-        window.saveButton.disabled = true;
+        UIManager.domElements.saveButton.disabled = true;
 
         // If we have a previous crop state, restore those dimensions
         if (lastCropState) {
@@ -319,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // restore scale
             updateScalePercent(lastCropState.scalePercent, false, false);
             // now we've got the scale
-            currentScale = window.scale;
+            currentScale = ImageRenderer.scale;
 
             // see if cropBox scale needs to be updated
             if (lastCropState.scale !== currentScale) {
@@ -331,8 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 validateCropBoxes("startCrop");
             }
         } else {
-            updateScalePercent(window.scale / window.maxScale, false, false);
-            currentScale = window.scale;
+            updateScalePercent(ImageRenderer.currentScalePercent(), false, false);
+            currentScale = ImageRenderer.scale;
             initCropBoxes();
         }
 
@@ -355,10 +311,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const minCropSizeCanvas = MIN_CROP_SIZE_PIXELS * currentScale;
             // Get current image dimensions
             const oldCropBoxes = [ { ...cropBoxes[LEFT] },  { ...cropBoxes[RIGHT] } ];
-            const img1Width = window.images[0].width * currentScale;
-            const img1Height = window.images[0].height * currentScale;
-            const img2Width = window.images[1].width * currentScale;
-            const img2Height = window.images[1].height * currentScale;
+            const img1Width = SIC.images[0].width * currentScale;
+            const img1Height = SIC.images[0].height * currentScale;
+            const img2Width = SIC.images[1].width * currentScale;
+            const img2Height = SIC.images[1].height * currentScale;
             
             // Ensure left box stays within left image bounds
             cropBoxes[LEFT].x = Math.max(0, Math.min(cropBoxes[LEFT].x, img1Width - minCropSizeCanvas));
@@ -419,10 +375,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initCropBoxes() {
         // Get scaled dimensions of images
-        const img1Width = window.images[0].width * currentScale;
-        const img1Height = window.images[0].height * currentScale;
-        const img2Width = window.images[1].width * currentScale;
-        const img2Height = window.images[1].height * currentScale;
+        const img1Width = SIC.images[0].width * currentScale;
+        const img1Height = SIC.images[0].height * currentScale;
+        const img2Width = SIC.images[1].width * currentScale;
+        const img2Height = SIC.images[1].height * currentScale;
         
         // Calculate max possible crop size based on smallest image dimensions
         const maxWidth = Math.min(img1Width, img2Width);
@@ -481,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Calculate image offsets
         const xOffsets = {
-            left: -(cropBoxes[LEFT].x + cropBoxes[LEFT].width - window.images[0].width * currentScale),
+            left: -(cropBoxes[LEFT].x + cropBoxes[LEFT].width - SIC.images[0].width * currentScale),
             right: -cropBoxes[RIGHT].x
         };
 
@@ -507,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const avgWidth = cropBoxes[LEFT].width;
         
         // Draw images with both x and y offsets
-        currentParams = window.drawImages({
+        currentParams = ImageRenderer.drawImages({
             xOffsets,
             yOffsets,
             avgWidth: avgWidth
@@ -544,7 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // redraw the cropped part of the left image
         ctx.drawImage(
-            window.images[0],
+            SIC.images[0],
             cropBoxes[LEFT].x / currentScale, cropBoxes[LEFT].y / currentScale,     // Source position
             leftBox.width / currentScale, leftBox.height / currentScale,            // Source dimensions
             leftBox.x, leftBox.y,                                                   // Destination position with offsets
@@ -553,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // redraw the cropped part of the right image
         ctx.drawImage(
-            window.images[1],
+            SIC.images[1],
             cropBoxes[RIGHT].x / currentScale, cropBoxes[RIGHT].y / currentScale,     // Source position using relative coordinates
             rightBox.width / currentScale, rightBox.height / currentScale,            // Source dimensions
             rightBox.x, rightBox.y,                                                   // Destination position with offsets
@@ -680,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function animateGlow() {
         const elapsed = performance.now() - glowStartTime;
 
-        if (!isCropping) {
+        if (!CropManager.isCropping) {
             // Stop the animation
             stopGlowAnimation();
         }
@@ -939,12 +895,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onMouseDown(e) {
-        if (!isCropping || isArrowing) return;
+        if (!CropManager.isCropping || isArrowing) return;
         startDrag(e);
     }
 
     function onMouseMove(e) {
-        if (!isCropping || isArrowing) return;
+        if (!CropManager.isCropping || isArrowing) return;
 
         const [x, y] = getXY(e);
 
@@ -1071,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onMouseUp(e) {
-        if (isCropping && isDragging) {
+        if (CropManager.isCropping && isDragging) {
             isDragging = false;
             clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
@@ -1194,10 +1150,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateCropBoxes(handle, activeBox, deltaX, deltaY) {
-        const img1Width = window.images[0].width * currentScale;
-        const img1Height = window.images[0].height * currentScale;
-        const img2Width = window.images[1].width * currentScale;
-        const img2Height = window.images[1].height * currentScale;
+        const img1Width = SIC.images[0].width * currentScale;
+        const img1Height = SIC.images[0].height * currentScale;
+        const img2Width = SIC.images[1].width * currentScale;
+        const img2Height = SIC.images[1].height * currentScale;
         
         // The other box
         const otherBox = 1 - activeBox;
@@ -1347,10 +1303,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Enlarge the boxes as much as possible while maintaining the aspect ratio
     function growBoxes(leftBox, rightBox) {
-        const img1Width = window.images[0].width * currentScale;
-        const img1Height = window.images[0].height * currentScale;
-        const img2Width = window.images[1].width * currentScale;
-        const img2Height = window.images[1].height * currentScale;
+        const img1Width = SIC.images[0].width * currentScale;
+        const img1Height = SIC.images[0].height * currentScale;
+        const img2Width = SIC.images[1].width * currentScale;
+        const img2Height = SIC.images[1].height * currentScale;
         const maxWidth = saveCropBoxDimensions.width;
         const maxHeight = saveCropBoxDimensions.height;
         const ratio = maxWidth / maxHeight;
@@ -1463,8 +1419,8 @@ document.addEventListener('DOMContentLoaded', () => {
             y += height - box.height;
         }
 
-        const maxWidth = window.images[boxPos].width * currentScale;
-        const maxHeight = window.images[boxPos].height * currentScale;
+        const maxWidth = SIC.images[boxPos].width * currentScale;
+        const maxHeight = SIC.images[boxPos].height * currentScale;
 
         // Check if there's room to move in any direction
         const canMoveLeft = x > epsilon;
@@ -1592,7 +1548,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alignModeRestorePreviousScalePercent();
         // Exit crop mode
         exitCrop();
-        window.isCropped = true;
+        CropManager.isCropped = true;
         resetCropButton.style.display = 'block';
 
         // Save the current crop state before applying
@@ -1600,7 +1556,7 @@ document.addEventListener('DOMContentLoaded', () => {
             boxes: [ { ...cropBoxes[LEFT] }, { ...cropBoxes[RIGHT] } ],
             saveCropBoxDimensions: { ...saveCropBoxDimensions },
             scale: currentScale,
-            scalePercent: currentScale / window.maxScale,
+            scalePercent: currentScale / ImageRenderer.maxScale,
             swapped: false
         };
 
@@ -1632,11 +1588,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const tempCtx2 = tempCanvas2.getContext('2d');
         
         // Draw cropped portions to temp canvases
-        tempCtx1.drawImage(window.images[0], 
+        tempCtx1.drawImage(SIC.images[0], 
             cropLeft.x, cropLeft.y, cropLeft.width, cropLeft.height,
             0, 0, cropLeft.width, cropLeft.height);
             
-        tempCtx2.drawImage(window.images[1], 
+        tempCtx2.drawImage(SIC.images[1], 
             cropRight.x, cropRight.y, cropRight.width, cropRight.height,
             0, 0, cropRight.width, cropRight.height);
         
@@ -1645,14 +1601,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const newImg2 = new Image();
         
         newImg1.onload = function() {
-            window.images[0] = newImg1;
+            SIC.images[0] = newImg1;
             
             newImg2.onload = function() {
-                window.images[1] = newImg2;
-                const scalePercent = getLocalStorageItem('croppedScalePercent', preCropScalePercent);
+                SIC.images[1] = newImg2;
+                const scalePercent = StorageManager.getItem('croppedScalePercent', preCropScalePercent);
                 updateScalePercent(scalePercent, false, true);
                 // Redraw with cropped images
-                window.drawImages();
+                ImageRenderer.drawImages();
             };
             newImg2.src = tempCanvas2.toDataURL();
         };
@@ -1662,23 +1618,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function cancelCrop() {
         // Restore previously cropped images if this was a subsequent crop operation
         if (tempCroppedImages) {
-            window.images[0] = tempCroppedImages[0];
-            window.images[1] = tempCroppedImages[1];
+            SIC.images[0] = tempCroppedImages[0];
+            SIC.images[1] = tempCroppedImages[1];
             tempCroppedImages = null;
         }
 
         exitCrop();
         // resetScalePercent is kept up to date with latest uncroppedScalePercent
-        const scalePercent = window.isCropped ? preCropScalePercent : resetScalePercent;
+        const scalePercent = CropManager.isCropped ? preCropScalePercent : resetScalePercent;
         updateScalePercent(scalePercent, false, true);
 
         // Redraw the images without crop overlay
-        window.drawImages();
+        ImageRenderer.drawImages();
     }
 
     // reset buttons etc to non-cropping state
     function exitCrop() {
-        isCropping = false;
+        CropManager.isCropping = false;
         isDragging = false;
         isArrowing = false;
         applyCropButton.style.display = 'none';
@@ -1686,13 +1642,13 @@ document.addEventListener('DOMContentLoaded', () => {
         cropOptionsControlGroup.style.display = 'none'; // Hide crop options in left panel
         cropButton.style.display = 'block';
         canvas.style.cursor = 'default';
-        window.saveButton.disabled = false;
+        UIManager.domElements.saveButton.disabled = false;
     }
 
     // Calculate maximum scale for current images
     function updateScalePercent(scalePercent, overlaid, borders) {
-        const optimalScale = window.calculateMaxScale(window.images[0], window.images[1], overlaid, borders);
-        window.setScalePercent(scalePercent, optimalScale);
+        const optimalScale = ImageRenderer.calculateMaxScale(SIC.images[0], SIC.images[1], overlaid, borders);
+        ImageRenderer.setScalePercent(scalePercent, optimalScale);
     }
 
     function onSwap() {
@@ -1708,7 +1664,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lastCropState.swapped = !lastCropState.swapped;
         }
 
-        if (isCropping) {
+        if (CropManager.isCropping) {
             if (alignMode) {
                 [ alignImage0, alignImage1 ] = [ alignImage1, alignImage0 ];
             }
@@ -1719,7 +1675,7 @@ document.addEventListener('DOMContentLoaded', () => {
             movableBoxes = getMovableBoxes(currentHandle);
             drawCropInterface(movableBoxes);
         } else {
-            window.drawImages();
+            ImageRenderer.drawImages();
         }
     }
 
@@ -1729,22 +1685,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onScaleChange(scalePercent) {
-        // only gets called when isCropping
+        // only gets called when CropManager.isCropping
         // set current scale
         if (scalePercent !== 0) {
             // new scale percent
             if (alignMode) {
                 alignModeScalePercent = scalePercent;
-                window.setLocalStorageItem('alignModeScalePercent', scalePercent);
+                StorageManager.setItem('alignModeScalePercent', scalePercent);
             } else {
                 // keeping resetScalePercent up to date in case local storage is not working
                 resetScalePercent = scalePercent;
-                window.setLocalStorageItem('uncroppedScalePercent', scalePercent);
+                StorageManager.setItem('uncroppedScalePercent', scalePercent);
             }
-            window.setScalePercent(scalePercent);
+            ImageRenderer.setScalePercent(scalePercent);
         } else {
             // just adjust to new max scale
-            updateScalePercent(currentScale / window.maxScale, alignMode, false);
+            updateScalePercent(currentScale / ImageRenderer.maxScale, alignMode, false);
         }
 
         // adjust crop boxes to new scale
@@ -1758,12 +1714,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // adjust crop boxes to new scale
-    function adjustToNewScale(scaleRatio = window.scale / currentScale) {
+    function adjustToNewScale(scaleRatio = ImageRenderer.scale / currentScale) {
         adjustScale(cropBoxes[LEFT], scaleRatio);
         adjustScale(cropBoxes[RIGHT], scaleRatio);
         saveCropBoxDimensions.width *= scaleRatio;
         saveCropBoxDimensions.height *= scaleRatio;
-        currentScale = window.scale;
+        currentScale = ImageRenderer.scale;
     }
 
     function adjustScale(box, scaleRatio) {
@@ -1778,19 +1734,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (originalImages) {
             exitCrop();
             resetCropButton.style.display = 'none';
-            window.isCropped = false;
+            CropManager.isCropped = false;
 
             // Restore original images if images are currently being displayed
-            if (window.images.length === 2) {
-                window.images[0] = originalImages[0];
-                window.images[1] = originalImages[1];
+            if (SIC.images.length === 2) {
+                SIC.images[0] = originalImages[0];
+                SIC.images[1] = originalImages[1];
                 // reset scale to uncropped
                 updateScalePercent(resetScalePercent, false, true);
                 // Redraw with original images
-                window.drawImages();
+                ImageRenderer.drawImages();
             } else {
                 // reset scale to uncropped
-                window.setScalePercent(resetScalePercent);
+                ImageRenderer.setScalePercent(resetScalePercent);
             }
 
             // Reset original images array and last crop state
@@ -1801,152 +1757,6 @@ document.addEventListener('DOMContentLoaded', () => {
             movableBoxes = [ false, false ];
         }
     }
-
-    const canvasContainer = document.getElementById('canvasContainer');
-
-    // Add a fullscreen toggle
-    function addFullscreenOption() {
-        // Create fullscreen button
-        const fullscreenButton = document.createElement('button');
-        fullscreenButton.id = 'fullscreenToggle';
-        fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
-        fullscreenButton.title = 'Toggle fullscreen';
-        fullscreenButton.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background-color: rgba(0, 0, 0, 0.5);
-            border-radius: 50%;
-            padding: 8px;
-            display: none;
-            width: 36px;
-            height: 36px;
-            align-items: center;
-            justify-content: center;
-        `;
-        
-        // Find the appropriate container to append the button
-        canvasContainer.style.position = 'relative';
-        canvasContainer.appendChild(fullscreenButton);
-        
-        // Show button when canvas is displayed
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.attributeName === 'style' && 
-                    canvasContainer.style.display !== 'none') {
-                    fullscreenButton.style.display = 'flex';
-                }
-            });
-        });
-        
-        observer.observe(canvasContainer, { attributes: true });
-        
-        // Toggle fullscreen mode
-        fullscreenButton.addEventListener('click', function() {
-            toggleFullscreen(canvasContainer);
-        });
-
-        // Listen for fullscreen change events to update button
-        document.addEventListener('fullscreenchange', fullScreenChange);
-        document.addEventListener('webkitfullscreenchange', fullScreenChange);
-        document.addEventListener('mozfullscreenchange', fullScreenChange);
-        document.addEventListener('MSFullscreenChange', fullScreenChange);
-
-        function fullScreenChange() {
-            // console.log("uFSB:", document.fullscreenElement === null ? "ffs" : "tfs");
-            if (document.fullscreenElement || 
-                document.webkitFullscreenElement || 
-                document.mozFullScreenElement || 
-                document.msFullscreenElement) {
-                // To fullscreen mode
-                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"></path></svg>';
-            } else {
-                // Not in fullscreen mode
-                fullscreenButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
-            }
-            setTimeout(() => {
-                window.onResize(null, "uFSB");
-            }, 250);
-        }
-        
-        // Add fullscreen styles
-        const style = document.createElement('style');
-        style.textContent = `
-            #canvasContainer:fullscreen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-                overflow: auto;
-            }
-            #canvasContainer:fullscreen #canvas {
-                // max-height: 95vh !important;
-                object-fit: contain;
-            }
-            
-            /* Vendor prefixed versions */
-            #canvasContainer:-webkit-full-screen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-            }
-            #canvasContainer:-moz-full-screen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-            }
-            #canvasContainer:-ms-fullscreen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    // Fullscreen toggle function
-    function toggleFullscreen(element) {
-        if (!document.fullscreenElement && 
-            !document.mozFullScreenElement && 
-            !document.webkitFullscreenElement && 
-            !document.msFullscreenElement) {
-            // Enter fullscreen
-            // console.log("tfs");
-            if (element.requestFullscreen) {
-                element.requestFullscreen();
-            } else if (element.msRequestFullscreen) {
-                element.msRequestFullscreen();
-            } else if (element.mozRequestFullScreen) {
-                element.mozRequestFullScreen();
-            } else if (element.webkitRequestFullscreen) {
-                element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-            }
-        } else {
-            // Exit fullscreen
-            // console.log("ffs");
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            }
-        }
-    }
-
-    // Initialize fullscreen option
-    addFullscreenOption();
-
 
     // Arrow key navigation state
     let arrowKeyMultiplier = 1;     // Default step size multiplier
@@ -1976,17 +1786,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (e.key === 'x') {
-            window.updateSwap();
-            e.preventDefault();
-            return;
-        } else if (e.key === 'f') {
-            toggleFullscreen(canvasContainer);
-            e.preventDefault();
-            return;
-        }
-
-        if (!isCropping) return;
+        if (!CropManager.isCropping) return;
 
         if (activeCropBox === null) {
             activeCropBox = LEFT;
@@ -2064,7 +1864,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onArrowEnd() {
-        if (isCropping && isArrowing) {
+        if (CropManager.isCropping && isArrowing) {
             isArrowing = false;
 
             // ensure that both images are not above or below the top of the canvas
@@ -2164,15 +1964,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
         // Add event listener for draw boxes checkbox change
         drawBoxesCheckbox.addEventListener('change', function() {
-            window.setLocalStorageItem('drawCropBoxes', this.checked);
+            StorageManager.setItem('drawCropBoxes', this.checked);
             drawCropInterface();
         });
 
         // Initialize from local storage with default values
-        alignMode = alignCheckbox.checked = window.getLocalStorageItem('alignCheckBox', true);
-        lockedCheckbox.checked = window.getLocalStorageItem('lockedCheckBox', true);
-        clampCheckbox.checked = window.getLocalStorageItem('clampCheckBox', false);
-        drawBoxesCheckbox.checked = window.getLocalStorageItem('drawCropBoxes', true);
+        alignMode = alignCheckbox.checked = StorageManager.getItem('alignCheckBox', true);
+        lockedCheckbox.checked = StorageManager.getItem('lockedCheckBox', true);
+        clampCheckbox.checked = StorageManager.getItem('clampCheckBox', false);
+        drawBoxesCheckbox.checked = StorageManager.getItem('drawCropBoxes', true);
         
         // Make checkboxes available globally
         window.lockedCheckbox = lockedCheckbox;
@@ -2181,7 +1981,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }    
 
     function toggleLockedCheckbox() {
-        window.setLocalStorageItem('lockedCheckBox', this.checked);
+        StorageManager.setItem('lockedCheckBox', this.checked);
 
         updateCursor(currentHandle);
         const wasMovable = movableBoxes;
@@ -2195,7 +1995,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clampCheckbox.checked = !clampCheckbox.checked;
         }
 
-        window.setLocalStorageItem('clampCheckBox', clampCheckbox.checked);
+        StorageManager.setItem('clampCheckBox', clampCheckbox.checked);
         clampMode = clampCheckbox.checked ? HORIZONTAL_CLAMP : NO_CLAMP;
 
         updateCursor(currentHandle);
@@ -2229,7 +2029,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function enterAlignMode() {
         alignMode = true;
-        window.setLocalStorageItem('alignCheckBox', true);
+        StorageManager.setItem('alignCheckBox', true);
         alignCheckbox.checked = true;
         saveLockedCheckbox = lockedCheckbox.checked;
         lockedCheckbox.checked = false;
@@ -2239,9 +2039,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // disable transparent background image
         canvas.classList.remove('transparent-bg');
 
-        alignModeSavePreviousScalePercent = currentScale / window.maxScale;
+        alignModeSavePreviousScalePercent = currentScale / ImageRenderer.maxScale;
         if (alignModeScalePercent === 0) {
-            alignModeScalePercent = window.getLocalStorageItem('alignModeScalePercent', alignModeSavePreviousScalePercent);
+            alignModeScalePercent = StorageManager.getItem('alignModeScalePercent', alignModeSavePreviousScalePercent);
         }
         // we are displaying overlaid images so get the new max scale
         updateScalePercent(alignModeScalePercent, true, false);
@@ -2255,12 +2055,12 @@ document.addEventListener('DOMContentLoaded', () => {
         drawCropInterface(movableBoxes);
 
         // transform images for easier aligning
-        alignImage0 = transformImage(images[0], (r, g, b, a, x, y) => {
+        alignImage0 = transformImage(SIC.images[0], (r, g, b, a, x, y) => {
             const gray = 0.299 * r + 0.587 * g + 0.114 * b;
             const inverse = 255 - gray;
             return [ inverse, inverse, inverse, a ];
         });
-        alignImage1 = transformImage(images[1], (r, g, b, a, x, y) => {
+        alignImage1 = transformImage(SIC.images[1], (r, g, b, a, x, y) => {
             const gray = 0.299 * r + 0.587 * g + 0.114 * b;
             return [ gray, gray, gray, a ];
         });
@@ -2269,13 +2069,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function exitAlignMode() {
         alignModeRestorePreviousScalePercent();
         alignMode = false;
-        window.setLocalStorageItem('alignCheckBox', false);
+        StorageManager.setItem('alignCheckBox', false);
         alignCheckbox.checked = false;
         lockedCheckbox.disabled = false;
         lockedCheckbox.checked = saveLockedCheckbox;
 
         // restore transparent background image if in tranparent mode
-        if (window.isTransparent) {
+        if (UIManager.isTransparent) {
             canvas.classList.add('transparent-bg');
         }
 
@@ -2382,18 +2182,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawImagesAlignMode(aligning) {
-        if (images.length !== 2) return null;
+        if (SIC.images.length !== 2) return null;
 
         // Get the main canvas context
         const ctx = canvas.getContext('2d');
 
         // Calculate dimensions
-        const img1Width = images[0].width * currentScale;
-        const img2Width = images[1].width * currentScale;
+        const img1Width = SIC.images[0].width * currentScale;
+        const img2Width = SIC.images[1].width * currentScale;
         const totalWidth = Math.max(img1Width, img2Width);
-        
-        const img1Height = images[0].height * currentScale;
-        const img2Height = images[1].height * currentScale;
+
+        const img1Height = SIC.images[0].height * currentScale;
+        const img2Height = SIC.images[1].height * currentScale;
         const maxHeight = Math.max(img1Height, img2Height);
 
         // // Save image dimensions and positions
@@ -2408,11 +2208,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Draw the right image
         ctx.drawImage(
-            aligning ? alignImage1 : images[1],
-            0, 0,                                   // Source position
-            images[1].width, images[1].height,      // Source dimensions
-            0, 0,                                   // Destination position
-            img2Width, img2Height                   // Destination dimensions
+            aligning ? alignImage1 : SIC.images[1],
+            0, 0,                                       // Source position
+            SIC.images[1].width, SIC.images[1].height,  // Source dimensions
+            0, 0,                                       // Destination position
+            img2Width, img2Height                       // Destination dimensions
         );
 
         const xOffset = (cropBoxes[RIGHT].x - cropBoxes[LEFT].x);
@@ -2421,22 +2221,76 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.globalAlpha = 0.50;
         // Draw the left image
         ctx.drawImage(
-            aligning ? alignImage0 : images[0],
-            0, 0,                                   // Source position
-            images[0].width, images[0].height,      // Source dimensions
-            xOffset, yOffset,                       // Destination position with offsets
-            img1Width, img1Height                   // Destination dimensions
+            aligning ? alignImage0 : SIC.images[0],
+            0, 0,                                       // Source position
+            SIC.images[0].width, SIC.images[0].height,  // Source dimensions
+            xOffset, yOffset,                           // Destination position with offsets
+            img1Width, img1Height                       // Destination dimensions
         );
         ctx.globalAlpha = 1;
     }
 
-// Expose functions to global scope and the isCropping flag
-    window.cropModule = {
+    // ===================================
+    // IMAGE TRANSFORMATION UTILITIES
+    // ===================================
+    function transformImagePixels(imageData, transformFunction) {
+        const newImageData = new ImageData(
+            new Uint8ClampedArray(imageData.data),
+            imageData.width,
+            imageData.height
+        );
+        
+        const data = newImageData.data;
+        const width = newImageData.width;
+        const height = newImageData.height;
+        
+        for (let y = 0; y < height; y++) {
+            const rowIndex = y * width;
+            for (let x = 0; x < width; x++) {
+                const i = (rowIndex + x) * 4;
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3];
+                
+                const [newR, newG, newB, newA] = transformFunction(r, g, b, a, x, y);
+                
+                data[i] = newR;
+                data[i + 1] = newG;
+                data[i + 2] = newB;
+                data[i + 3] = newA;
+            }
+        }
+        
+        return newImageData;
+    }
+
+    function transformImage(imgElement, transformFunction) {
+        const canvas = document.createElement('canvas');
+        canvas.width = imgElement.naturalWidth || imgElement.width;
+        canvas.height = imgElement.naturalHeight || imgElement.height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const transformedImageData = transformImagePixels(imageData, transformFunction);
+
+        ctx.putImageData(transformedImageData, 0, 0);
+        return canvas;
+    }
+
+    // ===================================
+    // CROP MANAGER - Handles cropping functionality
+    // ===================================
+    // Expose functions to global scope and the isCropping & isCropped flags
+    window.CropManager = {
         resetCrop,
         onScaleChange,
         onSwap,
         drawCropInterface,
-        isCropping: function() { return isCropping; },
+        isCropping: false,
+        isCropped: false,
         cropButton
-    }
+    };
 });

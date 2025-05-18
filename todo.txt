@@ -1,3 +1,7 @@
+==========  new code ===========
+
+======== old code ===========
+
 Mac cropbox drawing all screwed up
 
 Check drawImage in alignMode works with Safari
