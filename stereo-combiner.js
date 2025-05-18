@@ -2,27 +2,9 @@
 // CORE StereoImageCombiner MODULE - Main application state and initialization
 // ===================================
 class SIC {
-    // constants
-    static BODY_BG_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--body-bg-color').trim();
-    static GAP_TO_BORDER_RATIO = 1;
-    static DEFAULT_SCALE = 100;
-    static DEFAULT_GAP_PERCENT = 3.0;
-    static DEFAULT_COLOR = '#000000';
-    static DEFAULT_BORDERS = true;
-    static DEFAULT_TRANSPARENT = false;
-    static DEFAULT_CORNER_RADIUS = 0;
-    static DEFAULT_FORMAT = 'image/jpeg';
-    static DEFAULT_JPG_QUALITY = 90;
-
     // state variables
     static images = [];
     static imageNames = [];
-
-    static gapPercent = SIC.DEFAULT_GAP_PERCENT;
-    static hasBorders = SIC.DEFAULT_BORDERS;
-    static gapColor = SIC.DEFAULT_COLOR;
-    static isTransparent = SIC.DEFAULT_TRANSPARENT;
-    static cornerRadiusPercent = SIC.DEFAULT_CORNER_RADIUS;
 
     static initialize() {
         HelpManager.initialize();
@@ -35,7 +17,19 @@ class SIC {
 // UI MANAGER - Handles UI and event listeners
 // ===================================
 class UIManager {
+    static DEFAULT_COLOR = '#000000';
+    static GAP_TO_BORDER_RATIO = 1;
+    static DEFAULT_GAP_PERCENT = 3.0;
+    static DEFAULT_BORDERS = true;
+    static DEFAULT_TRANSPARENT = false;
+    static DEFAULT_CORNER_RADIUS = 0;
+
     static domElements = null;
+    static gapColor = this.DEFAULT_COLOR;
+    static gapPercent = this.DEFAULT_GAP_PERCENT;
+    static hasBorders = this.DEFAULT_BORDERS;
+    static isTransparent = this.DEFAULT_TRANSPARENT;
+    static cornerRadiusPercent = this.DEFAULT_CORNER_RADIUS;
 
     static initialize() {
         this.domElements = this.initDOMElements();
@@ -213,33 +207,33 @@ class UIManager {
         const elements = this.domElements;
 
         // Reset scale
-        const uncroppedScalePercent = StorageManager.getItem('uncroppedScalePercent', SIC.DEFAULT_SCALE);
+        const uncroppedScalePercent = StorageManager.getItem('uncroppedScalePercent', ImageRenderer.DEFAULT_SCALE_PERCENT);
         ImageRenderer.setScalePercent(uncroppedScalePercent, 1);
 
         // Reset gap and borders
-        SIC.gapPercent = StorageManager.getItem('gapPercent', SIC.DEFAULT_GAP_PERCENT);
-        elements.gapSlider.value = SIC.gapPercent * 10;
-        elements.gapValue.textContent = `${SIC.gapPercent.toFixed(1)}%`;
-        SIC.hasBorders = StorageManager.getItem('hasBorders', SIC.DEFAULT_BORDERS);
-        elements.bordersCheckbox.checked = SIC.hasBorders;
+        this.gapPercent = StorageManager.getItem('gapPercent', this.DEFAULT_GAP_PERCENT);
+        elements.gapSlider.value = this.gapPercent * 10;
+        elements.gapValue.textContent = `${this.gapPercent.toFixed(1)}%`;
+        this.hasBorders = StorageManager.getItem('hasBorders', this.DEFAULT_BORDERS);
+        elements.bordersCheckbox.checked = this.hasBorders;
 
         // Reset color and transparency
-        SIC.gapColor = StorageManager.getItem('gapColor', SIC.DEFAULT_COLOR);
-        elements.colorPicker.value = SIC.gapColor;
-        SIC.isTransparent = StorageManager.getItem('isTransparent', SIC.DEFAULT_TRANSPARENT);
-        elements.transparentCheckbox.checked = SIC.isTransparent;
+        this.gapColor = StorageManager.getItem('gapColor', UIManager.DEFAULT_COLOR);
+        elements.colorPicker.value = this.gapColor;
+        this.isTransparent = StorageManager.getItem('isTransparent', this.DEFAULT_TRANSPARENT);
+        elements.transparentCheckbox.checked = this.isTransparent;
         this.updateColorPickerState();
 
         // Reset corner radius
-        SIC.cornerRadiusPercent = StorageManager.getItem('cornerRadiusPercent', SIC.DEFAULT_CORNER_RADIUS);
-        elements.cornerRadiusSlider.value = SIC.cornerRadiusPercent;
-        elements.cornerRadiusValue.textContent = `${SIC.cornerRadiusPercent}%`;
+        this.cornerRadiusPercent = StorageManager.getItem('cornerRadiusPercent', this.DEFAULT_CORNER_RADIUS);
+        elements.cornerRadiusSlider.value = this.cornerRadiusPercent;
+        elements.cornerRadiusValue.textContent = `${this.cornerRadiusPercent}%`;
 
         // Reset format and quality
         elements.filenamePrefixInput.value = StorageManager.getItem('filenamePrefix', '');
-        elements.qualitySlider.value = StorageManager.getItem('jpgQuality', SIC.DEFAULT_JPG_QUALITY);
+        elements.qualitySlider.value = StorageManager.getItem('jpgQuality', FileManager.DEFAULT_JPG_QUALITY);
         elements.qualityValue.textContent = `${elements.qualitySlider.value}%`;
-        elements.formatSelect.value = StorageManager.getItem('fileFormat', SIC.DEFAULT_FORMAT);
+        elements.formatSelect.value = StorageManager.getItem('fileFormat', FileManager.DEFAULT_FORMAT);
         elements.qualityContainer.style.display = elements.formatSelect.value === 'image/jpeg' ? 'block' : 'none';
     }
 
@@ -261,9 +255,9 @@ class UIManager {
 
     static updateGap() {
         const sliderValue = parseInt(this.domElements.gapSlider.value);
-        SIC.gapPercent = sliderValue / 10;
-        StorageManager.setItem('gapPercent', SIC.gapPercent);
-        this.domElements.gapValue.textContent = `${SIC.gapPercent.toFixed(1)}%`;
+        this.gapPercent = sliderValue / 10;
+        StorageManager.setItem('gapPercent', this.gapPercent);
+        this.domElements.gapValue.textContent = `${this.gapPercent.toFixed(1)}%`;
 
         if (SIC.images.length !== 2) return;
 
@@ -277,8 +271,8 @@ class UIManager {
     }
 
     static updateColor() {
-        SIC.gapColor = this.domElements.colorPicker.value;
-        StorageManager.setItem('gapColor', SIC.gapColor);
+        this.gapColor = this.domElements.colorPicker.value;
+        StorageManager.setItem('gapColor', this.gapColor);
         if (CropManager.isCropping) {
             CropManager.drawCropInterface();
         } else {
@@ -287,8 +281,8 @@ class UIManager {
     }
 
     static updateBorders() {
-        SIC.hasBorders = this.domElements.bordersCheckbox.checked;
-        StorageManager.setItem('hasBorders', SIC.hasBorders);
+        this.hasBorders = this.domElements.bordersCheckbox.checked;
+        StorageManager.setItem('hasBorders', this.hasBorders);
 
         if (SIC.images.length !== 2) return;
 
@@ -302,8 +296,8 @@ class UIManager {
     }
 
     static updateTransparent() {
-        SIC.isTransparent = this.domElements.transparentCheckbox.checked;
-        StorageManager.setItem('isTransparent', SIC.isTransparent);
+        this.isTransparent = this.domElements.transparentCheckbox.checked;
+        StorageManager.setItem('isTransparent', this.isTransparent);
         this.updateColorPickerState();
         if (CropManager.isCropping) {
             CropManager.drawCropInterface();
@@ -316,8 +310,8 @@ class UIManager {
         const colorPicker = this.domElements.colorPicker;
         const canvas = this.domElements.canvas;
         
-        colorPicker.disabled = SIC.isTransparent;
-        if (SIC.isTransparent) {
+        colorPicker.disabled = this.isTransparent;
+        if (this.isTransparent) {
             colorPicker.style.opacity = '0.5';
             colorPicker.style.pointerEvents = 'none';
             colorPicker.style.filter = 'grayscale(1)';
@@ -331,9 +325,9 @@ class UIManager {
     }
 
     static updateCornerRadius() {
-        SIC.cornerRadiusPercent = parseInt(this.domElements.cornerRadiusSlider.value);
-        StorageManager.setItem('cornerRadiusPercent', SIC.cornerRadiusPercent);
-        this.domElements.cornerRadiusValue.textContent = `${SIC.cornerRadiusPercent}%`;
+        this.cornerRadiusPercent = parseInt(this.domElements.cornerRadiusSlider.value);
+        StorageManager.setItem('cornerRadiusPercent', this.cornerRadiusPercent);
+        this.domElements.cornerRadiusValue.textContent = `${this.cornerRadiusPercent}%`;
         if (CropManager.isCropping) {
             CropManager.drawCropInterface();
         } else {
@@ -358,6 +352,9 @@ class UIManager {
 // FILE MANAGER - Handles file operations
 // ===================================
 class FileManager {
+    static DEFAULT_FORMAT = 'image/jpeg';
+    static DEFAULT_JPG_QUALITY = 90;
+
     static processFiles(files) {
         if (files.length !== 2) {
             alert('Please select two images.');
@@ -414,7 +411,7 @@ class FileManager {
         const format = UIManager.domElements.formatSelect.value;
         
         // Check if trying to save as JPG with transparency
-        if (SIC.isTransparent && format === 'image/jpeg') {
+        if (UIManager.isTransparent && format === 'image/jpeg') {
             alert('JPG format does not support transparency. Please choose PNG format to preserve transparency, or uncheck the Transparent option.');
             return;
         }
@@ -551,6 +548,8 @@ class StorageManager {
 // IMAGE RENDERER - Handles all image rendering operations
 // ===================================
 class ImageRenderer {
+    static BODY_BG_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--body-bg-color').trim();
+    static DEFAULT_SCALE_PERCENT = 100;
     static scale = 1;
     static maxScale = 1;
 
@@ -563,8 +562,8 @@ class ImageRenderer {
         let imageHeight = Math.max(img1.height, img2.height);
 
         if (!overlaid) {
-            const gapWidthAt100 = Math.round(this.pixelGap(img1, img2) / SIC.GAP_TO_BORDER_RATIO) * SIC.GAP_TO_BORDER_RATIO;
-            const borderSpace = SIC.hasBorders && borders ? gapWidthAt100 / SIC.GAP_TO_BORDER_RATIO : 0;
+            const gapWidthAt100 = Math.round(this.pixelGap(img1, img2) / UIManager.GAP_TO_BORDER_RATIO) * UIManager.GAP_TO_BORDER_RATIO;
+            const borderSpace = UIManager.hasBorders && borders ? gapWidthAt100 / UIManager.GAP_TO_BORDER_RATIO : 0;
             totalWidthAt100 = img1.width + img2.width + gapWidthAt100 + borderSpace * 2;
             imageHeight += borderSpace * 2;
         } else {
@@ -588,7 +587,7 @@ class ImageRenderer {
 
     static pixelGap(img1, img2) {
         const avgWidth = (img1.width + img2.width) / 2;
-        return avgWidth * (SIC.gapPercent / 100);
+        return avgWidth * (UIManager.gapPercent / 100);
     }
 
     static renderCombinedImage(targetCanvas, renderScale, options = {}) {
@@ -606,12 +605,12 @@ class ImageRenderer {
         // Calculate gap and border spacing
         let renderGap, borderSpace = 0;
         if (!cropping) {
-            renderGap = Math.round(this.pixelGap(SIC.images[0], SIC.images[1]) / SIC.GAP_TO_BORDER_RATIO) * SIC.GAP_TO_BORDER_RATIO * renderScale;
-            if (SIC.hasBorders) {
-                borderSpace = renderGap / SIC.GAP_TO_BORDER_RATIO;
+            renderGap = Math.round(this.pixelGap(SIC.images[0], SIC.images[1]) / UIManager.GAP_TO_BORDER_RATIO) * UIManager.GAP_TO_BORDER_RATIO * renderScale;
+            if (UIManager.hasBorders) {
+                borderSpace = renderGap / UIManager.GAP_TO_BORDER_RATIO;
             }
         } else {
-            renderGap = avgWidth * (SIC.gapPercent / 100);
+            renderGap = avgWidth * (UIManager.gapPercent / 100);
         }
 
         // Calculate dimensions
@@ -650,22 +649,22 @@ class ImageRenderer {
 
     static handleBackgroundFill(ctx, totalWidth, maxHeight, cropping, img1Width, img2Width, img1Height, img2Height, yOffsets, renderGap, borderSpace) {
         if (!cropping) {
-            if (SIC.isTransparent) {
+            if (UIManager.isTransparent) {
                 ctx.clearRect(0, 0, totalWidth, maxHeight);
             } else {
-                ctx.fillStyle = SIC.gapColor;
+                ctx.fillStyle = UIManager.gapColor;
                 ctx.fillRect(0, 0, totalWidth, maxHeight);
             }
         } else {
             // Crop mode background
-            ctx.fillStyle = SIC.BODY_BG_COLOR;
+            ctx.fillStyle = this.BODY_BG_COLOR;
             ctx.fillRect(0, 0, totalWidth, maxHeight);
 
             // Fill gap area
             const gapStart = Math.max(yOffsets.left, yOffsets.right);
             const gapHeight = Math.min(img1Height + yOffsets.left, img2Height + yOffsets.right) - gapStart;
 
-            if (SIC.isTransparent) {
+            if (UIManager.isTransparent) {
                 ctx.clearRect(
                     img1Width + borderSpace,
                     gapStart + borderSpace,
@@ -673,7 +672,7 @@ class ImageRenderer {
                     gapHeight
                 );
             } else {
-                ctx.fillStyle = SIC.gapColor;
+                ctx.fillStyle = UIManager.gapColor;
                 ctx.fillRect(
                     img1Width + borderSpace,
                     gapStart + borderSpace,
@@ -689,9 +688,9 @@ class ImageRenderer {
         ctx.save();
         
         // Handle rounded corners
-        if (!cropping && SIC.cornerRadiusPercent > 0) {
+        if (!cropping && UIManager.cornerRadiusPercent > 0) {
             const maxRadius = Math.min(img1Width, img2Width, img1Height, img2Height) / 2;
-            const renderCornerRadius = SIC.cornerRadiusPercent / 100 * maxRadius;
+            const renderCornerRadius = UIManager.cornerRadiusPercent / 100 * maxRadius;
 
             ctx.beginPath();
             

@@ -2075,7 +2075,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lockedCheckbox.checked = saveLockedCheckbox;
 
         // restore transparent background image if in tranparent mode
-        if (SIC.isTransparent) {
+        if (UIManager.isTransparent) {
             canvas.classList.add('transparent-bg');
         }
 
