@@ -191,6 +191,7 @@ class UIManager {
             }
         });
     }
+
     static getDropzoneMessageText() {
         let text = "Drag and drop two images here or click to browse";
         if (window.matchMedia('(pointer: fine)').matches) {
@@ -274,7 +275,7 @@ class UIManager {
         this.gapColor = this.domElements.colorPicker.value;
         StorageManager.setItem('gapColor', this.gapColor);
         if (CropManager.isCropping) {
-            CropManager.drawCropInterface();
+            CropRenderer.drawCropInterface();
         } else {
             ImageRenderer.drawImages();
         }
@@ -300,7 +301,7 @@ class UIManager {
         StorageManager.setItem('isTransparent', this.isTransparent);
         this.updateColorPickerState();
         if (CropManager.isCropping) {
-            CropManager.drawCropInterface();
+            CropRenderer.drawCropInterface();
         } else {
             ImageRenderer.drawImages();
         }
@@ -329,7 +330,7 @@ class UIManager {
         StorageManager.setItem('cornerRadiusPercent', this.cornerRadiusPercent);
         this.domElements.cornerRadiusValue.textContent = `${this.cornerRadiusPercent}%`;
         if (CropManager.isCropping) {
-            CropManager.drawCropInterface();
+            CropRenderer.drawCropInterface();
         } else {
             ImageRenderer.drawImages();
         }
