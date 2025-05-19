@@ -1,5 +1,10 @@
 ==========  new code ===========
 
+canvas isn't cached
+
+done:
+  LATCH_ZONESIZE, currentScale = 1, HANDLE_SIZE vs handleSize, 1500 delay
+
 ======== old code ===========
 
 Mac cropbox drawing all screwed up

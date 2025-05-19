@@ -541,6 +541,7 @@ class CropInteraction {
     static MIN_CROP_SIZE_PIXELS = 3 * this.HANDLE_SIZE;
     static FINE_CROP_WINDOW_SIZE = 32;
     static SLOWEST_SPEED = 0.20;
+    static LATCH_ZONE_SIZE = this.HANDLE_SIZE / 2;
     
     // Movement tracking
     static totalDeltaX = 0;
@@ -549,7 +550,6 @@ class CropInteraction {
     static saveOtherBoxXY = null;
     static xLatch = 0;
     static yLatch = 0;
-    static latchZoneSize = this.HANDLE_SIZE / 2;
     
     // Arrow key state
     static arrowKeyMultiplier = 1;
@@ -571,13 +571,123 @@ class CropInteraction {
         // Keyboard event
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
     }
-    
+
+    static drawCursorBoxes() {
+        this.getHandle(0, 0);
+    }
+
     static getXY(e) {
         const canvas = document.getElementById('canvas');
         const rect = canvas.getBoundingClientRect();
         return [e.clientX - rect.left, e.clientY - rect.top];
     }
     
+    static getHandle(x, y) {
+        if (CropManager.alignMode) {
+            const bothHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.RIGHT], x, y, CropManager.BOTH, CropManager.cropBoxes[CropManager.RIGHT].x);
+            if (bothHandle !== null) {
+                return bothHandle.id === CropManager.INSIDE ? [CropManager.INSIDE, CropManager.LEFT] : [bothHandle.id, bothHandle.box];
+            }
+            return [CropManager.OUTSIDE, CropManager.LEFT];
+        }
+
+        // Check if the mouse is over any handle of the left crop box
+        const xCanvasLeft = CropManager.currentParams.img1Width - CropManager.cropBoxes[CropManager.LEFT].width;
+        const leftHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.LEFT], x, y, CropManager.LEFT, xCanvasLeft);
+        if (leftHandle !== null) {
+            return [leftHandle.id, CropManager.LEFT];
+        }
+        
+        // Check if the mouse is over any handle of the right crop box
+        const xCanvasRight = CropManager.currentParams.rightImgStart;
+        const rightHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.RIGHT], x, y, CropManager.RIGHT, xCanvasRight);
+        if (rightHandle !== null) {
+            return [rightHandle.id, CropManager.RIGHT];
+        }
+        
+        return [CropManager.OUTSIDE, CropManager.LEFT];
+    }
+    
+    static getHandleForBox(box, x, y, boxPos, xCanvas) {
+        // Apply the offset for right box to get canvas coordinates
+        const grabSize = Math.min(this.GRAB_SIZE, (Math.min(box.width, box.height) + 2 * this.HANDLE_SIZE) / 3);
+
+        // Handle positions
+        const middlePosX = xCanvas + (box.width - grabSize) / 2;
+        const yCanvas = box.y - (boxPos === CropManager.BOTH ? 0 : box.yOffset);
+        const topPosY = yCanvas - this.HANDLE_SIZE;
+        const middlePosY = yCanvas + (box.height - grabSize) / 2;
+        const bottomPosY = yCanvas + box.height - grabSize + this.HANDLE_SIZE;
+        
+        let handlePositions;
+        if (boxPos === CropManager.LEFT) {
+            const leftPosX = xCanvas - this.HANDLE_SIZE;
+            handlePositions = [
+                { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY },
+                { id: CropManager.BOTTOM_LEFT, x: leftPosX, y: bottomPosY },
+                // Side handles
+                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY },
+                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
+                { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY }
+            ];
+        } else if (boxPos === CropManager.RIGHT) {
+            const rightPosX = xCanvas + box.width - grabSize + this.HANDLE_SIZE;
+            handlePositions = [
+                { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY },
+                { id: CropManager.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY },
+                // Side handles
+                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY },
+                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
+                { id: CropManager.RIGHT_MIDDLE, x: rightPosX, y: middlePosY },
+            ];
+        } else {
+            // alignMode, need to return correct box for handle
+            const leftPosX = xCanvas - this.HANDLE_SIZE;
+            const rightPosX = xCanvas + box.width - grabSize + this.HANDLE_SIZE;
+            handlePositions = [
+                { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY, box: CropManager.LEFT },
+                { id: CropManager.BOTTOM_LEFT, x: leftPosX, y: bottomPosY, box: CropManager.LEFT },
+                { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY, box: CropManager.RIGHT },
+                { id: CropManager.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY, box: CropManager.RIGHT },
+                // Side handles
+                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY, box: CropManager.LEFT },
+                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY, box: CropManager.LEFT },
+                { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY, box: CropManager.LEFT },
+                { id: CropManager.RIGHT_MIDDLE, x: rightPosX, y: middlePosY, box: CropManager.RIGHT }
+            ];
+        }
+
+        if (CropValidator.DEBUG) {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#33ccff';
+            for (const handle of handlePositions) {
+                const hx = handle.x;
+                const hy = handle.y;
+                ctx.strokeRect(hx, hy, grabSize, grabSize);
+            }
+        }
+
+        for (const handle of handlePositions) {
+            const hx = handle.x;
+            const hy = handle.y;
+
+            if (x >= hx && x <= hx + grabSize &&
+                y >= hy && y <= hy + grabSize) {
+                return { id: handle.id, box: handle.box };
+            }
+        }
+
+        // Check if inside the crop box for dragging
+        if (!CropUI.lockedCheckbox.checked && x >= xCanvas && x <= xCanvas + box.width &&
+            y >= yCanvas && y <= yCanvas + box.height) {
+            return { id: CropManager.INSIDE };
+        }
+
+        return null;
+    }
+
     static onMouseDown(e) {
         if (!CropManager.isCropping || this.isArrowing) return;
         this.startDrag(e);
@@ -590,7 +700,7 @@ class CropInteraction {
 
         if (!this.isDragging) {
             // Update cursor based on handle
-            [this.currentHandle, this.activeCropBox] = CropRenderer.getHandle(x, y);
+            [this.currentHandle, this.activeCropBox] = this.getHandle(x, y);
             this.updateCursor(this.currentHandle);
 
             // Check if highlights should be shown
@@ -602,6 +712,18 @@ class CropInteraction {
             CropBoxHelper.updateCropBoxes(this.currentHandle, this.activeCropBox, deltaX, deltaY);
             this.movableBoxes = this.getMovableBoxes(this.currentHandle);
             CropRenderer.drawCropInterface(highlights);
+
+            if (CropValidator.DEBUG && this.movementAxis === CropManager.NONE && !this.resizing) {
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ff88ff'
+                ctx.strokeRect(x - this.totalDeltaX - this.LATCH_ZONE_SIZE, y - this.totalDeltaY - this.LATCH_ZONE_SIZE,
+                    this.LATCH_ZONE_SIZE * 2, this.LATCH_ZONE_SIZE * 2);
+                ctx.strokeStyle = '#4488ff'
+                ctx.strokeRect(x - this.totalDeltaX - this.FINE_CROP_WINDOW_SIZE, y - this.totalDeltaY - this.FINE_CROP_WINDOW_SIZE,
+                    this.FINE_CROP_WINDOW_SIZE * 2, this.FINE_CROP_WINDOW_SIZE * 2);
+            }
         }
         this.dragStartX = x;
         this.dragStartY = y;
@@ -665,7 +787,7 @@ class CropInteraction {
 
         // Update cursor based on handle
         const [x, y] = this.getXY(e.changedTouches[0]);
-        [this.currentHandle, this.activeCropBox] = CropRenderer.getHandle(x, y);
+        [this.currentHandle, this.activeCropBox] = this.getHandle(x, y);
         this.updateCursor(this.currentHandle);
         
         // Check if highlights should be shown
@@ -680,7 +802,7 @@ class CropInteraction {
         // Check if highlights should be shown
         const wasMovable = this.movableBoxes;
         const [x, y] = this.getXY(e);
-        [this.currentHandle, this.activeCropBox] = CropRenderer.getHandle(x, y);
+        [this.currentHandle, this.activeCropBox] = this.getHandle(x, y);
         this.updateCursor(this.currentHandle);
         this.movableBoxes = this.getMovableBoxes(this.currentHandle);
         this.startMove();
@@ -757,14 +879,14 @@ class CropInteraction {
         let absTotalDeltaX = Math.abs(this.totalDeltaX);
         let absTotalDeltaY = Math.abs(this.totalDeltaY);
         
-        if (absTotalDeltaX > this.latchZoneSize) {
-            this.xLatch = this.latchZoneSize;
+        if (absTotalDeltaX > this.LATCH_ZONE_SIZE) {
+            this.xLatch = this.LATCH_ZONE_SIZE;
         } else if (absTotalDeltaX < this.xLatch) {
             absTotalDeltaX = this.xLatch;
         }
         
-        if (absTotalDeltaY > this.latchZoneSize) {
-            this.yLatch = this.latchZoneSize;
+        if (absTotalDeltaY > this.LATCH_ZONE_SIZE) {
+            this.yLatch = this.LATCH_ZONE_SIZE;
         } else if (absTotalDeltaY < this.yLatch) {
             absTotalDeltaY = this.yLatch;
         }
@@ -1577,7 +1699,7 @@ class CropRenderer {
 
         if (CropValidator.DEBUG) {
             // Draw the touch points
-            this.getHandle(0, 0);
+            CropInteraction.drawCursorBoxes();
         }
     }
     
@@ -1775,112 +1897,6 @@ class CropRenderer {
             );
             ctx.fill();
         });
-    }
-    
-    static getHandle(x, y) {
-        if (CropManager.alignMode) {
-            const bothHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.RIGHT], x, y, CropManager.BOTH, CropManager.cropBoxes[CropManager.RIGHT].x);
-            if (bothHandle !== null) {
-                return bothHandle.id === CropManager.INSIDE ? [CropManager.INSIDE, CropManager.LEFT] : [bothHandle.id, bothHandle.box];
-            }
-            return [CropManager.OUTSIDE, CropManager.LEFT];
-        }
-
-        // Check if the mouse is over any handle of the left crop box
-        const xCanvasLeft = CropManager.currentParams.img1Width - CropManager.cropBoxes[CropManager.LEFT].width;
-        const leftHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.LEFT], x, y, CropManager.LEFT, xCanvasLeft);
-        if (leftHandle !== null) {
-            return [leftHandle.id, CropManager.LEFT];
-        }
-        
-        // Check if the mouse is over any handle of the right crop box
-        const xCanvasRight = CropManager.currentParams.rightImgStart;
-        const rightHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.RIGHT], x, y, CropManager.RIGHT, xCanvasRight);
-        if (rightHandle !== null) {
-            return [rightHandle.id, CropManager.RIGHT];
-        }
-        
-        return [CropManager.OUTSIDE, CropManager.LEFT];
-    }
-    
-    static getHandleForBox(box, x, y, boxPos, xCanvas) {
-        // Apply the offset for right box to get canvas coordinates
-        const grabSize = Math.min(CropInteraction.GRAB_SIZE, (Math.min(box.width, box.height) + 2 * this.handleSize) / 3);
-
-        // Handle positions
-        const middlePosX = xCanvas + (box.width - grabSize) / 2;
-        const yCanvas = box.y - (boxPos === CropManager.BOTH ? 0 : box.yOffset);
-        const topPosY = yCanvas - this.handleSize;
-        const middlePosY = yCanvas + (box.height - grabSize) / 2;
-        const bottomPosY = yCanvas + box.height - grabSize + this.handleSize;
-        
-        let handlePositions;
-        if (boxPos === CropManager.LEFT) {
-            const leftPosX = xCanvas - this.handleSize;
-            handlePositions = [
-                { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY },
-                { id: CropManager.BOTTOM_LEFT, x: leftPosX, y: bottomPosY },
-                // Side handles
-                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY },
-                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
-                { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY }
-            ];
-        } else if (boxPos === CropManager.RIGHT) {
-            const rightPosX = xCanvas + box.width - grabSize + this.handleSize;
-            handlePositions = [
-                { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY },
-                { id: CropManager.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY },
-                // Side handles
-                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY },
-                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
-                { id: CropManager.RIGHT_MIDDLE, x: rightPosX, y: middlePosY },
-            ];
-        } else {
-            // alignMode, need to return correct box for handle
-            const leftPosX = xCanvas - this.handleSize;
-            const rightPosX = xCanvas + box.width - grabSize + this.handleSize;
-            handlePositions = [
-                { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY, box: CropManager.LEFT },
-                { id: CropManager.BOTTOM_LEFT, x: leftPosX, y: bottomPosY, box: CropManager.LEFT },
-                { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY, box: CropManager.RIGHT },
-                { id: CropManager.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY, box: CropManager.RIGHT },
-                // Side handles
-                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY, box: CropManager.LEFT },
-                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY, box: CropManager.LEFT },
-                { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY, box: CropManager.LEFT },
-                { id: CropManager.RIGHT_MIDDLE, x: rightPosX, y: middlePosY, box: CropManager.RIGHT }
-            ];
-        }
-
-        if (CropValidator.DEBUG) {
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#33ccff';
-            for (const handle of handlePositions) {
-                const hx = handle.x;
-                const hy = handle.y;
-                ctx.strokeRect(hx, hy, grabSize, grabSize);
-            }
-        }
-
-        for (const handle of handlePositions) {
-            const hx = handle.x;
-            const hy = handle.y;
-
-            if (x >= hx && x <= hx + grabSize &&
-                y >= hy && y <= hy + grabSize) {
-                return { id: handle.id, box: handle.box };
-            }
-        }
-
-        // Check if inside the crop box for dragging
-        if (!CropUI.lockedCheckbox.checked && x >= xCanvas && x <= xCanvas + box.width &&
-            y >= yCanvas && y <= yCanvas + box.height) {
-            return { id: CropManager.INSIDE };
-        }
-
-        return null;
     }
 }
 
@@ -2112,7 +2128,7 @@ class AlignMode {
 
         if (CropValidator.DEBUG) {
             // Draw the touch points
-            CropRenderer.getHandle(0, 0);
+            CropInteraction.drawCursorBoxes();
         }
     }
     
