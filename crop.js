@@ -1922,7 +1922,7 @@ class CropRenderer {
 // CROP VALIDATOR - Debug validation for crop boxes
 // ===================================
 class CropValidator {
-    static DEBUG = true;
+    static DEBUG = false;
     
     static validateCropBoxes(msg) {
         if (!this.DEBUG) return;
