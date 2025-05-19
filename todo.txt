@@ -3,6 +3,8 @@
 done:
   LATCH_ZONESIZE, currentScale = 1, HANDLE_SIZE vs handleSize, 1500 delay
 
+Another fn belongs in helper class?
+
 ======== old code ===========
 
 Mac cropbox drawing all screwed up

@@ -1,4 +1,13 @@
 // ===================================
+// ENUMS
+// ===================================
+const Box = Object.freeze({
+    LEFT: 0,
+    RIGHT: 1,
+    BOTH: 2
+});
+
+// ===================================
 // CROP MANAGER - Main controller for cropping functionality
 // ===================================
 class CropManager {
@@ -7,11 +16,7 @@ class CropManager {
     static isCropped = false;
     static cropButton = null;
     
-    // Constants 
-    static LEFT = 0;
-    static RIGHT = 1;
-    static BOTH = 2;
-    
+    // Constants     
     static TOP_LEFT = 0;
     static TOP_MIDDLE = 1;
     static TOP_RIGHT = 2;
@@ -154,8 +159,8 @@ class CropManager {
 
         // If we have a previous crop state, restore those dimensions
         if (this.lastCropState) {
-            this.cropBoxes[this.LEFT] = { ...this.lastCropState.boxes[this.LEFT] };
-            this.cropBoxes[this.RIGHT] = { ...this.lastCropState.boxes[this.RIGHT] };
+            this.cropBoxes[Box.LEFT] = { ...this.lastCropState.boxes[Box.LEFT] };
+            this.cropBoxes[Box.RIGHT] = { ...this.lastCropState.boxes[Box.RIGHT] };
             this.saveCropBoxDimensions = { ...this.lastCropState.saveCropBoxDimensions };
 
             // Swap if necessary
@@ -188,7 +193,7 @@ class CropManager {
             AlignMode.enter();
         } else {
             CropInteraction.currentHandle = this.OUTSIDE;
-            CropInteraction.activeCropBox = this.LEFT;
+            CropInteraction.activeCropBox = Box.LEFT;
             CropInteraction.updateCursor(CropInteraction.currentHandle);
             CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
             CropRenderer.drawCropInterface(CropInteraction.movableBoxes);
@@ -208,7 +213,7 @@ class CropManager {
         
         // Set initial crop boxes to use the entire available area
         const xGap = img1Width - maxWidth;
-        this.cropBoxes[this.LEFT] = {
+        this.cropBoxes[Box.LEFT] = {
             x: xGap,
             y: 0,
             width: maxWidth,
@@ -216,7 +221,7 @@ class CropManager {
             yOffset: 0
         };
         
-        this.cropBoxes[this.RIGHT] = {
+        this.cropBoxes[Box.RIGHT] = {
             x: 0,
             y: 0,
             width: maxWidth,
@@ -236,7 +241,7 @@ class CropManager {
 
         // Save the current crop state before applying
         this.lastCropState = {
-            boxes: [{ ...this.cropBoxes[this.LEFT] }, { ...this.cropBoxes[this.RIGHT] }],
+            boxes: [{ ...this.cropBoxes[Box.LEFT] }, { ...this.cropBoxes[Box.RIGHT] }],
             saveCropBoxDimensions: { ...this.saveCropBoxDimensions },
             scale: this.currentScale,
             scalePercent: this.currentScale / ImageRenderer.maxScale,
@@ -245,17 +250,17 @@ class CropManager {
 
         // Calculate the crop in original image coordinates
         const cropLeft = {
-            x: Math.round(this.cropBoxes[this.LEFT].x / this.currentScale),
-            y: Math.round(this.cropBoxes[this.LEFT].y / this.currentScale),
-            width: Math.round(this.cropBoxes[this.LEFT].width / this.currentScale),
-            height: Math.round(this.cropBoxes[this.LEFT].height / this.currentScale)
+            x: Math.round(this.cropBoxes[Box.LEFT].x / this.currentScale),
+            y: Math.round(this.cropBoxes[Box.LEFT].y / this.currentScale),
+            width: Math.round(this.cropBoxes[Box.LEFT].width / this.currentScale),
+            height: Math.round(this.cropBoxes[Box.LEFT].height / this.currentScale)
         };
         
         const cropRight = {
-            x: Math.round(this.cropBoxes[this.RIGHT].x / this.currentScale),
-            y: Math.round(this.cropBoxes[this.RIGHT].y / this.currentScale),
-            width: Math.round(this.cropBoxes[this.RIGHT].width / this.currentScale),
-            height: Math.round(this.cropBoxes[this.RIGHT].height / this.currentScale)
+            x: Math.round(this.cropBoxes[Box.RIGHT].x / this.currentScale),
+            y: Math.round(this.cropBoxes[Box.RIGHT].y / this.currentScale),
+            width: Math.round(this.cropBoxes[Box.RIGHT].width / this.currentScale),
+            height: Math.round(this.cropBoxes[Box.RIGHT].height / this.currentScale)
         };
         
         // Create temporary canvases to crop the images
@@ -374,7 +379,7 @@ class CropManager {
 
         // Redraw with updated boxes
         CropInteraction.currentHandle = this.OUTSIDE;
-        CropInteraction.activeCropBox = this.LEFT;
+        CropInteraction.activeCropBox = Box.LEFT;
         CropInteraction.updateCursor(CropInteraction.currentHandle);
         CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
         CropRenderer.drawCropInterface(CropInteraction.movableBoxes);
@@ -400,7 +405,7 @@ class CropManager {
             
             CropBoxHelper.swapBoxes(this.cropBoxes);
             CropInteraction.currentHandle = this.OUTSIDE;
-            CropInteraction.activeCropBox = this.LEFT;
+            CropInteraction.activeCropBox = Box.LEFT;
             CropInteraction.updateCursor(CropInteraction.currentHandle);
             CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
             CropRenderer.drawCropInterface(CropInteraction.movableBoxes);
@@ -588,29 +593,31 @@ class CropInteraction {
     }
     
     static getHandle(x, y) {
+        const rightBox = CropManager.cropBoxes[Box.RIGHT];
         if (CropManager.alignMode) {
-            const bothHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.RIGHT], x, y, CropManager.BOTH, CropManager.cropBoxes[CropManager.RIGHT].x);
+            const bothHandle = this.getHandleForBox(rightBox, x, y, Box.BOTH, rightBox.x);
             if (bothHandle !== null) {
-                return bothHandle.id === CropManager.INSIDE ? [CropManager.INSIDE, CropManager.LEFT] : [bothHandle.id, bothHandle.box];
+                return bothHandle.id === CropManager.INSIDE ? [CropManager.INSIDE, Box.LEFT] : [bothHandle.id, bothHandle.box];
             }
-            return [CropManager.OUTSIDE, CropManager.LEFT];
+            return [CropManager.OUTSIDE, Box.LEFT];
         }
 
         // Check if the mouse is over any handle of the left crop box
-        const xCanvasLeft = CropManager.currentParams.img1Width - CropManager.cropBoxes[CropManager.LEFT].width;
-        const leftHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.LEFT], x, y, CropManager.LEFT, xCanvasLeft);
+        const leftBox = CropManager.cropBoxes[Box.LEFT];
+        const xCanvasLeft = CropManager.currentParams.img1Width - leftBox.width;
+        const leftHandle = this.getHandleForBox(leftBox, x, y, Box.LEFT, xCanvasLeft);
         if (leftHandle !== null) {
-            return [leftHandle.id, CropManager.LEFT];
+            return [leftHandle.id, Box.LEFT];
         }
         
         // Check if the mouse is over any handle of the right crop box
         const xCanvasRight = CropManager.currentParams.rightImgStart;
-        const rightHandle = this.getHandleForBox(CropManager.cropBoxes[CropManager.RIGHT], x, y, CropManager.RIGHT, xCanvasRight);
+        const rightHandle = this.getHandleForBox(rightBox, x, y, Box.RIGHT, xCanvasRight);
         if (rightHandle !== null) {
-            return [rightHandle.id, CropManager.RIGHT];
+            return [rightHandle.id, Box.RIGHT];
         }
         
-        return [CropManager.OUTSIDE, CropManager.LEFT];
+        return [CropManager.OUTSIDE, Box.LEFT];
     }
     
     static getHandleForBox(box, x, y, boxPos, xCanvas) {
@@ -619,13 +626,13 @@ class CropInteraction {
 
         // Handle positions
         const middlePosX = xCanvas + (box.width - grabSize) / 2;
-        const yCanvas = box.y - (boxPos === CropManager.BOTH ? 0 : box.yOffset);
+        const yCanvas = box.y - (boxPos === Box.BOTH ? 0 : box.yOffset);
         const topPosY = yCanvas - this.HANDLE_SIZE;
         const middlePosY = yCanvas + (box.height - grabSize) / 2;
         const bottomPosY = yCanvas + box.height - grabSize + this.HANDLE_SIZE;
         
         let handlePositions;
-        if (boxPos === CropManager.LEFT) {
+        if (boxPos === Box.LEFT) {
             const leftPosX = xCanvas - this.HANDLE_SIZE;
             handlePositions = [
                 { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY },
@@ -635,7 +642,7 @@ class CropInteraction {
                 { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
                 { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY }
             ];
-        } else if (boxPos === CropManager.RIGHT) {
+        } else if (boxPos === Box.RIGHT) {
             const rightPosX = xCanvas + box.width - grabSize + this.HANDLE_SIZE;
             handlePositions = [
                 { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY },
@@ -650,15 +657,15 @@ class CropInteraction {
             const leftPosX = xCanvas - this.HANDLE_SIZE;
             const rightPosX = xCanvas + box.width - grabSize + this.HANDLE_SIZE;
             handlePositions = [
-                { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY, box: CropManager.LEFT },
-                { id: CropManager.BOTTOM_LEFT, x: leftPosX, y: bottomPosY, box: CropManager.LEFT },
-                { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY, box: CropManager.RIGHT },
-                { id: CropManager.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY, box: CropManager.RIGHT },
+                { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY, box: Box.LEFT },
+                { id: CropManager.BOTTOM_LEFT, x: leftPosX, y: bottomPosY, box: Box.LEFT },
+                { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY, box: Box.RIGHT },
+                { id: CropManager.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY, box: Box.RIGHT },
                 // Side handles
-                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY, box: CropManager.LEFT },
-                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY, box: CropManager.LEFT },
-                { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY, box: CropManager.LEFT },
-                { id: CropManager.RIGHT_MIDDLE, x: rightPosX, y: middlePosY, box: CropManager.RIGHT }
+                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY, box: Box.LEFT },
+                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY, box: Box.LEFT },
+                { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY, box: Box.LEFT },
+                { id: CropManager.RIGHT_MIDDLE, x: rightPosX, y: middlePosY, box: Box.RIGHT }
             ];
         }
 
@@ -742,7 +749,7 @@ class CropInteraction {
 
             if (CropManager.alignMode && this.currentHandle === CropManager.INSIDE) {
                 // Grow the boxes as much as possible after shrinking and repositioning them
-                CropBoxHelper.growBoxes(CropManager.cropBoxes[CropManager.LEFT], CropManager.cropBoxes[CropManager.RIGHT]);
+                CropBoxHelper.growBoxes(CropManager.cropBoxes[Box.LEFT], CropManager.cropBoxes[Box.RIGHT]);
             }
 
             // Update cursor and cropbox movable state
@@ -785,7 +792,7 @@ class CropInteraction {
 
         if (CropManager.alignMode && this.currentHandle === CropManager.INSIDE) {
             // Grow the boxes as much as possible after shrinking and repositioning them
-            CropBoxHelper.growBoxes(CropManager.cropBoxes[CropManager.LEFT], CropManager.cropBoxes[CropManager.RIGHT]);
+            CropBoxHelper.growBoxes(CropManager.cropBoxes[Box.LEFT], CropManager.cropBoxes[Box.RIGHT]);
         }
 
         // Update cursor based on handle
@@ -829,7 +836,7 @@ class CropInteraction {
         this.resizing = this.currentHandle !== CropManager.INSIDE && this.currentHandle !== CropManager.OUTSIDE;
         if (CropManager.alignMode && this.currentHandle === CropManager.INSIDE) {
             // Shrink the boxes so they have room to move around
-            CropBoxHelper.shrinkBoxes(CropManager.cropBoxes[CropManager.LEFT], CropManager.cropBoxes[CropManager.RIGHT]);
+            CropBoxHelper.shrinkBoxes(CropManager.cropBoxes[Box.LEFT], CropManager.cropBoxes[Box.RIGHT]);
         }
     }
     
@@ -976,8 +983,8 @@ class CropInteraction {
     static getMovableBoxes(handle) {
         if (handle === CropManager.INSIDE || handle === CropManager.OUTSIDE) {
             // For moves, we need to check if boxes can actually move
-            const leftCanMove = CropBoxHelper.canBoxMove(CropManager.cropBoxes[CropManager.LEFT], CropManager.LEFT, handle);
-            const rightCanMove = CropBoxHelper.canBoxMove(CropManager.cropBoxes[CropManager.RIGHT], CropManager.RIGHT, handle);
+            const leftCanMove = CropBoxHelper.canBoxMove(CropManager.cropBoxes[Box.LEFT], Box.LEFT, handle);
+            const rightCanMove = CropBoxHelper.canBoxMove(CropManager.cropBoxes[Box.RIGHT], Box.RIGHT, handle);
     
             // Determine which directions are valid based on current clamp mode
             const canMoveHorizontal = this.clampMode !== CropManager.VERTICAL_CLAMP;
@@ -999,7 +1006,7 @@ class CropInteraction {
                 // In align mode, movement is allowed if either cropbox can move
                 if (CropManager.alignMode) {
                     return [leftCanMoveWithinClamp, rightCanMoveWithinClamp];
-                } else if (this.activeCropBox === CropManager.LEFT) {
+                } else if (this.activeCropBox === Box.LEFT) {
                     return [leftCanMoveWithinClamp, false];
                 } else {
                     return [false, rightCanMoveWithinClamp];
@@ -1027,10 +1034,10 @@ class CropInteraction {
     }
     
     static movableBoxHighlights(wasMovable) {
-        const changeToMovableBoxes = this.movableBoxes[CropManager.LEFT] !== wasMovable[CropManager.LEFT] || 
-                                     this.movableBoxes[CropManager.RIGHT] !== wasMovable[CropManager.RIGHT];
-        const leftBoxHighlight = (this.movableBoxes[CropManager.LEFT] && changeToMovableBoxes);
-        const rightBoxHighlight = (this.movableBoxes[CropManager.RIGHT] && changeToMovableBoxes);
+        const changeToMovableBoxes = this.movableBoxes[Box.LEFT] !== wasMovable[Box.LEFT] || 
+                                     this.movableBoxes[Box.RIGHT] !== wasMovable[Box.RIGHT];
+        const leftBoxHighlight = (this.movableBoxes[Box.LEFT] && changeToMovableBoxes);
+        const rightBoxHighlight = (this.movableBoxes[Box.RIGHT] && changeToMovableBoxes);
         return [leftBoxHighlight, rightBoxHighlight];
     }
     
@@ -1044,7 +1051,7 @@ class CropInteraction {
         if (!CropManager.isCropping) return;
 
         if (this.activeCropBox === null) {
-            this.activeCropBox = CropManager.LEFT;
+            this.activeCropBox = Box.LEFT;
         }
         
         let deltaX = 0;
@@ -1085,9 +1092,9 @@ class CropInteraction {
                 const wasMovable = this.movableBoxes;
                 this.movableBoxes = this.nextTab();
                 
-                if (!this.movableBoxes[CropManager.LEFT] && !this.movableBoxes[CropManager.RIGHT]) {
+                if (!this.movableBoxes[Box.LEFT] && !this.movableBoxes[Box.RIGHT]) {
                     this.movableBoxes = this.nextTab();
-                    if (!CropManager.alignMode && !this.movableBoxes[CropManager.LEFT] && !this.movableBoxes[CropManager.RIGHT]) {
+                    if (!CropManager.alignMode && !this.movableBoxes[Box.LEFT] && !this.movableBoxes[Box.RIGHT]) {
                         this.movableBoxes = this.nextTab();
                     }
                 }
@@ -1132,7 +1139,7 @@ class CropInteraction {
 
             if (CropManager.alignMode && this.currentHandle === CropManager.INSIDE) {
                 // Grow the boxes as much as possible after shrinking and repositioning them
-                CropBoxHelper.growBoxes(CropManager.cropBoxes[CropManager.LEFT], CropManager.cropBoxes[CropManager.RIGHT]);
+                CropBoxHelper.growBoxes(CropManager.cropBoxes[Box.LEFT], CropManager.cropBoxes[Box.RIGHT]);
             }
 
             CropRenderer.drawCropInterface();
@@ -1142,12 +1149,12 @@ class CropInteraction {
     static nextTab() {
         if (this.currentHandle === CropManager.OUTSIDE) {
             this.currentHandle = CropManager.INSIDE;
-            this.activeCropBox = CropManager.LEFT;
-        } else if (this.activeCropBox === CropManager.LEFT && !CropManager.alignMode) {
-            this.activeCropBox = CropManager.RIGHT;
+            this.activeCropBox = Box.LEFT;
+        } else if (this.activeCropBox === Box.LEFT && !CropManager.alignMode) {
+            this.activeCropBox = Box.RIGHT;
         } else {
             this.currentHandle = CropManager.OUTSIDE;
-            this.activeCropBox = CropManager.LEFT;
+            this.activeCropBox = Box.LEFT;
         }
         return this.getMovableBoxes(this.currentHandle);
     }
@@ -1180,31 +1187,31 @@ class CropBoxHelper {
             
             // If moving both boxes, enforce limits of both boxes
             const activeResult = this.moveBox(testActiveBox, deltaX, deltaY, 
-                activeBox === CropManager.LEFT ? img1Width : img2Width,
-                activeBox === CropManager.LEFT ? img1Height : img2Height);
+                activeBox === Box.LEFT ? img1Width : img2Width,
+                activeBox === Box.LEFT ? img1Height : img2Height);
 
             // Now try moving the other box by the same actual deltas
             const otherResult = this.moveBox(CropManager.cropBoxes[otherBox], activeResult.x, activeResult.y, 
-                otherBox === CropManager.LEFT ? img1Width : img2Width,
-                otherBox === CropManager.LEFT ? img1Height : img2Height);
+                otherBox === Box.LEFT ? img1Width : img2Width,
+                otherBox === Box.LEFT ? img1Height : img2Height);
 
             // Apply (possibly constrained) changes to activeBox
             this.moveBox(CropManager.cropBoxes[activeBox], otherResult.x, otherResult.y, 
-                activeBox === CropManager.LEFT ? img1Width : img2Width,
-                activeBox === CropManager.LEFT ? img1Height : img2Height);
+                activeBox === Box.LEFT ? img1Width : img2Width,
+                activeBox === Box.LEFT ? img1Height : img2Height);
 
         } else if (handle === CropManager.INSIDE) {
             // Only move the active box
             const { x, y } =
                 this.moveBox(CropManager.cropBoxes[activeBox], deltaX, deltaY, 
-                    activeBox === CropManager.LEFT ? img1Width : img2Width,
-                    activeBox === CropManager.LEFT ? img1Height : img2Height);
+                    activeBox === Box.LEFT ? img1Width : img2Width,
+                    activeBox === Box.LEFT ? img1Height : img2Height);
                     
             // In alignMode, move the other box when the active one can't move
             if (CropManager.alignMode) {
                 this.moveBox(CropManager.cropBoxes[otherBox], x - deltaX, y - deltaY, 
-                    otherBox === CropManager.LEFT ? img1Width : img2Width,
-                    otherBox === CropManager.LEFT ? img1Height : img2Height);    
+                    otherBox === Box.LEFT ? img1Width : img2Width,
+                    otherBox === Box.LEFT ? img1Height : img2Height);    
             }
         } else {
             // Resize operation
@@ -1216,8 +1223,8 @@ class CropBoxHelper {
 
             // Simulate update on the test active box
             this.resizeBox(testActiveBox, handle, deltaX, deltaY, 
-                activeBox === CropManager.LEFT ? img1Width : img2Width,
-                activeBox === CropManager.LEFT ? img1Height : img2Height);
+                activeBox === Box.LEFT ? img1Width : img2Width,
+                activeBox === Box.LEFT ? img1Height : img2Height);
             
             // Calculate changes in dimensions and position
             const widthChange = testActiveBox.width - originalActiveWidth;
@@ -1252,11 +1259,11 @@ class CropBoxHelper {
             
             // Check if both test boxes would be valid after the resize
             if (!this.isBoxInBounds(testActiveBox,
-                              activeBox === CropManager.LEFT ? img1Width : img2Width,
-                              activeBox === CropManager.LEFT ? img1Height : img2Height) ||
+                              activeBox === Box.LEFT ? img1Width : img2Width,
+                              activeBox === Box.LEFT ? img1Height : img2Height) ||
                 !this.isBoxInBounds(testOtherBox,
-                              otherBox === CropManager.LEFT ? img1Width : img2Width,
-                              otherBox === CropManager.LEFT ? img1Height : img2Height)) {
+                              otherBox === Box.LEFT ? img1Width : img2Width,
+                              otherBox === Box.LEFT ? img1Height : img2Height)) {
                 // If either box would be out of bounds, don't allow the resize
                 return;
             }
@@ -1267,7 +1274,7 @@ class CropBoxHelper {
             CropManager.cropBoxes[otherBox] = testOtherBox;
 
             // Remember the size of the boxes for growing them after positioning them in align mode
-            CropManager.saveCropBoxDimensions = { width: CropManager.cropBoxes[CropManager.LEFT].width, height: CropManager.cropBoxes[CropManager.LEFT].height };
+            CropManager.saveCropBoxDimensions = { width: CropManager.cropBoxes[Box.LEFT].width, height: CropManager.cropBoxes[Box.LEFT].height };
         }
 
         if (CropValidator.DEBUG) {
@@ -1450,8 +1457,8 @@ class CropBoxHelper {
     }
     
     static adjustToNewScale(scaleRatio = ImageRenderer.scale / CropManager.currentScale) {
-        this.adjustScale(CropManager.cropBoxes[CropManager.LEFT], scaleRatio);
-        this.adjustScale(CropManager.cropBoxes[CropManager.RIGHT], scaleRatio);
+        this.adjustScale(CropManager.cropBoxes[Box.LEFT], scaleRatio);
+        this.adjustScale(CropManager.cropBoxes[Box.RIGHT], scaleRatio);
         CropManager.saveCropBoxDimensions.width *= scaleRatio;
         CropManager.saveCropBoxDimensions.height *= scaleRatio;
         CropManager.currentScale = ImageRenderer.scale;
@@ -1466,7 +1473,7 @@ class CropBoxHelper {
     }
     
     static swapBoxes(boxes) {
-        [boxes[CropManager.LEFT], boxes[CropManager.RIGHT]] = [boxes[CropManager.RIGHT], boxes[CropManager.LEFT]];
+        [boxes[Box.LEFT], boxes[Box.RIGHT]] = [boxes[Box.RIGHT], boxes[Box.LEFT]];
     }
     
     static shrinkBoxes(box1, box2) {
@@ -1588,7 +1595,7 @@ class CropRenderer {
     
     static drawCropInterface(highlights = [false, false]) {
         // Start glow animation if any box went active
-        if (highlights[CropManager.LEFT] || highlights[CropManager.RIGHT]) {
+        if (highlights[Box.LEFT] || highlights[Box.RIGHT]) {
             this.startGlowAnimation();
         }
         
@@ -1603,17 +1610,17 @@ class CropRenderer {
 
         // Calculate image offsets
         const xOffsets = {
-            left: -(CropManager.cropBoxes[CropManager.LEFT].x + CropManager.cropBoxes[CropManager.LEFT].width - SIC.images[0].width * CropManager.currentScale),
-            right: -CropManager.cropBoxes[CropManager.RIGHT].x
+            left: -(CropManager.cropBoxes[Box.LEFT].x + CropManager.cropBoxes[Box.LEFT].width - SIC.images[0].width * CropManager.currentScale),
+            right: -CropManager.cropBoxes[Box.RIGHT].x
         };
 
         const yOffsets = {
-            left: -CropManager.cropBoxes[CropManager.LEFT].yOffset,
-            right: -CropManager.cropBoxes[CropManager.RIGHT].yOffset
+            left: -CropManager.cropBoxes[Box.LEFT].yOffset,
+            right: -CropManager.cropBoxes[Box.RIGHT].yOffset
         };
 
         // Draw gap based on crop box size
-        const avgWidth = CropManager.cropBoxes[CropManager.LEFT].width;
+        const avgWidth = CropManager.cropBoxes[Box.LEFT].width;
         
         // Draw images with both x and y offsets
         CropManager.currentParams = ImageRenderer.drawImages({
@@ -1627,18 +1634,18 @@ class CropRenderer {
         
         // Create boxes in canvas space
         const leftBox = {
-            x: CropManager.cropBoxes[CropManager.LEFT].x + xOffsets.left,
-            y: CropManager.cropBoxes[CropManager.LEFT].y + yOffsets.left,
-            width: CropManager.cropBoxes[CropManager.LEFT].width,
-            height: CropManager.cropBoxes[CropManager.LEFT].height
+            x: CropManager.cropBoxes[Box.LEFT].x + xOffsets.left,
+            y: CropManager.cropBoxes[Box.LEFT].y + yOffsets.left,
+            width: CropManager.cropBoxes[Box.LEFT].width,
+            height: CropManager.cropBoxes[Box.LEFT].height
         };
         
         // For the right box, we need the right image start position
         const rightBox = {
             x: rightImgStart,
-            y: CropManager.cropBoxes[CropManager.RIGHT].y + yOffsets.right,
-            width: CropManager.cropBoxes[CropManager.RIGHT].width,
-            height: CropManager.cropBoxes[CropManager.RIGHT].height
+            y: CropManager.cropBoxes[Box.RIGHT].y + yOffsets.right,
+            width: CropManager.cropBoxes[Box.RIGHT].width,
+            height: CropManager.cropBoxes[Box.RIGHT].height
         };
 
         // Draw semi-transparent overlay for areas outside the crop boxes
@@ -1657,8 +1664,8 @@ class CropRenderer {
         // Redraw the cropped part of the left image
         ctx.drawImage(
             SIC.images[0],
-            CropManager.cropBoxes[CropManager.LEFT].x / CropManager.currentScale, 
-            CropManager.cropBoxes[CropManager.LEFT].y / CropManager.currentScale,
+            CropManager.cropBoxes[Box.LEFT].x / CropManager.currentScale, 
+            CropManager.cropBoxes[Box.LEFT].y / CropManager.currentScale,
             leftBox.width / CropManager.currentScale, 
             leftBox.height / CropManager.currentScale,
             leftBox.x, leftBox.y,
@@ -1668,8 +1675,8 @@ class CropRenderer {
         // Redraw the cropped part of the right image
         ctx.drawImage(
             SIC.images[1],
-            CropManager.cropBoxes[CropManager.RIGHT].x / CropManager.currentScale, 
-            CropManager.cropBoxes[CropManager.RIGHT].y / CropManager.currentScale,
+            CropManager.cropBoxes[Box.RIGHT].x / CropManager.currentScale, 
+            CropManager.cropBoxes[Box.RIGHT].y / CropManager.currentScale,
             rightBox.width / CropManager.currentScale, 
             rightBox.height / CropManager.currentScale,
             rightBox.x, rightBox.y,
@@ -1679,21 +1686,21 @@ class CropRenderer {
         const glowParams = this.glowParameters();
 
         // Draw left crop box
-        this.configureBoxStyle(ctx, CropInteraction.movableBoxes[CropManager.LEFT], glowParams);
+        this.configureBoxStyle(ctx, CropInteraction.movableBoxes[Box.LEFT], glowParams);
         if (CropUI.drawBoxesCheckbox.checked) {
             this.drawCropBox(ctx, leftBox.x + leftBox.width, leftBox.y, leftBox.x,
                 Math.min(canvas.height, leftBox.y + leftBox.height));
         }
-        this.drawHandles(ctx, leftBox, CropManager.LEFT);
+        this.drawHandles(ctx, leftBox, Box.LEFT);
 
         // Draw right crop box
-        this.configureBoxStyle(ctx, CropInteraction.movableBoxes[CropManager.RIGHT], glowParams);
+        this.configureBoxStyle(ctx, CropInteraction.movableBoxes[Box.RIGHT], glowParams);
         if (CropUI.drawBoxesCheckbox.checked) {
             this.drawCropBox(ctx, rightBox.x, rightBox.y,
                 Math.min(canvas.width, rightBox.x + rightBox.width),
                 Math.min(canvas.height, rightBox.y + rightBox.height));
         }
-        this.drawHandles(ctx, rightBox, CropManager.RIGHT);
+        this.drawHandles(ctx, rightBox, Box.RIGHT);
 
         // Reset to defaults
         ctx.lineWidth = 2;
@@ -1823,7 +1830,7 @@ class CropRenderer {
         const cornerRadius = this.handleSize / 4;
 
         let cornerHandlePositions, sideHandlePositions;
-        if (boxPos === CropManager.LEFT) {
+        if (boxPos === Box.LEFT) {
             cornerHandlePositions = [
                 { id: CropManager.TOP_LEFT, x: box.x, y: box.y, start: 0 },
                 { id: CropManager.BOTTOM_LEFT, x: box.x, y: box.y + box.height, start: 1.5 * Math.PI },
@@ -1839,7 +1846,7 @@ class CropRenderer {
                     width: this.handleSize / 2, height: this.handleSize * 2,
                     corners: [0, cornerRadius, cornerRadius, 0] }
             ];
-        } else if (boxPos === CropManager.RIGHT) {
+        } else if (boxPos === Box.RIGHT) {
             cornerHandlePositions = [
                 { id: CropManager.TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
                 { id: CropManager.BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
@@ -1915,8 +1922,8 @@ class CropValidator {
         const minCropSizeCanvas = CropInteraction.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
         // Get current image dimensions
         const oldCropBoxes = [
-            { ...CropManager.cropBoxes[CropManager.LEFT] },
-            { ...CropManager.cropBoxes[CropManager.RIGHT] }
+            { ...CropManager.cropBoxes[Box.LEFT] },
+            { ...CropManager.cropBoxes[Box.RIGHT] }
         ];
         
         const img1Width = SIC.images[0].width * CropManager.currentScale;
@@ -1925,60 +1932,60 @@ class CropValidator {
         const img2Height = SIC.images[1].height * CropManager.currentScale;
         
         // Ensure left box stays within left image bounds
-        CropManager.cropBoxes[CropManager.LEFT].x = Math.max(0, Math.min(CropManager.cropBoxes[CropManager.LEFT].x, img1Width - minCropSizeCanvas));
-        CropManager.cropBoxes[CropManager.LEFT].y = Math.max(0, Math.min(CropManager.cropBoxes[CropManager.LEFT].y, img1Height - minCropSizeCanvas));
-        CropManager.cropBoxes[CropManager.LEFT].width = Math.max(minCropSizeCanvas, Math.min(CropManager.cropBoxes[CropManager.LEFT].width, img1Width - CropManager.cropBoxes[CropManager.LEFT].x));
-        CropManager.cropBoxes[CropManager.LEFT].height = Math.max(minCropSizeCanvas, Math.min(CropManager.cropBoxes[CropManager.LEFT].height, img1Height - CropManager.cropBoxes[CropManager.LEFT].y));
+        CropManager.cropBoxes[Box.LEFT].x = Math.max(0, Math.min(CropManager.cropBoxes[Box.LEFT].x, img1Width - minCropSizeCanvas));
+        CropManager.cropBoxes[Box.LEFT].y = Math.max(0, Math.min(CropManager.cropBoxes[Box.LEFT].y, img1Height - minCropSizeCanvas));
+        CropManager.cropBoxes[Box.LEFT].width = Math.max(minCropSizeCanvas, Math.min(CropManager.cropBoxes[Box.LEFT].width, img1Width - CropManager.cropBoxes[Box.LEFT].x));
+        CropManager.cropBoxes[Box.LEFT].height = Math.max(minCropSizeCanvas, Math.min(CropManager.cropBoxes[Box.LEFT].height, img1Height - CropManager.cropBoxes[Box.LEFT].y));
         
         // Ensure right box stays within right image bounds
-        CropManager.cropBoxes[CropManager.RIGHT].x = Math.max(0, Math.min(CropManager.cropBoxes[CropManager.RIGHT].x, img2Width - minCropSizeCanvas));
-        CropManager.cropBoxes[CropManager.RIGHT].y = Math.max(0, Math.min(CropManager.cropBoxes[CropManager.RIGHT].y, img2Height - minCropSizeCanvas));
-        CropManager.cropBoxes[CropManager.RIGHT].width = Math.max(minCropSizeCanvas, Math.min(CropManager.cropBoxes[CropManager.RIGHT].width, img2Width - CropManager.cropBoxes[CropManager.RIGHT].x));
-        CropManager.cropBoxes[CropManager.RIGHT].height = Math.max(minCropSizeCanvas, Math.min(CropManager.cropBoxes[CropManager.RIGHT].height, img2Height - CropManager.cropBoxes[CropManager.RIGHT].y));
+        CropManager.cropBoxes[Box.RIGHT].x = Math.max(0, Math.min(CropManager.cropBoxes[Box.RIGHT].x, img2Width - minCropSizeCanvas));
+        CropManager.cropBoxes[Box.RIGHT].y = Math.max(0, Math.min(CropManager.cropBoxes[Box.RIGHT].y, img2Height - minCropSizeCanvas));
+        CropManager.cropBoxes[Box.RIGHT].width = Math.max(minCropSizeCanvas, Math.min(CropManager.cropBoxes[Box.RIGHT].width, img2Width - CropManager.cropBoxes[Box.RIGHT].x));
+        CropManager.cropBoxes[Box.RIGHT].height = Math.max(minCropSizeCanvas, Math.min(CropManager.cropBoxes[Box.RIGHT].height, img2Height - CropManager.cropBoxes[Box.RIGHT].y));
         
         // Enforce both crop boxes having the same height and width
-        const minHeight = Math.min(CropManager.cropBoxes[CropManager.LEFT].height, CropManager.cropBoxes[CropManager.RIGHT].height);
-        const minWidth = Math.min(CropManager.cropBoxes[CropManager.LEFT].width, CropManager.cropBoxes[CropManager.RIGHT].width);
+        const minHeight = Math.min(CropManager.cropBoxes[Box.LEFT].height, CropManager.cropBoxes[Box.RIGHT].height);
+        const minWidth = Math.min(CropManager.cropBoxes[Box.LEFT].width, CropManager.cropBoxes[Box.RIGHT].width);
         
-        CropManager.cropBoxes[CropManager.LEFT].height = minHeight;
-        CropManager.cropBoxes[CropManager.RIGHT].height = minHeight;
-        CropManager.cropBoxes[CropManager.LEFT].width = minWidth;
-        CropManager.cropBoxes[CropManager.RIGHT].width = minWidth;
+        CropManager.cropBoxes[Box.LEFT].height = minHeight;
+        CropManager.cropBoxes[Box.RIGHT].height = minHeight;
+        CropManager.cropBoxes[Box.LEFT].width = minWidth;
+        CropManager.cropBoxes[Box.RIGHT].width = minWidth;
 
         // Check for changes and report
         const eps = CropBoxHelper.epsilon / 100;
         if (
-            Math.abs(CropManager.cropBoxes[CropManager.LEFT].x - oldCropBoxes[CropManager.LEFT].x) > eps ||
-            Math.abs(CropManager.cropBoxes[CropManager.LEFT].y - oldCropBoxes[CropManager.LEFT].y) > eps ||
-            Math.abs(CropManager.cropBoxes[CropManager.LEFT].width - oldCropBoxes[CropManager.LEFT].width) > eps ||
-            Math.abs(CropManager.cropBoxes[CropManager.LEFT].height - oldCropBoxes[CropManager.LEFT].height) > eps
+            Math.abs(CropManager.cropBoxes[Box.LEFT].x - oldCropBoxes[Box.LEFT].x) > eps ||
+            Math.abs(CropManager.cropBoxes[Box.LEFT].y - oldCropBoxes[Box.LEFT].y) > eps ||
+            Math.abs(CropManager.cropBoxes[Box.LEFT].width - oldCropBoxes[Box.LEFT].width) > eps ||
+            Math.abs(CropManager.cropBoxes[Box.LEFT].height - oldCropBoxes[Box.LEFT].height) > eps
         ) {
             console.log('Left x, y, width, height:', msg);
             console.log(img1Width, img1Height);
-            console.log(CropManager.cropBoxes[CropManager.LEFT]);
-            console.log(oldCropBoxes[CropManager.LEFT]);
-            CropManager.cropBoxes[CropManager.LEFT] = { ...oldCropBoxes[CropManager.LEFT] };
+            console.log(CropManager.cropBoxes[Box.LEFT]);
+            console.log(oldCropBoxes[Box.LEFT]);
+            CropManager.cropBoxes[Box.LEFT] = { ...oldCropBoxes[Box.LEFT] };
         }
         
         if (
-            Math.abs(CropManager.cropBoxes[CropManager.RIGHT].x - oldCropBoxes[CropManager.RIGHT].x) > eps ||
-            Math.abs(CropManager.cropBoxes[CropManager.RIGHT].y - oldCropBoxes[CropManager.RIGHT].y) > eps ||
-            Math.abs(CropManager.cropBoxes[CropManager.RIGHT].width - oldCropBoxes[CropManager.RIGHT].width) > eps ||
-            Math.abs(CropManager.cropBoxes[CropManager.RIGHT].height - oldCropBoxes[CropManager.RIGHT].height) > eps
+            Math.abs(CropManager.cropBoxes[Box.RIGHT].x - oldCropBoxes[Box.RIGHT].x) > eps ||
+            Math.abs(CropManager.cropBoxes[Box.RIGHT].y - oldCropBoxes[Box.RIGHT].y) > eps ||
+            Math.abs(CropManager.cropBoxes[Box.RIGHT].width - oldCropBoxes[Box.RIGHT].width) > eps ||
+            Math.abs(CropManager.cropBoxes[Box.RIGHT].height - oldCropBoxes[Box.RIGHT].height) > eps
         ) {
             console.log('Right: x, y, width, height:', msg);
             console.log(img2Width, img2Height);
-            console.log(CropManager.cropBoxes[CropManager.RIGHT]);
-            console.log(oldCropBoxes[CropManager.RIGHT]);
-            CropManager.cropBoxes[CropManager.RIGHT] = { ...oldCropBoxes[CropManager.RIGHT] };
+            console.log(CropManager.cropBoxes[Box.RIGHT]);
+            console.log(oldCropBoxes[Box.RIGHT]);
+            CropManager.cropBoxes[Box.RIGHT] = { ...oldCropBoxes[Box.RIGHT] };
         }
 
         // Check that crop boxes are aligned on screen
-        if (Math.abs(CropManager.cropBoxes[CropManager.LEFT].y - CropManager.cropBoxes[CropManager.LEFT].yOffset - 
-                (CropManager.cropBoxes[CropManager.RIGHT].y - CropManager.cropBoxes[CropManager.RIGHT].yOffset)) > CropBoxHelper.epsilon) {
+        if (Math.abs(CropManager.cropBoxes[Box.LEFT].y - CropManager.cropBoxes[Box.LEFT].yOffset - 
+                (CropManager.cropBoxes[Box.RIGHT].y - CropManager.cropBoxes[Box.RIGHT].yOffset)) > CropBoxHelper.epsilon) {
             console.log("y doesn't match:", msg);
-            console.log(CropManager.cropBoxes[CropManager.LEFT].y - CropManager.cropBoxes[CropManager.LEFT].yOffset - 
-                (CropManager.cropBoxes[CropManager.RIGHT].y - CropManager.cropBoxes[CropManager.RIGHT].yOffset));
+            console.log(CropManager.cropBoxes[Box.LEFT].y - CropManager.cropBoxes[Box.LEFT].yOffset - 
+                (CropManager.cropBoxes[Box.RIGHT].y - CropManager.cropBoxes[Box.RIGHT].yOffset));
             console.log(CropManager.cropBoxes);
         }
     }
@@ -2002,7 +2009,7 @@ class AlignMode {
         this.saveLockedCheckbox = CropUI.lockedCheckbox.checked;
         CropUI.lockedCheckbox.checked = false;
         CropUI.lockedCheckbox.disabled = true;
-        this.cropRatio = CropManager.cropBoxes[CropManager.LEFT].width / CropManager.cropBoxes[CropManager.LEFT].height;
+        this.cropRatio = CropManager.cropBoxes[Box.LEFT].width / CropManager.cropBoxes[Box.LEFT].height;
 
         // Disable transparent background image
         CropManager.canvas.classList.remove('transparent-bg');
@@ -2019,7 +2026,7 @@ class AlignMode {
         CropBoxHelper.adjustToNewScale();
 
         CropInteraction.currentHandle = CropManager.INSIDE;
-        CropInteraction.activeCropBox = CropManager.LEFT;
+        CropInteraction.activeCropBox = Box.LEFT;
         CropInteraction.updateCursor(CropInteraction.currentHandle);
         CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
         CropRenderer.drawCropInterface(CropInteraction.movableBoxes);
@@ -2051,7 +2058,7 @@ class AlignMode {
         }
 
         CropInteraction.currentHandle = CropManager.OUTSIDE;
-        CropInteraction.activeCropBox = CropManager.LEFT;
+        CropInteraction.activeCropBox = Box.LEFT;
         CropInteraction.updateCursor(CropInteraction.currentHandle);
         CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
         CropRenderer.drawCropInterface(CropInteraction.movableBoxes);
@@ -2083,8 +2090,8 @@ class AlignMode {
         // Ensure that both images are not above or below the top of the canvas
         const deltaYOffset = CropAnimation.checkImagePositions();
         if (deltaYOffset !== 0) {
-            CropManager.cropBoxes[CropManager.LEFT].yOffset -= deltaYOffset;
-            CropManager.cropBoxes[CropManager.RIGHT].yOffset -= deltaYOffset;
+            CropManager.cropBoxes[Box.LEFT].yOffset -= deltaYOffset;
+            CropManager.cropBoxes[Box.RIGHT].yOffset -= deltaYOffset;
         }
 
         // Draw handles etc if not positioning the images relative to each other
@@ -2101,7 +2108,7 @@ class AlignMode {
         const bodyBackgroundColor = bodyStyle.backgroundColor;
 
         // Draw with right box
-        const box = CropManager.cropBoxes[CropManager.RIGHT];
+        const box = CropManager.cropBoxes[Box.RIGHT];
 
         // Draw semi-transparent overlay for areas outside the crop box
         ctx.globalAlpha = CropRenderer.CROP_BOX_OVERLAY_OPACITY;
@@ -2116,13 +2123,13 @@ class AlignMode {
 
         // Draw the box (optionally) and handles
         const glowParams = CropRenderer.glowParameters();
-        CropRenderer.configureBoxStyle(ctx, CropInteraction.movableBoxes[CropManager.LEFT] || CropInteraction.movableBoxes[CropManager.RIGHT], glowParams);
+        CropRenderer.configureBoxStyle(ctx, CropInteraction.movableBoxes[Box.LEFT] || CropInteraction.movableBoxes[Box.RIGHT], glowParams);
 
         if (CropUI.drawBoxesCheckbox.checked) {
             ctx.strokeRect(box.x, box.y, box.width, box.height);
         }
 
-        CropRenderer.drawHandles(ctx, box, CropManager.BOTH);
+        CropRenderer.drawHandles(ctx, box, Box.BOTH);
 
         // Reset to defaults
         ctx.lineWidth = 2;
@@ -2167,8 +2174,8 @@ class AlignMode {
             img2Width, img2Height                       // Destination dimensions
         );
 
-        const xOffset = (CropManager.cropBoxes[CropManager.RIGHT].x - CropManager.cropBoxes[CropManager.LEFT].x);
-        const yOffset = (CropManager.cropBoxes[CropManager.RIGHT].y - CropManager.cropBoxes[CropManager.LEFT].y);
+        const xOffset = (CropManager.cropBoxes[Box.RIGHT].x - CropManager.cropBoxes[Box.LEFT].x);
+        const yOffset = (CropManager.cropBoxes[Box.RIGHT].y - CropManager.cropBoxes[Box.LEFT].y);
 
         ctx.globalAlpha = 0.50;
         // Draw the left image
@@ -2194,16 +2201,16 @@ class CropAnimation {
     static animateOffsetChangeFrameId = null;
     
     static checkImagePositions() {
-        if (CropManager.cropBoxes[CropManager.LEFT].yOffset < 0 && 
-            CropManager.cropBoxes[CropManager.RIGHT].yOffset < 0) {
+        if (CropManager.cropBoxes[Box.LEFT].yOffset < 0 && 
+            CropManager.cropBoxes[Box.RIGHT].yOffset < 0) {
             // Both boxes are above the canvas - calculate adjustment to bring one down
-            return Math.max(CropManager.cropBoxes[CropManager.LEFT].yOffset, 
-                           CropManager.cropBoxes[CropManager.RIGHT].yOffset);
-        } else if (CropManager.cropBoxes[CropManager.LEFT].yOffset > 0 && 
-                  CropManager.cropBoxes[CropManager.RIGHT].yOffset > 0) {
+            return Math.max(CropManager.cropBoxes[Box.LEFT].yOffset, 
+                           CropManager.cropBoxes[Box.RIGHT].yOffset);
+        } else if (CropManager.cropBoxes[Box.LEFT].yOffset > 0 && 
+                  CropManager.cropBoxes[Box.RIGHT].yOffset > 0) {
             // Both boxes are below the canvas top - calculate adjustment to bring one up
-            return Math.min(CropManager.cropBoxes[CropManager.LEFT].yOffset, 
-                           CropManager.cropBoxes[CropManager.RIGHT].yOffset);
+            return Math.min(CropManager.cropBoxes[Box.LEFT].yOffset, 
+                           CropManager.cropBoxes[Box.RIGHT].yOffset);
         }
         return 0;
     }
@@ -2243,8 +2250,8 @@ class CropAnimation {
         const currentDeltaY = this.targetDeltaY * easeProgress;
         const currentIncrement = currentDeltaY - this.previousDeltaY;
         this.previousDeltaY = currentDeltaY;
-        CropManager.cropBoxes[CropManager.LEFT].yOffset -= currentIncrement;
-        CropManager.cropBoxes[CropManager.RIGHT].yOffset -= currentIncrement;
+        CropManager.cropBoxes[Box.LEFT].yOffset -= currentIncrement;
+        CropManager.cropBoxes[Box.RIGHT].yOffset -= currentIncrement;
         CropRenderer.drawCropInterface();
             
         // Continue animation if not complete
