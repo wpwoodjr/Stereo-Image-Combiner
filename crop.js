@@ -1,10 +1,42 @@
 // ===================================
 // ENUMS
 // ===================================
+
+// Box positions
 const Box = Object.freeze({
     LEFT: 0,
     RIGHT: 1,
     BOTH: 2
+});
+
+// Crop handle positions
+const Handle = Object.freeze({
+    TOP_LEFT: 0,
+    TOP_MIDDLE: 1,
+    TOP_RIGHT: 2,
+    LEFT_MIDDLE: 3,
+    RIGHT_MIDDLE: 4,
+    BOTTOM_LEFT: 5,
+    BOTTOM_MIDDLE: 6,
+    BOTTOM_RIGHT: 7,
+    INSIDE: 8,
+    OUTSIDE: 9,
+    TRANSLATION: 10
+});
+
+// Movement constraint modes
+const Clamp = Object.freeze({
+    NO_CLAMP: 0,
+    VERTICAL_CLAMP: 1,
+    HORIZONTAL_CLAMP: 2
+});
+
+// Movement axis types
+const Axis = Object.freeze({
+    HORIZONTAL: 0,
+    VERTICAL: 1,
+    DIAGONAL: 2,
+    NONE: 3
 });
 
 // ===================================
@@ -15,30 +47,6 @@ class CropManager {
     static isCropping = false;
     static isCropped = false;
     static cropButton = null;
-    
-    // Constants     
-    static TOP_LEFT = 0;
-    static TOP_MIDDLE = 1;
-    static TOP_RIGHT = 2;
-    static LEFT_MIDDLE = 3;
-    static RIGHT_MIDDLE = 4;
-    static BOTTOM_LEFT = 5;
-    static BOTTOM_MIDDLE = 6;
-    static BOTTOM_RIGHT = 7;
-    static INSIDE = 8;
-    static OUTSIDE = 9;
-    static TRANSLATION = 10;
-
-    // Movement constraint modes
-    static NO_CLAMP = 0;
-    static VERTICAL_CLAMP = 1;
-    static HORIZONTAL_CLAMP = 2;
-    
-    // Movement axis types
-    static HORIZONTAL = 0;
-    static VERTICAL = 1;
-    static DIAGONAL = 2;
-    static NONE = 3;
 
     // State variables
     static originalImages = null;
@@ -521,7 +529,7 @@ class CropUI {
         }
 
         StorageManager.setItem('clampCheckBox', this.clampCheckbox.checked);
-        CropInteraction.clampMode = this.clampCheckbox.checked ? CropManager.HORIZONTAL_CLAMP : CropManager.NO_CLAMP;
+        CropInteraction.clampMode = this.clampCheckbox.checked ? Clamp.HORIZONTAL_CLAMP : Clamp.NO_CLAMP;
 
         CropInteraction.updateCursor(CropInteraction.currentHandle);
         const wasMovable = CropInteraction.movableBoxes;
@@ -542,8 +550,8 @@ class CropInteraction {
     static dragStartX = 0;
     static dragStartY = 0;
     static movableBoxes = [false, false];
-    static clampMode = CropManager.NO_CLAMP;
-    static movementAxis = CropManager.NONE;
+    static clampMode = Clamp.NO_CLAMP;
+    static movementAxis = Axis.NONE;
     static resizing = false;
     
     // Constants
@@ -597,9 +605,9 @@ class CropInteraction {
         if (CropManager.alignMode) {
             const bothHandle = this.getHandleForBox(rightBox, x, y, Box.BOTH, rightBox.x);
             if (bothHandle !== null) {
-                return bothHandle.id === CropManager.INSIDE ? [CropManager.INSIDE, Box.LEFT] : [bothHandle.id, bothHandle.box];
+                return bothHandle.id === Handle.INSIDE ? [Handle.INSIDE, Box.LEFT] : [bothHandle.id, bothHandle.box];
             }
-            return [CropManager.OUTSIDE, Box.LEFT];
+            return [Handle.OUTSIDE, Box.LEFT];
         }
 
         // Check if the mouse is over any handle of the left crop box
@@ -617,7 +625,7 @@ class CropInteraction {
             return [rightHandle.id, Box.RIGHT];
         }
         
-        return [CropManager.OUTSIDE, Box.LEFT];
+        return [Handle.OUTSIDE, Box.LEFT];
     }
     
     static getHandleForBox(box, x, y, boxPos, xCanvas) {
@@ -635,37 +643,37 @@ class CropInteraction {
         if (boxPos === Box.LEFT) {
             const leftPosX = xCanvas - this.HANDLE_SIZE;
             handlePositions = [
-                { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY },
-                { id: CropManager.BOTTOM_LEFT, x: leftPosX, y: bottomPosY },
+                { id: Handle.TOP_LEFT, x: leftPosX, y: topPosY },
+                { id: Handle.BOTTOM_LEFT, x: leftPosX, y: bottomPosY },
                 // Side handles
-                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY },
-                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
-                { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY }
+                { id: Handle.TOP_MIDDLE, x: middlePosX, y: topPosY },
+                { id: Handle.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
+                { id: Handle.LEFT_MIDDLE, x: leftPosX, y: middlePosY }
             ];
         } else if (boxPos === Box.RIGHT) {
             const rightPosX = xCanvas + box.width - grabSize + this.HANDLE_SIZE;
             handlePositions = [
-                { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY },
-                { id: CropManager.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY },
+                { id: Handle.TOP_RIGHT, x: rightPosX, y: topPosY },
+                { id: Handle.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY },
                 // Side handles
-                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY },
-                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
-                { id: CropManager.RIGHT_MIDDLE, x: rightPosX, y: middlePosY },
+                { id: Handle.TOP_MIDDLE, x: middlePosX, y: topPosY },
+                { id: Handle.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY },
+                { id: Handle.RIGHT_MIDDLE, x: rightPosX, y: middlePosY },
             ];
         } else {
             // alignMode, need to return correct box for handle
             const leftPosX = xCanvas - this.HANDLE_SIZE;
             const rightPosX = xCanvas + box.width - grabSize + this.HANDLE_SIZE;
             handlePositions = [
-                { id: CropManager.TOP_LEFT, x: leftPosX, y: topPosY, box: Box.LEFT },
-                { id: CropManager.BOTTOM_LEFT, x: leftPosX, y: bottomPosY, box: Box.LEFT },
-                { id: CropManager.TOP_RIGHT, x: rightPosX, y: topPosY, box: Box.RIGHT },
-                { id: CropManager.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY, box: Box.RIGHT },
+                { id: Handle.TOP_LEFT, x: leftPosX, y: topPosY, box: Box.LEFT },
+                { id: Handle.BOTTOM_LEFT, x: leftPosX, y: bottomPosY, box: Box.LEFT },
+                { id: Handle.TOP_RIGHT, x: rightPosX, y: topPosY, box: Box.RIGHT },
+                { id: Handle.BOTTOM_RIGHT, x: rightPosX, y: bottomPosY, box: Box.RIGHT },
                 // Side handles
-                { id: CropManager.TOP_MIDDLE, x: middlePosX, y: topPosY, box: Box.LEFT },
-                { id: CropManager.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY, box: Box.LEFT },
-                { id: CropManager.LEFT_MIDDLE, x: leftPosX, y: middlePosY, box: Box.LEFT },
-                { id: CropManager.RIGHT_MIDDLE, x: rightPosX, y: middlePosY, box: Box.RIGHT }
+                { id: Handle.TOP_MIDDLE, x: middlePosX, y: topPosY, box: Box.LEFT },
+                { id: Handle.BOTTOM_MIDDLE, x: middlePosX, y: bottomPosY, box: Box.LEFT },
+                { id: Handle.LEFT_MIDDLE, x: leftPosX, y: middlePosY, box: Box.LEFT },
+                { id: Handle.RIGHT_MIDDLE, x: rightPosX, y: middlePosY, box: Box.RIGHT }
             ];
         }
 
@@ -693,7 +701,7 @@ class CropInteraction {
         // Check if inside the crop box for dragging
         if (!CropUI.lockedCheckbox.checked && x >= xCanvas && x <= xCanvas + box.width &&
             y >= yCanvas && y <= yCanvas + box.height) {
-            return { id: CropManager.INSIDE };
+            return { id: Handle.INSIDE };
         }
 
         return null;
@@ -724,7 +732,7 @@ class CropInteraction {
             this.movableBoxes = this.getMovableBoxes(this.currentHandle);
             CropRenderer.drawCropInterface(highlights);
 
-            if (CropValidator.DEBUG && this.movementAxis === CropManager.NONE && !this.resizing) {
+            if (CropValidator.DEBUG && this.movementAxis === Axis.NONE && !this.resizing) {
                 const ctx = CropManager.ctx;
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = '#ff88ff'
@@ -742,12 +750,12 @@ class CropInteraction {
     static onMouseUp(e) {
         if (CropManager.isCropping && this.isDragging) {
             this.isDragging = false;
-            this.clampMode = CropUI.clampCheckbox.checked ? CropManager.HORIZONTAL_CLAMP : CropManager.NO_CLAMP;
+            this.clampMode = CropUI.clampCheckbox.checked ? Clamp.HORIZONTAL_CLAMP : Clamp.NO_CLAMP;
 
             // Ensure that both images are not above or below the top of the canvas
             CropAnimation.animateFixImagePositions();
 
-            if (CropManager.alignMode && this.currentHandle === CropManager.INSIDE) {
+            if (CropManager.alignMode && this.currentHandle === Handle.INSIDE) {
                 // Grow the boxes as much as possible after shrinking and repositioning them
                 CropBoxHelper.growBoxes(CropManager.cropBoxes[Box.LEFT], CropManager.cropBoxes[Box.RIGHT]);
             }
@@ -785,12 +793,12 @@ class CropInteraction {
         e.preventDefault();
         if (!this.isDragging) return;
         this.isDragging = false;
-        this.clampMode = CropUI.clampCheckbox.checked ? CropManager.HORIZONTAL_CLAMP : CropManager.NO_CLAMP;
+        this.clampMode = CropUI.clampCheckbox.checked ? Clamp.HORIZONTAL_CLAMP : Clamp.NO_CLAMP;
 
         // Ensure that both images are not above or below the top of the canvas
         CropAnimation.animateFixImagePositions();
 
-        if (CropManager.alignMode && this.currentHandle === CropManager.INSIDE) {
+        if (CropManager.alignMode && this.currentHandle === Handle.INSIDE) {
             // Grow the boxes as much as possible after shrinking and repositioning them
             CropBoxHelper.growBoxes(CropManager.cropBoxes[Box.LEFT], CropManager.cropBoxes[Box.RIGHT]);
         }
@@ -829,12 +837,12 @@ class CropInteraction {
         this.totalDeltaY = 0;
         this.xLatch = 0;
         this.yLatch = 0;
-        this.movementAxis = CropManager.NONE;
+        this.movementAxis = Axis.NONE;
     }
     
     static startMove() {
-        this.resizing = this.currentHandle !== CropManager.INSIDE && this.currentHandle !== CropManager.OUTSIDE;
-        if (CropManager.alignMode && this.currentHandle === CropManager.INSIDE) {
+        this.resizing = this.currentHandle !== Handle.INSIDE && this.currentHandle !== Handle.OUTSIDE;
+        if (CropManager.alignMode && this.currentHandle === Handle.INSIDE) {
             // Shrink the boxes so they have room to move around
             CropBoxHelper.shrinkBoxes(CropManager.cropBoxes[Box.LEFT], CropManager.cropBoxes[Box.RIGHT]);
         }
@@ -844,28 +852,28 @@ class CropInteraction {
         const canvas = CropManager.canvas;
         
         switch (handle) {
-            case CropManager.TOP_LEFT:
-            case CropManager.BOTTOM_RIGHT:
+            case Handle.TOP_LEFT:
+            case Handle.BOTTOM_RIGHT:
                 canvas.style.cursor = 'nwse-resize';
                 break;
-            case CropManager.TOP_RIGHT:
-            case CropManager.BOTTOM_LEFT:
+            case Handle.TOP_RIGHT:
+            case Handle.BOTTOM_LEFT:
                 canvas.style.cursor = 'nesw-resize';
                 break;
-            case CropManager.TOP_MIDDLE:
-            case CropManager.BOTTOM_MIDDLE:
+            case Handle.TOP_MIDDLE:
+            case Handle.BOTTOM_MIDDLE:
                 canvas.style.cursor = 'ns-resize';
                 break;
-            case CropManager.LEFT_MIDDLE:
-            case CropManager.RIGHT_MIDDLE:
+            case Handle.LEFT_MIDDLE:
+            case Handle.RIGHT_MIDDLE:
                 canvas.style.cursor = 'ew-resize';
                 break;
-            case CropManager.TRANSLATION:
-            case CropManager.INSIDE:
-            case CropManager.OUTSIDE:
-                if (this.clampMode === CropManager.HORIZONTAL_CLAMP) {
+            case Handle.TRANSLATION:
+            case Handle.INSIDE:
+            case Handle.OUTSIDE:
+                if (this.clampMode === Clamp.HORIZONTAL_CLAMP) {
                     canvas.style.cursor = 'ew-resize';
-                } else if (this.clampMode === CropManager.VERTICAL_CLAMP) {
+                } else if (this.clampMode === Clamp.VERTICAL_CLAMP) {
                     canvas.style.cursor = 'ns-resize';
                 } else {
                     canvas.style.cursor = 'move';
@@ -910,29 +918,29 @@ class CropInteraction {
 
         // We're done here if resizing or aligning...
         let highlights = [false, false];
-        if (this.resizing || (CropManager.alignMode && !CropUI.clampCheckbox.checked && this.currentHandle === CropManager.INSIDE)) {
+        if (this.resizing || (CropManager.alignMode && !CropUI.clampCheckbox.checked && this.currentHandle === Handle.INSIDE)) {
             return [xMove, yMove, highlights];
         }
 
         // Update yMove and xMove based on direction of translation
-        if (this.movementAxis === CropManager.NONE) {
+        if (this.movementAxis === Axis.NONE) {
             const inLatchZone = this.xLatch === 0 || this.yLatch === 0;
             const otherBox = 1 - this.activeCropBox;
             
             if (CropUI.clampCheckbox.checked) {
-                this.movementAxis = CropManager.HORIZONTAL;
-                this.clampMode = CropManager.HORIZONTAL_CLAMP;
+                this.movementAxis = Axis.HORIZONTAL;
+                this.clampMode = Clamp.HORIZONTAL_CLAMP;
                 yMove = 0;
             } else if (totalDistanceSquared > this.FINE_CROP_WINDOW_SIZE * this.FINE_CROP_WINDOW_SIZE) {
                 // We have our direction! Let the user know...
                 highlights[this.activeCropBox] = true;
                 
                 if (!inLatchZone) {
-                    this.movementAxis = CropManager.DIAGONAL;
-                    this.clampMode = CropManager.NO_CLAMP;
+                    this.movementAxis = Axis.DIAGONAL;
+                    this.clampMode = Clamp.NO_CLAMP;
                 } else if (absTotalDeltaX > absTotalDeltaY) {
-                    this.movementAxis = CropManager.HORIZONTAL;
-                    this.clampMode = CropManager.HORIZONTAL_CLAMP;
+                    this.movementAxis = Axis.HORIZONTAL;
+                    this.clampMode = Clamp.HORIZONTAL_CLAMP;
                     yMove = 0;
                     // Zero out the vertical direction
                     CropManager.cropBoxes[this.activeCropBox].y = this.saveActiveBoxXY.y;
@@ -940,8 +948,8 @@ class CropInteraction {
                     CropManager.cropBoxes[otherBox].y = this.saveOtherBoxXY.y;
                     CropManager.cropBoxes[otherBox].yOffset = this.saveOtherBoxXY.yOffset;
                 } else {
-                    this.movementAxis = CropManager.VERTICAL;
-                    this.clampMode = CropManager.VERTICAL_CLAMP;
+                    this.movementAxis = Axis.VERTICAL;
+                    this.clampMode = Clamp.VERTICAL_CLAMP;
                     xMove = 0;
                     // Zero out the horizontal direction
                     CropManager.cropBoxes[this.activeCropBox].x = this.saveActiveBoxXY.x;
@@ -954,9 +962,9 @@ class CropInteraction {
                 } else {
                     this.xLatch = 0;
                 }
-                this.clampMode = CropManager.NO_CLAMP;
+                this.clampMode = Clamp.NO_CLAMP;
             } else if (absTotalDeltaX > absTotalDeltaY) {
-                this.clampMode = CropManager.HORIZONTAL_CLAMP;
+                this.clampMode = Clamp.HORIZONTAL_CLAMP;
                 yMove = 0;
                 CropManager.cropBoxes[this.activeCropBox].y = this.saveActiveBoxXY.y;
                 CropManager.cropBoxes[this.activeCropBox].yOffset = this.saveActiveBoxXY.yOffset;
@@ -964,31 +972,31 @@ class CropInteraction {
                 CropManager.cropBoxes[otherBox].yOffset = this.saveOtherBoxXY.yOffset;
                 this.yLatch = 0;
             } else {
-                this.clampMode = CropManager.VERTICAL_CLAMP;
+                this.clampMode = Clamp.VERTICAL_CLAMP;
                 xMove = 0;
                 CropManager.cropBoxes[this.activeCropBox].x = this.saveActiveBoxXY.x;
                 CropManager.cropBoxes[otherBox].x = this.saveOtherBoxXY.x;
                 this.xLatch = 0;
             }
-            this.updateCursor(CropManager.TRANSLATION);
-        } else if (this.movementAxis === CropManager.HORIZONTAL) {
+            this.updateCursor(Handle.TRANSLATION);
+        } else if (this.movementAxis === Axis.HORIZONTAL) {
             yMove = 0;
-        } else if (this.movementAxis === CropManager.VERTICAL) {
+        } else if (this.movementAxis === Axis.VERTICAL) {
             xMove = 0;
         }
 
         return [xMove, yMove, highlights];
     }
-    
+
     static getMovableBoxes(handle) {
-        if (handle === CropManager.INSIDE || handle === CropManager.OUTSIDE) {
+        if (handle === Handle.INSIDE || handle === Handle.OUTSIDE) {
             // For moves, we need to check if boxes can actually move
             const leftCanMove = CropBoxHelper.canBoxMove(CropManager.cropBoxes[Box.LEFT], Box.LEFT, handle);
             const rightCanMove = CropBoxHelper.canBoxMove(CropManager.cropBoxes[Box.RIGHT], Box.RIGHT, handle);
     
             // Determine which directions are valid based on current clamp mode
-            const canMoveHorizontal = this.clampMode !== CropManager.VERTICAL_CLAMP;
-            const canMoveVertical = this.clampMode !== CropManager.HORIZONTAL_CLAMP;
+            const canMoveHorizontal = this.clampMode !== Clamp.VERTICAL_CLAMP;
+            const canMoveVertical = this.clampMode !== Clamp.HORIZONTAL_CLAMP;
     
             // Check if the boxes can move within the constraints of the current clamp mode
             const leftCanMoveWithinClamp = (
@@ -1001,7 +1009,7 @@ class CropInteraction {
                 (canMoveVertical && (rightCanMove.canMoveUp || rightCanMove.canMoveDown))
             );
     
-            if (handle === CropManager.INSIDE) {
+            if (handle === Handle.INSIDE) {
                 // Check if the active box can move within current clamp constraints
                 // In align mode, movement is allowed if either cropbox can move
                 if (CropManager.alignMode) {
@@ -1011,7 +1019,7 @@ class CropInteraction {
                 } else {
                     return [false, rightCanMoveWithinClamp];
                 }
-            } else if (handle === CropManager.OUTSIDE) {
+            } else if (handle === Handle.OUTSIDE) {
                 // For outside handle, check if both boxes can move in the same allowed direction
                 const bothCanMoveHorizontal = 
                     canMoveHorizontal && 
@@ -1123,7 +1131,7 @@ class CropInteraction {
         // Delay until the user releases the key
         this.deltaYOffsetChangeTimeoutID = setTimeout(
             () => this.onArrowEnd(), 
-            CropManager.alignMode && this.currentHandle === CropManager.INSIDE ? 1500 : 500
+            CropManager.alignMode && this.currentHandle === Handle.INSIDE ? 1500 : 500
         );
 
         // Redraw the interface
@@ -1137,7 +1145,7 @@ class CropInteraction {
             // Ensure that both images are not above or below the top of the canvas
             CropAnimation.animateFixImagePositions();
 
-            if (CropManager.alignMode && this.currentHandle === CropManager.INSIDE) {
+            if (CropManager.alignMode && this.currentHandle === Handle.INSIDE) {
                 // Grow the boxes as much as possible after shrinking and repositioning them
                 CropBoxHelper.growBoxes(CropManager.cropBoxes[Box.LEFT], CropManager.cropBoxes[Box.RIGHT]);
             }
@@ -1147,13 +1155,13 @@ class CropInteraction {
     }
     
     static nextTab() {
-        if (this.currentHandle === CropManager.OUTSIDE) {
-            this.currentHandle = CropManager.INSIDE;
+        if (this.currentHandle === Handle.OUTSIDE) {
+            this.currentHandle = Handle.INSIDE;
             this.activeCropBox = Box.LEFT;
         } else if (this.activeCropBox === Box.LEFT && !CropManager.alignMode) {
             this.activeCropBox = Box.RIGHT;
         } else {
-            this.currentHandle = CropManager.OUTSIDE;
+            this.currentHandle = Handle.OUTSIDE;
             this.activeCropBox = Box.LEFT;
         }
         return this.getMovableBoxes(this.currentHandle);
@@ -1178,7 +1186,7 @@ class CropBoxHelper {
         // Create copies to simulate changes without affecting the actual boxes yet
         const testActiveBox = { ...CropManager.cropBoxes[activeBox] };
         
-        if (handle === CropManager.OUTSIDE) {
+        if (handle === Handle.OUTSIDE) {
             // In align mode, we're moving the crop boxes, not the image
             if (CropManager.alignMode) {
                 deltaX = -deltaX;
@@ -1200,7 +1208,7 @@ class CropBoxHelper {
                 activeBox === Box.LEFT ? img1Width : img2Width,
                 activeBox === Box.LEFT ? img1Height : img2Height);
 
-        } else if (handle === CropManager.INSIDE) {
+        } else if (handle === Handle.INSIDE) {
             // Only move the active box
             const { x, y } =
                 this.moveBox(CropManager.cropBoxes[activeBox], deltaX, deltaY, 
@@ -1236,24 +1244,24 @@ class CropBoxHelper {
             const testOtherBox = { ...CropManager.cropBoxes[otherBox] };
             
             // Handle x position changes (left edge)
-            if ([CropManager.TOP_LEFT, CropManager.LEFT_MIDDLE, CropManager.BOTTOM_LEFT].includes(handle)) {
+            if ([Handle.TOP_LEFT, Handle.LEFT_MIDDLE, Handle.BOTTOM_LEFT].includes(handle)) {
                 testOtherBox.x += xChange;
                 testOtherBox.width -= xChange; // Compensate width for left edge movement
             }
             
             // Handle y position changes (top edge)
-            if ([CropManager.TOP_LEFT, CropManager.TOP_MIDDLE, CropManager.TOP_RIGHT].includes(handle)) {
+            if ([Handle.TOP_LEFT, Handle.TOP_MIDDLE, Handle.TOP_RIGHT].includes(handle)) {
                 testOtherBox.y += yChange;
                 testOtherBox.height -= yChange; // Compensate height for top edge movement
             }
             
             // Handle width changes (right edge)
-            if ([CropManager.TOP_RIGHT, CropManager.RIGHT_MIDDLE, CropManager.BOTTOM_RIGHT].includes(handle)) {
+            if ([Handle.TOP_RIGHT, Handle.RIGHT_MIDDLE, Handle.BOTTOM_RIGHT].includes(handle)) {
                 testOtherBox.width += widthChange;
             }
             
             // Handle height changes (bottom edge)
-            if ([CropManager.BOTTOM_LEFT, CropManager.BOTTOM_MIDDLE, CropManager.BOTTOM_RIGHT].includes(handle)) {
+            if ([Handle.BOTTOM_LEFT, Handle.BOTTOM_MIDDLE, Handle.BOTTOM_RIGHT].includes(handle)) {
                 testOtherBox.height += heightChange;
             }
             
@@ -1305,13 +1313,13 @@ class CropBoxHelper {
         const boxAspectRatio = box.width / box.height;
         
         // Handle corner resize cases (maintains aspect ratio)
-        if ([CropManager.TOP_LEFT, CropManager.TOP_RIGHT, CropManager.BOTTOM_LEFT, CropManager.BOTTOM_RIGHT].includes(handle)) {
+        if ([Handle.TOP_LEFT, Handle.TOP_RIGHT, Handle.BOTTOM_LEFT, Handle.BOTTOM_RIGHT].includes(handle)) {
             // Create a mapping of corner handles to their direction vectors
             const cornerDirections = {
-                [CropManager.TOP_LEFT]: { x: -boxAspectRatio, y: -1 },
-                [CropManager.TOP_RIGHT]: { x: boxAspectRatio, y: -1 },
-                [CropManager.BOTTOM_LEFT]: { x: -boxAspectRatio, y: 1 },
-                [CropManager.BOTTOM_RIGHT]: { x: boxAspectRatio, y: 1 }
+                [Handle.TOP_LEFT]: { x: -boxAspectRatio, y: -1 },
+                [Handle.TOP_RIGHT]: { x: boxAspectRatio, y: -1 },
+                [Handle.BOTTOM_LEFT]: { x: -boxAspectRatio, y: 1 },
+                [Handle.BOTTOM_RIGHT]: { x: boxAspectRatio, y: 1 }
             };
 
             // Get the direction for this corner
@@ -1332,7 +1340,7 @@ class CropBoxHelper {
         
         // Handle all resize cases
         switch (handle) {
-            case CropManager.TOP_LEFT: {
+            case Handle.TOP_LEFT: {
                 // Adjust x position and width
                 const newX = Math.max(0, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
                 const widthChange = box.x - newX;
@@ -1347,7 +1355,7 @@ class CropBoxHelper {
                 break;
             }
             
-            case CropManager.TOP_RIGHT: {
+            case Handle.TOP_RIGHT: {
                 // Adjust width
                 box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, maxWidth - box.x));
                 
@@ -1359,7 +1367,7 @@ class CropBoxHelper {
                 break;
             }
             
-            case CropManager.BOTTOM_LEFT: {
+            case Handle.BOTTOM_LEFT: {
                 // Adjust x position and width
                 const newX = Math.max(0, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
                 const widthChange = box.x - newX;
@@ -1371,7 +1379,7 @@ class CropBoxHelper {
                 break;
             }
             
-            case CropManager.BOTTOM_RIGHT: {
+            case Handle.BOTTOM_RIGHT: {
                 // Adjust width
                 box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, maxWidth - box.x));
                 
@@ -1380,7 +1388,7 @@ class CropBoxHelper {
                 break;
             }
             
-            case CropManager.TOP_MIDDLE: {
+            case Handle.TOP_MIDDLE: {
                 // Adjust y position and height - no aspect ratio
                 const newY = Math.max(0, Math.min(box.y + deltaY, box.y + box.height - minCropSizeCanvas));
                 const heightChange = box.y - newY;
@@ -1389,19 +1397,19 @@ class CropBoxHelper {
                 break;
             }
             
-            case CropManager.RIGHT_MIDDLE: {
+            case Handle.RIGHT_MIDDLE: {
                 // Adjust width - no aspect ratio
                 box.width = Math.max(minCropSizeCanvas, Math.min(box.width + deltaX, maxWidth - box.x));
                 break;
             }
             
-            case CropManager.BOTTOM_MIDDLE: {
+            case Handle.BOTTOM_MIDDLE: {
                 // Adjust height - no aspect ratio
                 box.height = Math.max(minCropSizeCanvas, Math.min(box.height + deltaY, maxHeight - box.y));
                 break;
             }
             
-            case CropManager.LEFT_MIDDLE: {
+            case Handle.LEFT_MIDDLE: {
                 // Adjust x position and width - no aspect ratio
                 const newX = Math.max(0, Math.min(box.x + deltaX, box.x + box.width - minCropSizeCanvas));
                 const widthChange = box.x - newX;
@@ -1430,7 +1438,7 @@ class CropBoxHelper {
         let { x, y, width, height } = box;
         
         // In alignMode we shrink the boxes so they can move
-        if (CropManager.alignMode && handle === CropManager.INSIDE) {
+        if (CropManager.alignMode && handle === Handle.INSIDE) {
             const minCropSizeCanvas = CropInteraction.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
             const ratio = width / height;
             if (ratio > 1) {
@@ -1832,55 +1840,55 @@ class CropRenderer {
         let cornerHandlePositions, sideHandlePositions;
         if (boxPos === Box.LEFT) {
             cornerHandlePositions = [
-                { id: CropManager.TOP_LEFT, x: box.x, y: box.y, start: 0 },
-                { id: CropManager.BOTTOM_LEFT, x: box.x, y: box.y + box.height, start: 1.5 * Math.PI },
+                { id: Handle.TOP_LEFT, x: box.x, y: box.y, start: 0 },
+                { id: Handle.BOTTOM_LEFT, x: box.x, y: box.y + box.height, start: 1.5 * Math.PI },
             ];
             sideHandlePositions = [
-                { id: CropManager.TOP_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y,
+                { id: Handle.TOP_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y,
                     width: this.handleSize * 2, height: this.handleSize / 2,
                     corners: [0, 0, cornerRadius, cornerRadius] },
-                { id: CropManager.BOTTOM_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y + box.height - this.handleSize / 2,
+                { id: Handle.BOTTOM_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y + box.height - this.handleSize / 2,
                     width: this.handleSize * 2, height: this.handleSize / 2,
                     corners: [cornerRadius, cornerRadius, 0, 0] },
-                { id: CropManager.LEFT_MIDDLE, x: box.x, y: box.y + box.height / 2 - this.handleSize,
+                { id: Handle.LEFT_MIDDLE, x: box.x, y: box.y + box.height / 2 - this.handleSize,
                     width: this.handleSize / 2, height: this.handleSize * 2,
                     corners: [0, cornerRadius, cornerRadius, 0] }
             ];
         } else if (boxPos === Box.RIGHT) {
             cornerHandlePositions = [
-                { id: CropManager.TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
-                { id: CropManager.BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
+                { id: Handle.TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
+                { id: Handle.BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
             ];
             sideHandlePositions = [
-                { id: CropManager.TOP_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y,
+                { id: Handle.TOP_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y,
                     width: this.handleSize * 2, height: this.handleSize / 2,
                     corners: [0, 0, cornerRadius, cornerRadius] },
-                { id: CropManager.BOTTOM_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y + box.height - this.handleSize / 2,
+                { id: Handle.BOTTOM_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y + box.height - this.handleSize / 2,
                     width: this.handleSize * 2, height: this.handleSize / 2,
                     corners: [cornerRadius, cornerRadius, 0, 0] },
-                { id: CropManager.RIGHT_MIDDLE, x: box.x + box.width - this.handleSize / 2, y: box.y + box.height / 2 - this.handleSize,
+                { id: Handle.RIGHT_MIDDLE, x: box.x + box.width - this.handleSize / 2, y: box.y + box.height / 2 - this.handleSize,
                     width: this.handleSize / 2, height: this.handleSize * 2,
                     corners: [cornerRadius, 0, 0, cornerRadius] }
             ];
         } else {
             // Align mode
             cornerHandlePositions = [
-                { id: CropManager.TOP_LEFT, x: box.x, y: box.y, start: 0 },
-                { id: CropManager.BOTTOM_LEFT, x: box.x, y: box.y + box.height, start: 1.5 * Math.PI },
-                { id: CropManager.TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
-                { id: CropManager.BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
+                { id: Handle.TOP_LEFT, x: box.x, y: box.y, start: 0 },
+                { id: Handle.BOTTOM_LEFT, x: box.x, y: box.y + box.height, start: 1.5 * Math.PI },
+                { id: Handle.TOP_RIGHT, x: box.x + box.width, y: box.y, start: 0.5 * Math.PI },
+                { id: Handle.BOTTOM_RIGHT, x: box.x + box.width, y: box.y + box.height, start: Math.PI },
             ];
             sideHandlePositions = [
-                { id: CropManager.TOP_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y,
+                { id: Handle.TOP_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y,
                     width: this.handleSize * 2, height: this.handleSize / 2,
                     corners: [0, 0, cornerRadius, cornerRadius] },
-                { id: CropManager.BOTTOM_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y + box.height - this.handleSize / 2,
+                { id: Handle.BOTTOM_MIDDLE, x: box.x + box.width / 2 - this.handleSize, y: box.y + box.height - this.handleSize / 2,
                     width: this.handleSize * 2, height: this.handleSize / 2,
                     corners: [cornerRadius, cornerRadius, 0, 0] },
-                { id: CropManager.LEFT_MIDDLE, x: box.x, y: box.y + box.height / 2 - this.handleSize,
+                { id: Handle.LEFT_MIDDLE, x: box.x, y: box.y + box.height / 2 - this.handleSize,
                     width: this.handleSize / 2, height: this.handleSize * 2,
                     corners: [0, cornerRadius, cornerRadius, 0] },
-                { id: CropManager.RIGHT_MIDDLE, x: box.x + box.width - this.handleSize / 2, y: box.y + box.height / 2 - this.handleSize,
+                { id: Handle.RIGHT_MIDDLE, x: box.x + box.width - this.handleSize / 2, y: box.y + box.height / 2 - this.handleSize,
                     width: this.handleSize / 2, height: this.handleSize * 2,
                     corners: [cornerRadius, 0, 0, cornerRadius] }
             ];
@@ -2025,7 +2033,7 @@ class AlignMode {
         // Adjust crop boxes to new scale
         CropBoxHelper.adjustToNewScale();
 
-        CropInteraction.currentHandle = CropManager.INSIDE;
+        CropInteraction.currentHandle = Handle.INSIDE;
         CropInteraction.activeCropBox = Box.LEFT;
         CropInteraction.updateCursor(CropInteraction.currentHandle);
         CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
@@ -2057,7 +2065,7 @@ class AlignMode {
             CropManager.canvas.classList.add('transparent-bg');
         }
 
-        CropInteraction.currentHandle = CropManager.OUTSIDE;
+        CropInteraction.currentHandle = Handle.OUTSIDE;
         CropInteraction.activeCropBox = Box.LEFT;
         CropInteraction.updateCursor(CropInteraction.currentHandle);
         CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
@@ -2081,7 +2089,7 @@ class AlignMode {
     }
     
     static drawCropInterface() {    
-        const aligning = CropInteraction.currentHandle === CropManager.INSIDE && 
+        const aligning = CropInteraction.currentHandle === Handle.INSIDE && 
                         (CropInteraction.isDragging || CropInteraction.isArrowing);    
 
         // Draw images with both x and y offsets
