@@ -50,11 +50,21 @@ class CropManager {
     static alignMode = false;
     static saveCropBoxDimensions = { width: 0, height: 0 };
 
+    // cache the canvas and context
+    static canvas = null;
+    static ctx = null;
+
     // Initialize the module
     static initialize() {
+        this.setupCanvas();
         this.setupDOM();
         this.setupEventListeners();
         CropInteraction.initialize();
+    }
+
+    static setupCanvas() {
+        this.canvas = document.getElementById('canvas');
+        this.ctx = this.canvas.getContext('2d');
     }
 
     static setupDOM() {
@@ -309,7 +319,7 @@ class CropManager {
         this.cancelCropButton.style.display = 'none';
         this.cropOptionsControlGroup.style.display = 'none';
         this.cropButton.style.display = 'block';
-        document.getElementById('canvas').style.cursor = 'default';
+        this.canvas.style.cursor = 'default';
         UIManager.domElements.saveButton.disabled = false;
     }
 
@@ -346,7 +356,7 @@ class CropManager {
         if (scalePercent !== 0) {
             // New scale percent
             if (this.alignMode) {
-                AlignMode.alignModeScalePercent = scalePercent;
+                AlignMode.scalePercent = scalePercent;
                 StorageManager.setItem('alignModeScalePercent', scalePercent);
             } else {
                 // Keeping resetScalePercent up to date in case local storage is not working
@@ -397,10 +407,6 @@ class CropManager {
         } else {
             ImageRenderer.drawImages();
         }
-    }
-
-    static drawCropInterface(highlights = [false, false]) {
-        CropRenderer.drawCropInterface(highlights);
     }
 }
 
@@ -557,7 +563,7 @@ class CropInteraction {
     
     static initialize() {
         // Set up canvas event listeners
-        const canvas = document.getElementById('canvas');
+        const canvas = CropManager.canvas;
         canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
         window.addEventListener('mousemove', (e) => this.onMouseMove(e));
         window.addEventListener('mouseup', (e) => this.onMouseUp(e));
@@ -577,8 +583,7 @@ class CropInteraction {
     }
 
     static getXY(e) {
-        const canvas = document.getElementById('canvas');
-        const rect = canvas.getBoundingClientRect();
+        const rect = CropManager.canvas.getBoundingClientRect();
         return [e.clientX - rect.left, e.clientY - rect.top];
     }
     
@@ -658,8 +663,7 @@ class CropInteraction {
         }
 
         if (CropValidator.DEBUG) {
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = CropManager.ctx;
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#33ccff';
             for (const handle of handlePositions) {
@@ -714,8 +718,7 @@ class CropInteraction {
             CropRenderer.drawCropInterface(highlights);
 
             if (CropValidator.DEBUG && this.movementAxis === CropManager.NONE && !this.resizing) {
-                const canvas = document.getElementById('canvas');
-                const ctx = canvas.getContext('2d');
+                const ctx = CropManager.ctx;
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = '#ff88ff'
                 ctx.strokeRect(x - this.totalDeltaX - this.LATCH_ZONE_SIZE, y - this.totalDeltaY - this.LATCH_ZONE_SIZE,
@@ -831,7 +834,7 @@ class CropInteraction {
     }
     
     static updateCursor(handle) {
-        const canvas = document.getElementById('canvas');
+        const canvas = CropManager.canvas;
         
         switch (handle) {
             case CropManager.TOP_LEFT:
@@ -1590,13 +1593,13 @@ class CropRenderer {
         }
         
         if (CropManager.alignMode) {
-            AlignMode.drawCropInterfaceAlignMode();
+            AlignMode.drawCropInterface();
             return;
         }
 
         // Get the main canvas context
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = CropManager.canvas;
+        const ctx = CropManager.ctx;
 
         // Calculate image offsets
         const xOffsets = {
@@ -1985,9 +1988,9 @@ class CropValidator {
 // ALIGN MODE - Handles align mode UI and functionality
 // ===================================
 class AlignMode {
-    static alignModeSavePreviousScalePercent = 0;
-    static alignModeScalePercent = 0;
-    static alignModeCropRatio = 0;
+    static savePreviousScalePercent = 0;
+    static scalePercent = 0;
+    static cropRatio = 0;
     static alignImage0 = null;
     static alignImage1 = null;
     static saveLockedCheckbox = true;
@@ -1999,18 +2002,18 @@ class AlignMode {
         this.saveLockedCheckbox = CropUI.lockedCheckbox.checked;
         CropUI.lockedCheckbox.checked = false;
         CropUI.lockedCheckbox.disabled = true;
-        this.alignModeCropRatio = CropManager.cropBoxes[CropManager.LEFT].width / CropManager.cropBoxes[CropManager.LEFT].height;
+        this.cropRatio = CropManager.cropBoxes[CropManager.LEFT].width / CropManager.cropBoxes[CropManager.LEFT].height;
 
         // Disable transparent background image
-        document.getElementById('canvas').classList.remove('transparent-bg');
+        CropManager.canvas.classList.remove('transparent-bg');
 
-        this.alignModeSavePreviousScalePercent = CropManager.currentScale / ImageRenderer.maxScale;
-        if (this.alignModeScalePercent === 0) {
-            this.alignModeScalePercent = StorageManager.getItem('alignModeScalePercent', this.alignModeSavePreviousScalePercent);
+        this.savePreviousScalePercent = CropManager.currentScale / ImageRenderer.maxScale;
+        if (this.scalePercent === 0) {
+            this.scalePercent = StorageManager.getItem('alignModeScalePercent', this.savePreviousScalePercent);
         }
         
         // We are displaying overlaid images so get the new max scale
-        CropManager.updateScalePercent(this.alignModeScalePercent, true, false);
+        CropManager.updateScalePercent(this.scalePercent, true, false);
 
         // Adjust crop boxes to new scale
         CropBoxHelper.adjustToNewScale();
@@ -2044,7 +2047,7 @@ class AlignMode {
 
         // Restore transparent background image if in transparent mode
         if (UIManager.isTransparent) {
-            document.getElementById('canvas').classList.add('transparent-bg');
+            CropManager.canvas.classList.add('transparent-bg');
         }
 
         CropInteraction.currentHandle = CropManager.OUTSIDE;
@@ -2064,18 +2067,18 @@ class AlignMode {
     
     static restorePreviousScalePercent() {
         if (CropManager.alignMode) {
-            CropManager.updateScalePercent(this.alignModeSavePreviousScalePercent, false, false);
+            CropManager.updateScalePercent(this.savePreviousScalePercent, false, false);
             // Adjust crop boxes to new scale
             CropBoxHelper.adjustToNewScale();
         }
     }
     
-    static drawCropInterfaceAlignMode() {    
+    static drawCropInterface() {    
         const aligning = CropInteraction.currentHandle === CropManager.INSIDE && 
                         (CropInteraction.isDragging || CropInteraction.isArrowing);    
 
         // Draw images with both x and y offsets
-        this.drawImagesAlignMode(aligning);
+        this.drawImages(aligning);
 
         // Ensure that both images are not above or below the top of the canvas
         const deltaYOffset = CropAnimation.checkImagePositions();
@@ -2086,14 +2089,14 @@ class AlignMode {
 
         // Draw handles etc if not positioning the images relative to each other
         if (!aligning) {
-            this.drawCropBoxesAlignMode();
+            this.drawCropBoxes();
         }
     }
     
-    static drawCropBoxesAlignMode() {
+    static drawCropBoxes() {
         // Get the main canvas context
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = CropManager.canvas;
+        const ctx = CropManager.ctx;
         const bodyStyle = window.getComputedStyle(document.body);
         const bodyBackgroundColor = bodyStyle.backgroundColor;
 
@@ -2132,12 +2135,12 @@ class AlignMode {
         }
     }
     
-    static drawImagesAlignMode(aligning) {
+    static drawImages(aligning) {
         if (SIC.images.length !== 2) return null;
 
         // Get the main canvas context
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = CropManager.canvas;
+        const ctx = CropManager.ctx;
 
         // Calculate dimensions
         const img1Width = SIC.images[0].width * CropManager.currentScale;
