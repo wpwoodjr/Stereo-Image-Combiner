@@ -183,7 +183,7 @@ class CropManager {
 
             // Swap if necessary
             if (this.lastCropState.swapped) {
-                CropBoxHelper.swapBoxes(this.cropBoxes);
+                this.swapBoxes(this.cropBoxes);
             }
 
             // Restore scale
@@ -192,7 +192,7 @@ class CropManager {
 
             // See if cropBox scale needs to be updated
             if (this.lastCropState.scale !== this.currentScale) {
-                CropBoxHelper.adjustToNewScale(this.currentScale / this.lastCropState.scale);
+                this.adjustToNewScale(this.currentScale / this.lastCropState.scale);
             }
 
             if (CropValidator.DEBUG) {
@@ -393,7 +393,7 @@ class CropManager {
         }
 
         // Adjust crop boxes to new scale
-        CropBoxHelper.adjustToNewScale();
+        this.adjustToNewScale();
 
         // Redraw with updated boxes
         CropInteraction.currentHandle = Handle.OUTSIDE;
@@ -421,7 +421,7 @@ class CropManager {
                 [AlignMode.alignImage0, AlignMode.alignImage1] = [AlignMode.alignImage1, AlignMode.alignImage0];
             }
             
-            CropBoxHelper.swapBoxes(this.cropBoxes);
+            this.swapBoxes(this.cropBoxes);
             CropInteraction.currentHandle = Handle.OUTSIDE;
             CropInteraction.activeCropBox = Box.LEFT;
             CropInteraction.updateCursor(CropInteraction.currentHandle);
@@ -430,6 +430,26 @@ class CropManager {
         } else {
             ImageRenderer.drawImages();
         }
+    }
+
+    static adjustToNewScale(scaleRatio = ImageRenderer.scale / this.currentScale) {
+        this.adjustBoxScale(this.cropBoxes[Box.LEFT], scaleRatio);
+        this.adjustBoxScale(this.cropBoxes[Box.RIGHT], scaleRatio);
+        this.saveCropBoxDimensions.width *= scaleRatio;
+        this.saveCropBoxDimensions.height *= scaleRatio;
+        this.currentScale = ImageRenderer.scale;
+    }
+    
+    static adjustBoxScale(box, scaleRatio) {
+        box.x *= scaleRatio;
+        box.y *= scaleRatio;
+        box.width *= scaleRatio;
+        box.height *= scaleRatio;
+        box.yOffset *= scaleRatio;
+    }
+
+    static swapBoxes(boxes) {
+        [boxes[Box.LEFT], boxes[Box.RIGHT]] = [boxes[Box.RIGHT], boxes[Box.LEFT]];
     }
 }
 
@@ -1473,27 +1493,7 @@ class CropBoxHelper {
         
         return { canMoveLeft, canMoveRight, canMoveUp, canMoveDown };
     }
-    
-    static adjustToNewScale(scaleRatio = ImageRenderer.scale / CropManager.currentScale) {
-        this.adjustScale(CropManager.cropBoxes[Box.LEFT], scaleRatio);
-        this.adjustScale(CropManager.cropBoxes[Box.RIGHT], scaleRatio);
-        CropManager.saveCropBoxDimensions.width *= scaleRatio;
-        CropManager.saveCropBoxDimensions.height *= scaleRatio;
-        CropManager.currentScale = ImageRenderer.scale;
-    }
-    
-    static adjustScale(box, scaleRatio) {
-        box.x *= scaleRatio;
-        box.y *= scaleRatio;
-        box.width *= scaleRatio;
-        box.height *= scaleRatio;
-        box.yOffset *= scaleRatio;
-    }
-    
-    static swapBoxes(boxes) {
-        [boxes[Box.LEFT], boxes[Box.RIGHT]] = [boxes[Box.RIGHT], boxes[Box.LEFT]];
-    }
-    
+
     static shrinkBoxes(box1, box2) {
         const minCropSizeCanvas = this.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
 
@@ -2041,7 +2041,7 @@ class AlignMode {
         CropManager.updateScalePercent(this.scalePercent, true, false);
 
         // Adjust crop boxes to new scale
-        CropBoxHelper.adjustToNewScale();
+        CropManager.adjustToNewScale();
 
         CropInteraction.currentHandle = Handle.INSIDE;
         CropInteraction.activeCropBox = Box.LEFT;
@@ -2094,7 +2094,7 @@ class AlignMode {
         if (CropManager.alignMode) {
             CropManager.updateScalePercent(this.savePreviousScalePercent, false, false);
             // Adjust crop boxes to new scale
-            CropBoxHelper.adjustToNewScale();
+            CropManager.adjustToNewScale();
         }
     }
     
