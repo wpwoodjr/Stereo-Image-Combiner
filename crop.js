@@ -424,7 +424,7 @@ class CropManager {
 }
 
 // ===================================
-// CROP UI - Handles UI elements for cropping
+// CROP Options - Handles options for cropping
 // ===================================
 class CropOptions {
     static alignCheckbox = null;
