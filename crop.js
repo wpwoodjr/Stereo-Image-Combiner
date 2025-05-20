@@ -46,7 +46,6 @@ class CropManager {
     // Exports for external access
     static isCropping = false;
     static isCropped = false;
-    static cropButton = null;
 
     // State variables
     static originalImages = null;
@@ -67,11 +66,20 @@ class CropManager {
     static canvas = null;
     static ctx = null;
 
+    // UI elements
+    static cropButton = null;
+    static applyCropButton = null;
+    static cancelCropButton = null;
+    static resetCropButton = null;
+    static cropOptionsControlGroup = null;
+
     // Initialize the module
     static initialize() {
         this.setupCanvas();
         this.setupDOM();
         this.setupEventListeners();
+        CropOptions.initialize(this.cropOptionsControlGroup);
+        this.alignMode = CropOptions.alignCheckbox.checked;
         CropInteraction.initialize();
     }
 
@@ -119,8 +127,6 @@ class CropManager {
         this.cropOptionsControlGroup.className = 'control-group';
         this.cropOptionsControlGroup.style.display = 'none';
         controlGroup.appendChild(this.cropOptionsControlGroup);
-        
-        CropOptions.setupControls(this.cropOptionsControlGroup);
     }
 
     static setupEventListeners() {
@@ -128,6 +134,10 @@ class CropManager {
         this.applyCropButton.addEventListener('click', () => this.applyCrop());
         this.cancelCropButton.addEventListener('click', () => this.cancelCrop());
         this.resetCropButton.addEventListener('click', () => this.resetCrop());
+    }
+
+    static setCropButtonDisabledState(state) {
+        this.cropButton.disabled = state;
     }
 
     static startCrop() {
@@ -163,7 +173,7 @@ class CropManager {
         this.applyCropButton.style.display = 'block';
         this.cancelCropButton.style.display = 'block';
         this.cropOptionsControlGroup.style.display = 'block';
-        UIManager.domElements.saveButton.disabled = true;
+        UIManager.setSaveButtonDisabledState(true);
 
         // If we have a previous crop state, restore those dimensions
         if (this.lastCropState) {
@@ -333,7 +343,7 @@ class CropManager {
         this.cropOptionsControlGroup.style.display = 'none';
         this.cropButton.style.display = 'block';
         this.canvas.style.cursor = 'default';
-        UIManager.domElements.saveButton.disabled = false;
+        UIManager.setSaveButtonDisabledState(false);
     }
 
     static resetCrop() {
@@ -432,7 +442,7 @@ class CropOptions {
     static clampCheckbox = null;
     static drawBoxesCheckbox = null;
 
-    static setupControls(container) {
+    static initialize(container) {
         // Create align mode checkbox
         this.alignCheckbox = document.createElement('input');
         this.alignCheckbox.type = 'checkbox';
@@ -508,7 +518,7 @@ class CropOptions {
         });
 
         // Initialize from local storage
-        CropManager.alignMode = this.alignCheckbox.checked = StorageManager.getItem('alignCheckBox', true);
+        this.alignCheckbox.checked = StorageManager.getItem('alignCheckBox', true);
         this.lockedCheckbox.checked = StorageManager.getItem('lockedCheckBox', true);
         this.clampCheckbox.checked = StorageManager.getItem('clampCheckBox', false);
         this.drawBoxesCheckbox.checked = StorageManager.getItem('drawCropBoxes', true);
@@ -523,8 +533,8 @@ class CropOptions {
         CropRenderer.drawCropInterface(CropInteraction.movableBoxHighlights(wasMovable));
     }
 
-    static toggleClampCheckbox(key = false) {
-        if (key) {
+    static toggleClampCheckbox(toggleChecked) {
+        if (toggleChecked) {
             this.clampCheckbox.checked = !this.clampCheckbox.checked;
         }
 
@@ -557,7 +567,6 @@ class CropInteraction {
     // Constants
     static HANDLE_SIZE = 16;
     static GRAB_SIZE = 3 * this.HANDLE_SIZE;
-    static MIN_CROP_SIZE_PIXELS = 3 * this.HANDLE_SIZE;
     static FINE_CROP_WINDOW_SIZE = 32;
     static SLOWEST_SPEED = 0.20;
     static LATCH_ZONE_SIZE = this.HANDLE_SIZE / 2;
@@ -1173,6 +1182,7 @@ class CropInteraction {
 // ===================================
 class CropBoxHelper {
     static epsilon = 0.001;
+    static MIN_CROP_SIZE_PIXELS = 3 * CropInteraction.HANDLE_SIZE;
     
     static updateCropBoxes(handle, activeBox, deltaX, deltaY) {
         const img1Width = SIC.images[0].width * CropManager.currentScale;
@@ -1309,7 +1319,7 @@ class CropBoxHelper {
     }
     
     static resizeBox(box, handle, deltaX, deltaY, maxWidth, maxHeight) {
-        const minCropSizeCanvas = CropInteraction.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
+        const minCropSizeCanvas = this.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
         const boxAspectRatio = box.width / box.height;
         
         // Handle corner resize cases (maintains aspect ratio)
@@ -1421,7 +1431,7 @@ class CropBoxHelper {
     }
     
     static isBoxInBounds(box, maxWidth, maxHeight) {
-        const minCropSizeCanvas = CropInteraction.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
+        const minCropSizeCanvas = this.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
         
         // Check all constraints
         if (box.x < -this.epsilon) return false;
@@ -1439,7 +1449,7 @@ class CropBoxHelper {
         
         // In alignMode we shrink the boxes so they can move
         if (CropManager.alignMode && handle === Handle.INSIDE) {
-            const minCropSizeCanvas = CropInteraction.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
+            const minCropSizeCanvas = this.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
             const ratio = width / height;
             if (ratio > 1) {
                 width = ratio * minCropSizeCanvas;
@@ -1485,7 +1495,7 @@ class CropBoxHelper {
     }
     
     static shrinkBoxes(box1, box2) {
-        const minCropSizeCanvas = CropInteraction.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
+        const minCropSizeCanvas = this.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
 
         const width = box1.width;
         const height = box1.height;
@@ -1608,7 +1618,7 @@ class CropRenderer {
         }
         
         if (CropManager.alignMode) {
-            AlignMode.drawCropInterface();
+            AlignMode.drawAlignInterface();
             return;
         }
 
@@ -1923,11 +1933,11 @@ class CropRenderer {
 // ===================================
 class CropValidator {
     static DEBUG = false;
-    
+
     static validateCropBoxes(msg) {
         if (!this.DEBUG) return;
         
-        const minCropSizeCanvas = CropInteraction.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
+        const minCropSizeCanvas = CropBoxHelper.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
         // Get current image dimensions
         const oldCropBoxes = [
             { ...CropManager.cropBoxes[Box.LEFT] },
@@ -2088,7 +2098,7 @@ class AlignMode {
         }
     }
     
-    static drawCropInterface() {    
+    static drawAlignInterface() {    
         const aligning = CropInteraction.currentHandle === Handle.INSIDE && 
                         (CropInteraction.isDragging || CropInteraction.isArrowing);    
 

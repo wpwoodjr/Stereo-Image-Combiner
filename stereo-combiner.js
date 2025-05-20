@@ -347,6 +347,10 @@ class UIManager {
         this.domElements.leftImageName.textContent = SIC.imageNames[0] || '';
         this.domElements.rightImageName.textContent = SIC.imageNames[1] || '';
     }
+
+    static setSaveButtonDisabledState(state) {
+        this.domElements.saveButton.disabled = state;
+    }
 }
 
 // ===================================
@@ -399,7 +403,7 @@ class FileManager {
                         // Enable buttons
                         UIManager.domElements.saveButton.disabled = false;
                         UIManager.domElements.swapButton.disabled = false;
-                        CropManager.cropButton.disabled = false;
+                        CropManager.setCropButtonDisabledState(false);
                     }
                 };
                 img.src = event.target.result;
