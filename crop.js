@@ -195,12 +195,12 @@ class CropManager {
         }
 
         // Draw crop interface
-        CropInteraction.clampMode = CropOptions.clampCheckbox.checked ? this.HORIZONTAL_CLAMP : this.NO_CLAMP;
-        
+        CropInteraction.clampMode = CropOptions.clampCheckbox.checked ? Clamp.HORIZONTAL_CLAMP : Clamp.NO_CLAMP;
+
         if (this.alignMode) {
             AlignMode.enter();
         } else {
-            CropInteraction.currentHandle = this.OUTSIDE;
+            CropInteraction.currentHandle = Handle.OUTSIDE;
             CropInteraction.activeCropBox = Box.LEFT;
             CropInteraction.updateCursor(CropInteraction.currentHandle);
             CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
@@ -386,7 +386,7 @@ class CropManager {
         CropBoxHelper.adjustToNewScale();
 
         // Redraw with updated boxes
-        CropInteraction.currentHandle = this.OUTSIDE;
+        CropInteraction.currentHandle = Handle.OUTSIDE;
         CropInteraction.activeCropBox = Box.LEFT;
         CropInteraction.updateCursor(CropInteraction.currentHandle);
         CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
@@ -412,7 +412,7 @@ class CropManager {
             }
             
             CropBoxHelper.swapBoxes(this.cropBoxes);
-            CropInteraction.currentHandle = this.OUTSIDE;
+            CropInteraction.currentHandle = Handle.OUTSIDE;
             CropInteraction.activeCropBox = Box.LEFT;
             CropInteraction.updateCursor(CropInteraction.currentHandle);
             CropInteraction.movableBoxes = CropInteraction.getMovableBoxes(CropInteraction.currentHandle);
