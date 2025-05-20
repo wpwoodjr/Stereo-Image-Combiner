@@ -120,7 +120,7 @@ class CropManager {
         this.cropOptionsControlGroup.style.display = 'none';
         controlGroup.appendChild(this.cropOptionsControlGroup);
         
-        CropUI.setupControls(this.cropOptionsControlGroup);
+        CropOptions.setupControls(this.cropOptionsControlGroup);
     }
 
     static setupEventListeners() {
@@ -195,7 +195,7 @@ class CropManager {
         }
 
         // Draw crop interface
-        CropInteraction.clampMode = CropUI.clampCheckbox.checked ? this.HORIZONTAL_CLAMP : this.NO_CLAMP;
+        CropInteraction.clampMode = CropOptions.clampCheckbox.checked ? this.HORIZONTAL_CLAMP : this.NO_CLAMP;
         
         if (this.alignMode) {
             AlignMode.enter();
@@ -426,7 +426,7 @@ class CropManager {
 // ===================================
 // CROP UI - Handles UI elements for cropping
 // ===================================
-class CropUI {
+class CropOptions {
     static alignCheckbox = null;
     static lockedCheckbox = null;
     static clampCheckbox = null;
@@ -699,7 +699,7 @@ class CropInteraction {
         }
 
         // Check if inside the crop box for dragging
-        if (!CropUI.lockedCheckbox.checked && x >= xCanvas && x <= xCanvas + box.width &&
+        if (!CropOptions.lockedCheckbox.checked && x >= xCanvas && x <= xCanvas + box.width &&
             y >= yCanvas && y <= yCanvas + box.height) {
             return { id: Handle.INSIDE };
         }
@@ -750,7 +750,7 @@ class CropInteraction {
     static onMouseUp(e) {
         if (CropManager.isCropping && this.isDragging) {
             this.isDragging = false;
-            this.clampMode = CropUI.clampCheckbox.checked ? Clamp.HORIZONTAL_CLAMP : Clamp.NO_CLAMP;
+            this.clampMode = CropOptions.clampCheckbox.checked ? Clamp.HORIZONTAL_CLAMP : Clamp.NO_CLAMP;
 
             // Ensure that both images are not above or below the top of the canvas
             CropAnimation.animateFixImagePositions();
@@ -793,7 +793,7 @@ class CropInteraction {
         e.preventDefault();
         if (!this.isDragging) return;
         this.isDragging = false;
-        this.clampMode = CropUI.clampCheckbox.checked ? Clamp.HORIZONTAL_CLAMP : Clamp.NO_CLAMP;
+        this.clampMode = CropOptions.clampCheckbox.checked ? Clamp.HORIZONTAL_CLAMP : Clamp.NO_CLAMP;
 
         // Ensure that both images are not above or below the top of the canvas
         CropAnimation.animateFixImagePositions();
@@ -918,7 +918,7 @@ class CropInteraction {
 
         // We're done here if resizing or aligning...
         let highlights = [false, false];
-        if (this.resizing || (CropManager.alignMode && !CropUI.clampCheckbox.checked && this.currentHandle === Handle.INSIDE)) {
+        if (this.resizing || (CropManager.alignMode && !CropOptions.clampCheckbox.checked && this.currentHandle === Handle.INSIDE)) {
             return [xMove, yMove, highlights];
         }
 
@@ -927,7 +927,7 @@ class CropInteraction {
             const inLatchZone = this.xLatch === 0 || this.yLatch === 0;
             const otherBox = 1 - this.activeCropBox;
             
-            if (CropUI.clampCheckbox.checked) {
+            if (CropOptions.clampCheckbox.checked) {
                 this.movementAxis = Axis.HORIZONTAL;
                 this.clampMode = Clamp.HORIZONTAL_CLAMP;
                 yMove = 0;
@@ -1075,7 +1075,7 @@ class CropInteraction {
                 e.preventDefault();
                 return;
             case 'h':
-                CropUI.toggleClampCheckbox(true);
+                CropOptions.toggleClampCheckbox(true);
                 e.preventDefault();
                 return;
             case 'ArrowLeft':
@@ -1695,7 +1695,7 @@ class CropRenderer {
 
         // Draw left crop box
         this.configureBoxStyle(ctx, CropInteraction.movableBoxes[Box.LEFT], glowParams);
-        if (CropUI.drawBoxesCheckbox.checked) {
+        if (CropOptions.drawBoxesCheckbox.checked) {
             this.drawCropBox(ctx, leftBox.x + leftBox.width, leftBox.y, leftBox.x,
                 Math.min(canvas.height, leftBox.y + leftBox.height));
         }
@@ -1703,7 +1703,7 @@ class CropRenderer {
 
         // Draw right crop box
         this.configureBoxStyle(ctx, CropInteraction.movableBoxes[Box.RIGHT], glowParams);
-        if (CropUI.drawBoxesCheckbox.checked) {
+        if (CropOptions.drawBoxesCheckbox.checked) {
             this.drawCropBox(ctx, rightBox.x, rightBox.y,
                 Math.min(canvas.width, rightBox.x + rightBox.width),
                 Math.min(canvas.height, rightBox.y + rightBox.height));
@@ -2013,10 +2013,10 @@ class AlignMode {
     static enter() {
         CropManager.alignMode = true;
         StorageManager.setItem('alignCheckBox', true);
-        CropUI.alignCheckbox.checked = true;
-        this.saveLockedCheckbox = CropUI.lockedCheckbox.checked;
-        CropUI.lockedCheckbox.checked = false;
-        CropUI.lockedCheckbox.disabled = true;
+        CropOptions.alignCheckbox.checked = true;
+        this.saveLockedCheckbox = CropOptions.lockedCheckbox.checked;
+        CropOptions.lockedCheckbox.checked = false;
+        CropOptions.lockedCheckbox.disabled = true;
         this.cropRatio = CropManager.cropBoxes[Box.LEFT].width / CropManager.cropBoxes[Box.LEFT].height;
 
         // Disable transparent background image
@@ -2056,9 +2056,9 @@ class AlignMode {
         this.restorePreviousScalePercent();
         CropManager.alignMode = false;
         StorageManager.setItem('alignCheckBox', false);
-        CropUI.alignCheckbox.checked = false;
-        CropUI.lockedCheckbox.disabled = false;
-        CropUI.lockedCheckbox.checked = this.saveLockedCheckbox;
+        CropOptions.alignCheckbox.checked = false;
+        CropOptions.lockedCheckbox.disabled = false;
+        CropOptions.lockedCheckbox.checked = this.saveLockedCheckbox;
 
         // Restore transparent background image if in transparent mode
         if (UIManager.isTransparent) {
@@ -2133,7 +2133,7 @@ class AlignMode {
         const glowParams = CropRenderer.glowParameters();
         CropRenderer.configureBoxStyle(ctx, CropInteraction.movableBoxes[Box.LEFT] || CropInteraction.movableBoxes[Box.RIGHT], glowParams);
 
-        if (CropUI.drawBoxesCheckbox.checked) {
+        if (CropOptions.drawBoxesCheckbox.checked) {
             ctx.strokeRect(box.x, box.y, box.width, box.height);
         }
 
