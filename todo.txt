@@ -1,6 +1,14 @@
 ==========  new code ===========
 
-Another fn belongs in helper class?
+Try leaving transparent background on
+
+why are the images always the same height?  Maybe better if height is always the same?  max height?
+
+crop borders on single images too?
+
+Sometimes borders/transparent in conflict
+
+Toggle border cropping?
 
 ======== old code ===========
 
