@@ -137,7 +137,9 @@ class CropManager {
     }
 
     static setCropButtonDisabledState(state) {
-        this.cropButton.disabled = state;
+        if (this.cropButton) {
+            this.cropButton.disabled = state;
+        }
     }
 
     static startCrop() {

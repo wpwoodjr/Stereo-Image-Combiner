@@ -38,8 +38,22 @@ class UIManager {
         this.setupCanvasEvents();
         this.setupKeyboardEvents();
         this.setupDropzoneMessage();
-        this.setupButtons();
+        this.resetToDropzone();
         this.resetControlsToDefaults();
+    }
+
+    // Resets the UI to show the dropzone and hide the canvas.
+    static resetToDropzone() {
+        SIC.images = [];
+        SIC.imageNames = [];
+        this.updateImageNames();
+        this.domElements.dropzone.style.display = 'flex';
+        this.domElements.canvasContainer.style.display = 'none';
+        this.domElements.saveButton.disabled = true;
+        this.domElements.swapButton.disabled = true;
+
+        CropManager.resetCrop();
+        CropManager.setCropButtonDisabledState(true);
     }
 
     static initDOMElements() {
@@ -68,12 +82,6 @@ class UIManager {
             qualityValue: document.getElementById('qualityValue'),
             qualityContainer: document.getElementById('qualityContainer')
         };
-    }
-
-    static setupButtons() {
-        // Disable buttons initially
-        this.domElements.saveButton.disabled = true;
-        this.domElements.swapButton.disabled = true;
     }
 
     static setupDropzoneEvents() {
@@ -465,7 +473,7 @@ class FileManager {
             }
         }
 
-        if (!initialDominantColorStr) return { dominantColor: null, percent: 0, totalPixels };
+        if (!initialDominantColorStr) return { dominantColor: null, percent: 0, totalPixels: totalValidPixels };
         
         const initialDominantColor = uniqueColors.get(initialDominantColorStr);
         let augmentedDominantCount = initialMaxCount;
@@ -479,10 +487,11 @@ class FileManager {
         }
         
         const finalConsistencyPercent = totalValidPixels > 0 ? augmentedDominantCount / totalValidPixels : 1.0;
-        if (finalConsistencyPercent < this.CONSISTENCY_THRESHOLD) {
-            console.log(colX, initialDominantColor);
-            console.log(`${finalConsistencyPercent}%`, initialMaxCount, augmentedDominantCount);
-        }
+        // Removed console.log for cleaner output, can be re-added for debugging
+        // if (finalConsistencyPercent < this.CONSISTENCY_THRESHOLD) {
+        //     console.log(colX, initialDominantColor);
+        //     console.log(`${finalConsistencyPercent}%`, initialMaxCount, augmentedDominantCount);
+        // }
         return { 
             dominantColor: initialDominantColor,
             percent: finalConsistencyPercent,
@@ -522,7 +531,7 @@ class FileManager {
                 initialDominantColorStr = pStr;
             }
         }
-         if (!initialDominantColorStr) return { dominantColor: null, percent: 0, totalPixels };
+         if (!initialDominantColorStr) return { dominantColor: null, percent: 0, totalPixels: totalValidPixels };
 
         const initialDominantColor = uniqueColors.get(initialDominantColorStr);
         let augmentedDominantCount = initialMaxCount;
@@ -542,7 +551,7 @@ class FileManager {
             totalPixels: totalValidPixels
         };
     }
-    
+
     static _splitAreaInHalfVertically(x, y, width, height) {
         if (width < this.MIN_IMAGE_DIMENSION * 2 || height < this.MIN_IMAGE_DIMENSION) {
              console.warn(`Area ${width}x${height} at (${x},${y}) is too small to split meaningfully.`);
@@ -550,7 +559,9 @@ class FileManager {
         }
         const w1 = Math.floor(width / 2);
         const w2 = width - w1; 
-        console.log(`Splitting area (x:${x} y:${y} w:${width} h:${height}) in half -> w1:${w1}, w2:${w2}`);
+        console.log(`Splitting image in half:
+    Img1(x:${x}, y:${y}, w:${w1}, h:${height}), 
+    Img1(x:${x + w1}, y:${y}, w:${w2}, h:${height})`);
         return {
             region1: { x: x, y: y, width: w1, height: height },
             region2: { x: x + w1, y: y, width: w2, height: height }
@@ -558,6 +569,8 @@ class FileManager {
     }
 
     static _analyzeAndExtractSubImageRegions_MultiStage(imageData, imgWidth, imgHeight) {
+        console.log(`Splitting single image:
+    Width: ${imgWidth}, Height: ${imgHeight}`);
         // --- Stage 1: Determine Outer Horizontal Crop Points ---
         let outerX1 = imgWidth; 
         for (let x = 0; x < imgWidth; x++) {
@@ -576,16 +589,18 @@ class FileManager {
         }
 
         if (outerX1 >= imgWidth || outerX2 < 0 || outerX2 < outerX1) { 
-            console.warn("MultiStage - Stage 1: Entire image width has consistent columns or no valid content block. Splitting original.");
+            console.warn("Stage 1: Entire image has no valid content. Splitting original image in half.");
             return this._splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
         }
 
         const stage1ContentWidth = outerX2 - outerX1 + 1;
         if (stage1ContentWidth < this.MIN_IMAGE_DIMENSION * 2) {
-            console.warn(`MultiStage - Stage 1: Outer content width ${stage1ContentWidth} is too small. Splitting original.`);
+            console.warn(`Stage 1: Content width ${stage1ContentWidth} is too small. Splitting original image in half.`);
             return this._splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
         }
-        console.log(`MultiStage - Stage 1: Outer X-bounds: ${outerX1} to ${outerX2} (Width: ${stage1ContentWidth})`);
+        console.log(`Stage 1 (find outer X boundaries):
+    Outer X-bounds: ${outerX1} to ${outerX2},
+    Width: ${stage1ContentWidth}`);
 
         // --- Stage 2: Split the Stage 1 cropped area and Refine Inner Horizontal Edges ---
         const nominalSplitPointAbsolute = outerX1 + Math.floor(stage1ContentWidth / 2);
@@ -598,92 +613,94 @@ class FileManager {
             }
         }
 
-        let finalRightImageLeftX = outerX2 + 1; 
+        let finalRightImageLeftX = outerX2 + 1;
         for (let currentX = nominalSplitPointAbsolute; currentX <= outerX2; currentX++) {
             if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
                 finalRightImageLeftX = currentX; 
                 break;
             }
         }
-        console.log(`MultiStage - Stage 2: Left image potential right edge X: ${finalLeftImageRightX}, Right image potential left edge X: ${finalRightImageLeftX}`);
 
         const img1ProposedWidth = finalLeftImageRightX - outerX1 + 1;
         const img2ProposedWidth = outerX2 - finalRightImageLeftX + 1;
-        
+        console.log(`Stage 2 (find gap):
+    Found gap: ${finalRightImageLeftX - finalLeftImageRightX - 1},
+    Img1(x:${outerX1}, w:${img1ProposedWidth}),
+    Img2(x:${finalRightImageLeftX}, w:${img2ProposedWidth})`);
+
         if (finalRightImageLeftX <= finalLeftImageRightX || 
             img1ProposedWidth < this.MIN_IMAGE_DIMENSION ||
             img2ProposedWidth < this.MIN_IMAGE_DIMENSION) {
-            console.warn("MultiStage - Stage 2: Inner refinement invalid or no gap. Splitting Stage 1 X-cropped area (full height).");
-            return this._splitAreaInHalfVertically(outerX1, 0, stage1ContentWidth, imgHeight);
+            console.warn("Stage 2: Gap refinement invalid. Splitting original image in half.");
+            return this._splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+            // console.warn("Stage 2: Gap refinement invalid. Splitting Stage 1 X-cropped area (full height).");
+            // return this._splitAreaInHalfVertically(outerX1, 0, stage1ContentWidth, imgHeight);
         }
 
         // --- Stage 3: Determine Vertical Crop Points Independently for each nominal image ---
-        // For Left Image
-        let img1_Y1 = 0;
-        let img1_Y2 = -1; // Initialize to indicate no content found yet
-        let foundImg1Top = false;
+        let img1_Y1 = 0, img1_Y2 = -1, foundImg1Top = false;
         for (let y = 0; y < imgHeight; y++) {
             if (this._getRowConsistency(imageData, y, outerX1, finalLeftImageRightX, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                img1_Y1 = y;
-                foundImg1Top = true;
-                break;
+                img1_Y1 = y; foundImg1Top = true; break;
             }
         }
         if (!foundImg1Top) { 
-            console.warn("MultiStage - Stage 3: Left image part has all consistent rows vertically. Content height is 0.");
-            // img1_Y1 remains 0, img1_Y2 remains -1, finalImg1Height will be 0 or less
+            console.warn("Stage 3: Left image part has no rows with content.");
         } else {
-            img1_Y2 = imgHeight - 1; // Default to bottom if content was found at top
+            img1_Y2 = imgHeight - 1;
             for (let y = imgHeight - 1; y >= img1_Y1; y--) {
                 if (this._getRowConsistency(imageData, y, outerX1, finalLeftImageRightX, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                    img1_Y2 = y;
-                    break;
+                    img1_Y2 = y; break;
                 }
             }
         }
 
-        // For Right Image
-        let img2_Y1 = 0;
-        let img2_Y2 = -1; // Initialize to indicate no content found yet
-        let foundImg2Top = false;
+        let img2_Y1 = 0, img2_Y2 = -1, foundImg2Top = false;
         for (let y = 0; y < imgHeight; y++) {
             if (this._getRowConsistency(imageData, y, finalRightImageLeftX, outerX2, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                img2_Y1 = y;
-                foundImg2Top = true;
-                break;
+                img2_Y1 = y; foundImg2Top = true; break;
             }
         }
         if (!foundImg2Top) {
-            console.warn("MultiStage - Stage 3: Right image part has all consistent rows vertically. Content height is 0.");
-            // img2_Y1 remains 0, img2_Y2 remains -1, finalImg2Height will be 0 or less
+            console.warn("Stage 3: Right image part has no rows with content.");
         } else {
-            img2_Y2 = imgHeight - 1; // Default to bottom if content was found at top
+            img2_Y2 = imgHeight - 1;
             for (let y = imgHeight - 1; y >= img2_Y1; y--) {
                 if (this._getRowConsistency(imageData, y, finalRightImageLeftX, outerX2, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                    img2_Y2 = y;
-                    break;
+                    img2_Y2 = y; break;
                 }
             }
         }
-        console.log(`MultiStage - Stage 3: Img1 Y-bounds: ${img1_Y1}-${img1_Y2}. Img2 Y-bounds: ${img2_Y1}-${img2_Y2}`);
+        console.log(`Stage 3 (find outer Y boundaries):
+    Img1 Y-bounds: ${img1_Y1}-${img1_Y2},
+    Img2 Y-bounds: ${img2_Y1}-${img2_Y2}`);
 
         const finalImg1Height = (img1_Y2 < img1_Y1) ? 0 : (img1_Y2 - img1_Y1 + 1);
-        const finalImg2Height = (img2_Y2 < img2_Y1) ? 0 : (img2_Y2 - img2_Y1 + 1); // This is where line 662 might be
+        const finalImg2Height = (img2_Y2 < img2_Y1) ? 0 : (img2_Y2 - img2_Y1 + 1);
 
         // If EITHER image's determined height is too small, trigger fallback.
         if (finalImg1Height < this.MIN_IMAGE_DIMENSION || finalImg2Height < this.MIN_IMAGE_DIMENSION) {
-            console.warn(`MultiStage - Stage 3: Derived height for one or both images is too small (H1: ${finalImg1Height}, H2: ${finalImg2Height}). Splitting Stage 1 X-cropped area using its original full height.`);
-            return this._splitAreaInHalfVertically(outerX1, 0, stage1ContentWidth, imgHeight);
+//             console.warn(`Stage 3:
+// Height for one or both images is too small:
+//     H1: ${finalImg1Height}, H2: ${finalImg2Height}
+// Using Stage 2 X boundaries and original full height.`);
+//             img1_Y1 = img2_Y1 = 0;
+//             finalImg1Height = finalImg2Height = imgHeight;
+            console.warn(`Stage 3:
+Height for one or both images is too small:
+    H1: ${finalImg1Height}, H2: ${finalImg2Height}
+Splitting original image in half.`);
+            return this._splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
         }
-        
+
         // --- Stage 4: Define Final Crop Regions using independent heights ---
         const region1W = finalLeftImageRightX - outerX1 + 1;
         const region2W = outerX2 - finalRightImageLeftX + 1;
         
-        console.log(`MultiStage - Final Regions:
-    Gap: ${finalRightImageLeftX - finalLeftImageRightX - 1},
-    R1(x:${outerX1}, y:${img1_Y1}, w:${region1W}, h:${finalImg1Height}), 
-    R2(x:${finalRightImageLeftX}, y:${img2_Y1}, w:${region2W}, h:${finalImg2Height})`);
+        console.log(`Final Images:
+    Found gap: ${finalRightImageLeftX - finalLeftImageRightX - 1},
+    Img1(x:${outerX1}, y:${img1_Y1}, w:${region1W}, h:${finalImg1Height}), 
+    Img2(x:${finalRightImageLeftX}, y:${img2_Y1}, w:${region2W}, h:${finalImg2Height})`);
 
         return {
             region1: { x: outerX1, y: img1_Y1, width: region1W, height: finalImg1Height },
@@ -723,10 +740,8 @@ class FileManager {
     }
 
     static _finalizeImageLoading(loadedImages, loadedNames) {
-        SIC.images = []; 
-        if (typeof CropManager !== 'undefined' && CropManager.resetCrop) {
-            CropManager.resetCrop();
-        }
+        SIC.images = [];
+        CropManager.resetCrop();
         SIC.images = loadedImages;
         SIC.imageNames = loadedNames;
 
@@ -741,189 +756,196 @@ class FileManager {
 
             UIManager.domElements.saveButton.disabled = false;
             UIManager.domElements.swapButton.disabled = false;
-            if (typeof CropManager !== 'undefined' && typeof CropManager.setCropButtonDisabledState === 'function') {
-                CropManager.setCropButtonDisabledState(false);
-            }
+            CropManager.setCropButtonDisabledState(false);
         } else {
             console.error("Finalizing image loading with invalid images count or objects.", loadedImages);
             alert("There was an issue preparing the images for display.");
-            UIManager.domElements.dropzone.style.display = 'flex';
-            UIManager.domElements.canvasContainer.style.display = 'none';
+            UIManager.resetToDropzone(); // Use helper to reset UI
         }
     }
 
-    static processFiles(files) {
+    /**
+     * Loads an image from a File object.
+     * @param {File} file - The file to load.
+     * @returns {Promise<{image: HTMLImageElement, name: string}>} A promise that resolves with the loaded image and its name.
+     * @private
+     */
+    static _loadImageFromFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    resolve({ image: img, name: file.name });
+                };
+                img.onerror = () => {
+                    const errorMsg = `Could not load image: ${file.name}`;
+                    alert(errorMsg);
+                    reject(new Error(errorMsg));
+                };
+                img.src = event.target.result;
+            };
+            reader.onerror = () => {
+                const errorMsg = `Could not read file: ${file.name}`;
+                alert(errorMsg);
+                reject(new Error(errorMsg));
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    /**
+     * Extracts the base name and extension from a filename.
+     * @param {string} fileName - The full filename.
+     * @returns {{baseName: string, ext: string}} An object containing the base name and extension.
+     * @private
+     */
+    static _generateImageNameParts(fileName) {
+        const baseName = fileName.includes('.') ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+        const ext = fileName.includes('.') ? fileName.substring(fileName.lastIndexOf('.')) : '';
+        return { baseName, ext };
+    }
+
+    /**
+     * Gets ImageData from an HTMLImageElement.
+     * @param {HTMLImageElement} imageElement - The image to process.
+     * @returns {ImageData|null} The ImageData object or null if an error occurs.
+     * @private
+     */
+    static _getImageDataFromImage(imageElement) {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = imageElement.width;
+        tempCanvas.height = imageElement.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) {
+            alert('Could not get canvas context for image analysis.');
+            return null;
+        }
+        tempCtx.drawImage(imageElement, 0, 0);
+        try {
+            return tempCtx.getImageData(0, 0, imageElement.width, imageElement.height);
+        } catch (e) {
+            console.error("Error getting imageData (cross-origin?):", e);
+            alert("Could not analyze image pixels. If it's from another website, please download it first, then upload from your computer.");
+            return null;
+        }
+    }
+
+    /**
+     * Executes a fallback mechanism to split an image in half if primary processing fails.
+     * @param {HTMLImageElement} originalImage - The image to split.
+     * @param {string} baseName - The base name for the resulting files.
+     * @param {string} ext - The extension for the resulting files.
+     * @param {string} contextMessage - A message for console logging about why fallback is triggered.
+     * @private
+     */
+    static async _executeFallbackSplit(originalImage, baseName, ext, contextMessage) {
+        console.warn(`Executing fallback split due to: ${contextMessage}`);
+        const fallbackRegions = this._splitAreaInHalfVertically(0, 0, originalImage.width, originalImage.height);
+        if (fallbackRegions) {
+            try {
+                const [fb_img1, fb_img2] = await Promise.all([
+                    this._cropToImageObject(originalImage, fallbackRegions.region1),
+                    this._cropToImageObject(originalImage, fallbackRegions.region2)
+                ]);
+                this._finalizeImageLoading(
+                    [fb_img1, fb_img2],
+                    [`${baseName}_L_half${ext}`, `${baseName}_R_half${ext}`]
+                );
+            } catch (fbError) {
+                console.error(`Error during fallback image splitting (${contextMessage}):`, fbError);
+                alert(`Fallback image splitting failed: ${fbError.message}. Please provide two separate images.`);
+                UIManager.resetToDropzone();
+            }
+        } else {
+            alert("Image too small for any processing, even fallback splitting. Please provide a larger or two separate images.");
+            UIManager.resetToDropzone();
+        }
+    }
+
+    /**
+     * Processes dropped or selected image files.
+     * Can handle a single image (attempts to auto-split) or two separate images.
+     * @param {FileList} files - The list of files to process.
+     */
+    static async processFiles(files) {
         if (files.length === 1) {
             const file = files[0];
             if (!file.type.startsWith('image/')) {
                 alert('Please select an image file.');
                 return;
             }
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const singleImg = new Image();
-                singleImg.onload = () => {
-                    console.log(this.CONSISTENCY_THRESHOLD, this.COLOR_DIFF_THRESHOLD_DELTA_E);
-                    if (singleImg.width < this.MIN_IMAGE_DIMENSION * 2 || singleImg.height < this.MIN_IMAGE_DIMENSION) {
-                        alert(`Image (${singleImg.width}x${singleImg.height}) is too small for analysis. Attempting simple split.`);
-                        const fallbackRegions = this._splitAreaInHalfVertically(0,0,singleImg.width, singleImg.height);
-                        if (fallbackRegions) {
-                             Promise.all([
-                                this._cropToImageObject(singleImg, fallbackRegions.region1),
-                                this._cropToImageObject(singleImg, fallbackRegions.region2)
-                            ]).then(([fb_img1, fb_img2]) => {
-                                const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
-                                const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
-                                this._finalizeImageLoading([fb_img1, fb_img2], [`${baseName}_L_half${ext}`, `${baseName}_R_half${ext}`]);
-                            }).catch(fbError => {
-                                 console.error("Error with fallback image splitting for small image:", fbError);
-                                 alert("Fallback image splitting failed. Please provide two separate images.");
-                            });
-                        } else {
-                             alert("Image too small for any processing. Please provide a larger or two separate images.");
-                        }
-                        return;
-                    }
 
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = singleImg.width;
-                    tempCanvas.height = singleImg.height;
-                    const tempCtx = tempCanvas.getContext('2d');
-                     if (!tempCtx) {
-                         alert('Could not get canvas context for image analysis.');
-                         return;
-                    }
-                    tempCtx.drawImage(singleImg, 0, 0);
-                    let imageData;
-                    try {
-                        imageData = tempCtx.getImageData(0, 0, singleImg.width, singleImg.height);
-                    } catch (e) {
-                        console.error("Error getting imageData (cross-origin?):", e);
-                        alert("Could not analyze image pixels. If it's from another website, please download it first, then upload from your computer.");
-                        return;
-                    }
+            let singleImg, originalName;
+            try {
+                const loadedFile = await this._loadImageFromFile(file);
+                singleImg = loadedFile.image;
+                originalName = loadedFile.name;
+            } catch (error) {
+                console.error("Error loading single image:", error.message || error);
+                alert('Error loading single image.');
+                UIManager.resetToDropzone();
+                return;
+            }
 
-                    const regions = this._analyzeAndExtractSubImageRegions_MultiStage(imageData, singleImg.width, singleImg.height);
+            const { baseName, ext } = this._generateImageNameParts(originalName);
 
-                    if (regions && regions.region1 && regions.region2 &&
-                        regions.region1.width >= this.MIN_IMAGE_DIMENSION && regions.region1.height >= this.MIN_IMAGE_DIMENSION &&
-                        regions.region2.width >= this.MIN_IMAGE_DIMENSION && regions.region2.height >= this.MIN_IMAGE_DIMENSION) {
-                        
-                        Promise.all([
-                            this._cropToImageObject(singleImg, regions.region1),
-                            this._cropToImageObject(singleImg, regions.region2)
-                        ]).then(([img1_obj, img2_obj]) => {
-                            const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
-                            const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
-                            
-                            this._finalizeImageLoading(
-                                [img1_obj, img2_obj],
-                                [`${baseName}_L${ext}`, `${baseName}_R${ext}`]
-                            );
-                        }).catch(error => {
-                            console.error("Error cropping sub-images from single image:", error);
-                            alert(`Failed to process the single image after analysis: ${error.message}. Attempting to split original image in half.`);
-                            const fallbackRegions = this._splitAreaInHalfVertically(0,0,singleImg.width, singleImg.height);
-                            if (fallbackRegions) {
-                                Promise.all([
-                                    this._cropToImageObject(singleImg, fallbackRegions.region1),
-                                    this._cropToImageObject(singleImg, fallbackRegions.region2)
-                                ]).then(([fb_img1, fb_img2]) => {
-                                    const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
-                                    const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
-                                    this._finalizeImageLoading([fb_img1, fb_img2], [`${baseName}_L_half${ext}`, `${baseName}_R_half${ext}`]);
-                                }).catch(fbError => {
-                                     console.error("Error with fallback image splitting:", fbError);
-                                     alert("Fallback image splitting also failed. Please provide two separate images.");
-                                     UIManager.domElements.dropzone.style.display = 'flex';
-                                     UIManager.domElements.canvasContainer.style.display = 'none';
-                                });
-                            } else {
-                                 alert("Image too small for fallback splitting. Please provide two separate images.");
-                                 UIManager.domElements.dropzone.style.display = 'flex';
-                                 UIManager.domElements.canvasContainer.style.display = 'none';
-                            }
-                        });
-                    } else { 
-                        console.warn("Analysis did not yield valid regions (or null returned from analysis). Defaulting to splitting original image in half.");
-                        const fallbackRegions = this._splitAreaInHalfVertically(0,0,singleImg.width, singleImg.height);
-                         if (fallbackRegions) {
-                             Promise.all([
-                                this._cropToImageObject(singleImg, fallbackRegions.region1),
-                                this._cropToImageObject(singleImg, fallbackRegions.region2)
-                            ]).then(([fb_img1, fb_img2]) => {
-                                const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
-                                const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
-                                this._finalizeImageLoading([fb_img1, fb_img2], [`${baseName}_L_half${ext}`, `${baseName}_R_half${ext}`]);
-                            }).catch(fbError => {
-                                 console.error("Error with primary fallback image splitting:", fbError);
-                                 alert("Primary fallback image splitting also failed. Please provide two separate images.");
-                            });
-                        } else {
-                             alert("Image too small for any processing. Please provide two separate images.");
-                        }
-                         UIManager.domElements.dropzone.style.display = 'flex';
-                         UIManager.domElements.canvasContainer.style.display = 'none';
-                    }
-                };
-                singleImg.onerror = () => { alert("Could not load the single image file."); };
-                singleImg.src = event.target.result;
-            };
-            reader.onerror = () => { alert("Could not read the single image file."); };
-            reader.readAsDataURL(file);
+            if (singleImg.width < this.MIN_IMAGE_DIMENSION * 2 || singleImg.height < this.MIN_IMAGE_DIMENSION) {
+                await this._executeFallbackSplit(singleImg, baseName, ext, "Image too small for analysis");
+                return;
+            }
+
+            const imageData = this._getImageDataFromImage(singleImg);
+            if (!imageData) {
+                await this._executeFallbackSplit(singleImg, baseName, ext, "Failed to get image data");
+                return;
+            }
+            // Original log line, kept as requested from initial code.
+            console.log(`Analyzing image borders and gap with consistency threshold ${this.CONSISTENCY_THRESHOLD} and Delta E ${this.COLOR_DIFF_THRESHOLD_DELTA_E}`);
+            const regions = this._analyzeAndExtractSubImageRegions_MultiStage(imageData, singleImg.width, singleImg.height);
+
+            if (regions && regions.region1 && regions.region2 &&
+                regions.region1.width >= this.MIN_IMAGE_DIMENSION && regions.region1.height >= this.MIN_IMAGE_DIMENSION &&
+                regions.region2.width >= this.MIN_IMAGE_DIMENSION && regions.region2.height >= this.MIN_IMAGE_DIMENSION) {
+                try {
+                    const [img1_obj, img2_obj] = await Promise.all([
+                        this._cropToImageObject(singleImg, regions.region1),
+                        this._cropToImageObject(singleImg, regions.region2)
+                    ]);
+                    this._finalizeImageLoading(
+                        [img1_obj, img2_obj],
+                        [`${baseName}_L${ext}`, `${baseName}_R${ext}`]
+                    );
+                } catch (cropError) {
+                    console.error("Error cropping sub-images from single image after analysis:", cropError);
+                    await this._executeFallbackSplit(singleImg, baseName, ext, "Error cropping analyzed sub-images");
+                }
+            } else {
+                await this._executeFallbackSplit(singleImg, baseName, ext, "Analysis yielded invalid/null regions");
+            }
 
         } else if (files.length === 2) {
-            const newImages = [null, null]; 
-            const newImageNames = [null, null];
-            let loadedCount = 0;
-            let errorOccurred = false;
-
-            Array.from(files).forEach((file, index) => {
-                if (errorOccurred) return; 
-                if (!file.type.startsWith('image/')) {
-                    alert('Please select only image files.');
-                    errorOccurred = true;
-                    return;
+            try {
+                for (const file of files) {
+                    if (!file.type.startsWith('image/')) {
+                        alert('Please select only image files.');
+                        return;
+                    }
                 }
 
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    if (errorOccurred) return;
-                    const img = new Image();
-                    img.onload = () => {
-                        if (errorOccurred) return;
-                        newImageNames[index] = file.name;
-                        newImages[index] = img;
-                        loadedCount++;
+                const imageLoadPromises = Array.from(files).map(file => this._loadImageFromFile(file));
+                const loadedImageResults = await Promise.all(imageLoadPromises);
 
-                        if (loadedCount === 2) {
-                           if (newImages[0] && newImages[1]) {
-                               this._finalizeImageLoading(newImages, newImageNames);
-                           } else { 
-                               alert("There was an issue loading one or both of the images. Please try again.");
-                           }
-                        }
-                    };
-                    img.onerror = () => {
-                        if (errorOccurred) return; 
-                        alert(`Could not load image: ${file.name}`);
-                        errorOccurred = true; 
-                        loadedCount++; 
-                        if (loadedCount === 2) { 
-                            if (!(newImages[0] && newImages[1])) { 
-                                alert("One or more images failed to load. Please try again.");
-                            }
-                        }
-                    };
-                    img.src = event.target.result;
-                };
-                reader.onerror = () => {
-                    if (errorOccurred) return;
-                    alert(`Could not read file: ${file.name}`);
-                    errorOccurred = true;
-                };
-                reader.readAsDataURL(file);
-            });
+                const newImages = loadedImageResults.map(result => result.image);
+                const newImageNames = loadedImageResults.map(result => result.name);
+                
+                this._finalizeImageLoading(newImages, newImageNames);
+
+            } catch (error) {
+                console.error("Error loading two images:", error.message || error);
+                alert('Error loading two images.');
+                UIManager.resetToDropzone();
+            }
         } else {
             alert('Please select one or two images.');
         }
@@ -942,7 +964,7 @@ class FileManager {
             alert("Cannot save, images are not properly loaded.");
             return;
         }
-        ImageRenderer.renderCombinedImage(saveCanvas, 1, {});
+        ImageRenderer.renderCombinedImage(saveCanvas, 1, {}); // Pass scale 1 for full resolution
 
         const link = document.createElement('a');
         const fileName = this.createCombinedFilename();
@@ -963,7 +985,6 @@ class FileManager {
     /**
      * Finds the common prefix of two strings, trying to end at a natural separator.
      * It also cleans trailing separators from the result.
-     * (This is the version from your provided stereo-combiner.js)
      */
     static findCommonPrefixLastSeparator(str1, str2) {
         if (!str1 || !str2 ) return '';
@@ -1030,48 +1051,13 @@ class FileManager {
     }
 
     /**
-     * Finds the common prefix of two strings, trying to end at a natural separator.
-     * (This is the version from your previously provided stereo-combiner.js - ensure it's correct in your file)
-     */
-    static findCommonPrefixLastSeparator(str1, str2) {
-        if (!str1 || !str2 ) return '';
-        
-        let commonLength = 0;
-        for (let i = 0; i < Math.min(str1.length, str2.length); i++) {
-            if (str1.charAt(i).toLowerCase() !== str2.charAt(i).toLowerCase()) break;
-            commonLength = i + 1;
-        }
-        if (commonLength === 0) return '';
-
-        let commonPart = str1.substring(0, commonLength);
-        
-        if (commonPart.length === str1.length || commonPart.length === str2.length) {
-            return commonPart.replace(/[-_\s]+$/, ''); 
-        }
-
-        const separators = ['_', '-', ' '];
-        let lastSepPos = -1;
-        for (const sep of separators) {
-            const pos = commonPart.lastIndexOf(sep);
-            if (pos > lastSepPos) { 
-                lastSepPos = pos;
-            }
-        }
-        
-        if (lastSepPos !== -1) {
-            return commonPart.substring(0, lastSepPos + 1).replace(/[-_\s]+$/, '');
-        } 
-        return commonPart.length > 2 ? commonPart.replace(/[-_\s]+$/, '') : ''; 
-    }
-
-    /**
      * Creates a combined filename.
      */
     static createCombinedFilename() {
         const userInputPrefix = UIManager.domElements.filenamePrefixInput.value.trim();
         const imageNames = SIC.imageNames;
         const DEFAULT_CORE_NAME = "stereo_image";
-        const MIN_CORE_LENGTH = 3; // Minimum length for a derived core name to be considered "good"
+        const MIN_CORE_LENGTH = 3; 
 
         if (!imageNames || imageNames.length < 2 || !imageNames[0] || !imageNames[1]) {
             return userInputPrefix ? `${userInputPrefix} ${DEFAULT_CORE_NAME}`.trim() : DEFAULT_CORE_NAME;
@@ -1084,50 +1070,38 @@ class FileManager {
             imageNames[1].substring(0, imageNames[1].lastIndexOf('.')) : 
             imageNames[1];
 
-        // 1. Normalize baseNames by removing the userInputPrefix from their start
         const normalizedBaseName1 = this._stripUserInputPrefix(baseName1_noExt, userInputPrefix);
         const normalizedBaseName2 = this._stripUserInputPrefix(baseName2_noExt, userInputPrefix);
         
         let finalNameCore;
 
-        // Proceed only if normalized names are somewhat valid
         if ((!normalizedBaseName1 || normalizedBaseName1.length < 1) && 
             (!normalizedBaseName2 || normalizedBaseName2.length < 1)) {
-            // Both names became empty/invalid after stripping user prefix
             finalNameCore = DEFAULT_CORE_NAME;
         } else if (!normalizedBaseName1 || normalizedBaseName1.length < 1) {
-            // Only normalizedBaseName2 is potentially valid, but we can't find a "common" part.
-            // To avoid using a unique part (normalizedBaseName2), use default.
-            finalNameCore = DEFAULT_CORE_NAME;
+            finalNameCore = normalizedBaseName2;
         } else if (!normalizedBaseName2 || normalizedBaseName2.length < 1) {
-            // Only normalizedBaseName1 is potentially valid.
-            finalNameCore = DEFAULT_CORE_NAME;
+            finalNameCore = normalizedBaseName1;
         } else {
-            // Both normalized names are non-empty, try to find common prefix.
             finalNameCore = this.findCommonPrefixLastSeparator(normalizedBaseName1, normalizedBaseName2);
         }
         
-        // If common prefix is too short or empty, use default
         if (!finalNameCore || finalNameCore.trim().length < MIN_CORE_LENGTH) {
             console.warn(`Derived common core name "${finalNameCore}" is too short or empty. Using default.`);
             finalNameCore = DEFAULT_CORE_NAME;
         } else {
-            finalNameCore = finalNameCore.trim(); // Ensure no leading/trailing spaces from common part
+            finalNameCore = finalNameCore.trim();
         }
 
-        // Prepend userInputPrefix if it exists, ensuring no double prefixing or double spacing
         if (userInputPrefix) {
-            // Check if the derived finalNameCore ALREADY starts with the userInputPrefix
-            // (This would only happen if findCommonPrefixLastSeparator coincidentally returned it,
-            // despite us stripping it from the inputs to that function). This is a safeguard.
             const coreLower = finalNameCore.toLowerCase();
             const prefixLower = userInputPrefix.toLowerCase();
             if (coreLower.startsWith(prefixLower) && 
-                (coreLower.length === prefixLower.length || coreLower.charAt(prefixLower.length) === ' ')) {
-                // finalNameCore already seems to contain the prefix correctly
-                return finalNameCore;
+                (coreLower.length === prefixLower.length || [' ', '_', '-'].includes(coreLower.charAt(prefixLower.length)))) {
+                return finalNameCore; // Already contains prefix, or prefix is the start of the core
             }
-            return `${userInputPrefix} ${finalNameCore}`;
+            // Ensure a space if both prefix and core are non-empty and core doesn't start with the prefix already
+            return `${userInputPrefix} ${finalNameCore}`.trim(); // Trim in case finalNameCore was empty
         }
         
         return finalNameCore;

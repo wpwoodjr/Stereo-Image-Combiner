@@ -10,6 +10,16 @@ Sometimes borders/transparent in conflict
 
 Toggle border cropping?
 
+Set gap/border based on import?
+
+Clean up processFiles
+
+Apply a crop instead of actually cropping
+
+Incorrectly splits full height when no gap
+
+Why does it find additional border when reload? Maybe only when saved with a border?
+
 ======== old code ===========
 
 Mac cropbox drawing all screwed up
