@@ -252,10 +252,97 @@ class CropManager {
         this.saveCropBoxDimensions = { width: maxWidth, height: maxHeight };
     }
 
+    // Set initial crop state using regions
+    static setCropState(regions) {
+        const { region1, region2 } = regions;
+        let x1 = region1.x;
+        let x2 = region2.x;
+        const y1 = region1.y;
+        const y2 = region2.y;
+        const w1 = region1.width;
+        const w2 = region2.width;
+        const h1 = region1.height;
+        const h2 = region2.height;
+
+        // find the width of the images including the borders but not including the gap
+        const imgW1 = x1 + w1;
+        const imgW2 = SIC.images[1].width - x2;
+        // the heights should be the same because this was a single image
+        const imgH1 = SIC.images[0].height;
+        const imgH2 = SIC.images[1].height;
+
+        // if there is no border or gap, a crop is not needed
+        if (x2 === 0 && w1 === imgW1 && w2 === imgW2 && h1 === imgH1 && h2 === imgH2) {
+            console.log("No crop needed");
+            ImageRenderer.drawImages();
+            return;
+        }
+
+        // Calculate max possible crop width, constrained by smallest image width
+        let cropWidth = Math.min(Math.max(w1, w2), imgW1, imgW2);
+
+        // crop the gap (x2 already crops the gap)
+        x1 = imgW1 - cropWidth;
+
+        // crop out border region at top and bottom
+        let y = Math.min(y1, y2);
+        let cropHeight = Math.max(y1 + h1, y2 + h2) - y;
+
+        console.log(`w1: ${w1},
+w2: ${w2},
+cropWidth: ${cropWidth},
+imgW1: ${imgW1},
+imgW2: ${imgW2}`);
+        console.log(`h1: ${h1},
+h2: ${h2},
+cropHeight: ${cropHeight},
+imgH1: ${imgH1},
+imgH2: ${imgH2}`);
+
+        // prepare for crop
+        this.preCropScalePercent = ImageRenderer.currentScalePercent();
+        this.resetScalePercent = this.preCropScalePercent;
+        this.originalImages = [
+            SIC.images[0],
+            SIC.images[1]
+        ];
+        this.currentScale = ImageRenderer.scale;
+
+        // convert to canvas coordinates
+        x1 *= this.currentScale;
+        x2 *= this.currentScale;
+        y *= this.currentScale;
+        cropWidth *= this.currentScale;
+        cropHeight *= this.currentScale;
+
+        // Initialize crop boxes
+        this.cropBoxes[Box.LEFT] = {
+            x: x1,
+            y: y,
+            width: cropWidth,
+            height: cropHeight,
+            yOffset: 0
+        };
+
+        this.cropBoxes[Box.RIGHT] = {
+            x: x2,
+            y: y,
+            width: cropWidth,
+            height: cropHeight,
+            yOffset: 0
+        };
+
+        this.saveCropBoxDimensions = { width: cropWidth, height: cropHeight };
+        this.finalizeCrop();
+    }
+
     static applyCrop() {
-        // Tidy up after align mode
         AlignMode.restorePreviousScalePercent();
         this.exitCrop();
+        this.finalizeCrop();
+    }
+
+    static finalizeCrop() {
         this.isCropped = true;
         this.resetCropButton.style.display = 'block';
 

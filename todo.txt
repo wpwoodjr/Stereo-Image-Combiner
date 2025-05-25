@@ -6,19 +6,26 @@ why are the images always the same height?  Maybe better if height is always the
 
 crop borders on single images too?
 
-Sometimes borders/transparent in conflict
+Sometimes borders/transparent checkboxes in conflict
 
-Toggle border cropping?
+Toggle checkbox for image border cropping?
 
-Set gap/border based on import?
+Set gap/border based on import single image?
 
-Clean up processFiles
+Clean up processFiles??? looks worse?
 
 Apply a crop instead of actually cropping
 
-Incorrectly splits full height when no gap
-
 Why does it find additional border when reload? Maybe only when saved with a border?
+
+No need for crop if no gap or borders?
+
+Arches a mode, initial crop not maintained - ok now?
+  but now image alignment is lost because full image not displayed
+  but what about aspect ratio
+  OK so cross vs parallel arches - alignment
+
+Delta E 15?
 
 ======== old code ===========
 
@@ -95,3 +102,49 @@ May want to revert scale after fullscreen mode
 Add 1/3 crop lines in align mode
 
 cursor disappears after handling a keypress
+
+
+        // --- Stage 2: Split the Stage 1 cropped area and Refine Inner Horizontal Edges to find the Gap ---
+        const nominalSplitPointAbsolute = outerX1 + Math.floor(stage1ContentWidth / 2);
+
+        let finalLeftImageRightX = outerX1 - 1;
+        let gapFound = false;
+        for (let currentX = nominalSplitPointAbsolute - 1 + this.MIN_IMAGE_DIMENSION; currentX >= outerX1; currentX--) {
+        // let gapFound = true;
+        // for (let currentX = nominalSplitPointAbsolute - 1; currentX >= outerX1; currentX--) {
+            if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                if (gapFound) {
+                    finalLeftImageRightX = currentX; 
+                    break;
+                } else if (currentX < nominalSplitPointAbsolute - 1 - this.MIN_IMAGE_DIMENSION) {
+                    finalLeftImageRightX = nominalSplitPointAbsolute - 1;
+                    break;
+                }
+            } else {
+                gapFound = true;
+            }
+        }
+
+        let finalRightImageLeftX = outerX2 + 1;
+        for (let currentX = nominalSplitPointAbsolute; currentX <= outerX2; currentX++) {
+            if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                finalRightImageLeftX = currentX; 
+                break;
+            }
+        }
+
+        const img1ProposedWidth = finalLeftImageRightX - outerX1 + 1;
+        const img2ProposedWidth = outerX2 - finalRightImageLeftX + 1;
+        const gapSize = finalRightImageLeftX - finalLeftImageRightX - 1;
+        console.log(`Stage 2 (find gap):
+    Found gap at: ${finalLeftImageRightX + 1}, size: ${gapSize},
+    Img1(x:${outerX1}, w:${img1ProposedWidth}),
+    Img2(x:${finalRightImageLeftX}, w:${img2ProposedWidth})`);
+
+        if (finalRightImageLeftX <= finalLeftImageRightX || 
+            img1ProposedWidth < this.MIN_IMAGE_DIMENSION ||
+            img2ProposedWidth < this.MIN_IMAGE_DIMENSION) {
+            console.warn("Stage 2: Gap refinement invalid. Splitting original image in half.");
+            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+        }
+

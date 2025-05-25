@@ -201,9 +201,9 @@ class UIManager {
     }
 
     static getDropzoneMessageText() {
-        let text = "Drag and drop two images here or click to browse";
+        let text = "Drag and drop one (for auto-split) or two images here, or click to browse";
         if (window.matchMedia('(pointer: fine)').matches) {
-            text += "<br><small>(Hold Ctrl or ⌘ while clicking to select both images)</small>";
+            text += "<br><small>(Hold Ctrl or ⌘ while clicking to select two images)</small>";
         }
         return text;
     }
@@ -367,345 +367,44 @@ class UIManager {
 class FileManager {
     static DEFAULT_FORMAT = 'image/jpeg';
     static DEFAULT_JPG_QUALITY = 90;
-    static MIN_IMAGE_DIMENSION = 10;
-    static CONSISTENCY_THRESHOLD = 0.99; // Target for augmented dominant color percentage
+    static HARD_GAP_CROP = false;
 
-    // Thresholds for _isColorDifferenceSignificant
-    static COLOR_DIFF_THRESHOLD_DELTA_E = 10.0; // Perceptual difference for RGB (Delta E 76)
-    static ALPHA_DIFF_THRESHOLD = 10;          // Absolute difference for alpha channel
+    static async _cropRegions(sourceImage, regions, baseName, ext) {
+        const { region1, region2 } = regions;
+        // width without gap
+        const r1Width = region1.x + region1.width;
+        const r2Width = sourceImage.width - region2.x;
+        const gapSize = region2.x - r1Width;
+        const gapCenter = r1Width + Math.floor(gapSize / 2);
 
-    /**
-     * Helper to get RGBA color of a pixel from imageData.data.
-     */
-    static _getPixelColor(data, x, y, imgWidth, imgHeight) {
-        if (x < 0 || x >= imgWidth || y < 0 || y >= imgHeight) return null;
-        const i = (y * imgWidth + x) * 4;
-        return { r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] };
-    }
-
-    /**
-     * Converts RGB to XYZ. Assumes R,G,B are 0-255.
-     */
-    static _rgbToXyz(r, g, b) {
-        let R_norm = r / 255;
-        let G_norm = g / 255;
-        let B_norm = b / 255;
-        R_norm = (R_norm > 0.04045) ? Math.pow((R_norm + 0.055) / 1.055, 2.4) : R_norm / 12.92;
-        G_norm = (G_norm > 0.04045) ? Math.pow((G_norm + 0.055) / 1.055, 2.4) : G_norm / 12.92;
-        B_norm = (B_norm > 0.04045) ? Math.pow((B_norm + 0.055) / 1.055, 2.4) : B_norm / 12.92;
-        const X = R_norm * 0.4124564 + G_norm * 0.3575761 + B_norm * 0.1804375;
-        const Y = R_norm * 0.2126729 + G_norm * 0.7151522 + B_norm * 0.0721750;
-        const Z = R_norm * 0.0193339 + G_norm * 0.1191920 + B_norm * 0.9503041;
-        return { x: X * 100, y: Y * 100, z: Z * 100 };
-    }
-
-    /**
-     * Converts XYZ to CIE L*a*b*. Uses D65 reference white.
-     */
-    static _xyzToLab(x, y, z) {
-        const refX = 95.047, refY = 100.000, refZ = 108.883;
-        let xr = x / refX, yr = y / refY, zr = z / refZ;
-        const epsilon = 0.008856, kappa = 903.3;
-        xr = (xr > epsilon) ? Math.cbrt(xr) : (kappa * xr + 16) / 116;
-        yr = (yr > epsilon) ? Math.cbrt(yr) : (kappa * yr + 16) / 116;
-        zr = (zr > epsilon) ? Math.cbrt(zr) : (kappa * zr + 16) / 116;
-        return { l: (116 * yr) - 16, a: 500 * (xr - yr), b: 200 * (yr - zr) };
-    }
-
-    /**
-     * Calculates CIE76 Delta E between two L*a*b* colors.
-     */
-    static _deltaE76(lab1, lab2) {
-        const dL = lab1.l - lab2.l, dA = lab1.a - lab2.a, dB = lab1.b - lab2.b;
-        return Math.sqrt(dL * dL + dA * dA + dB * dB);
-    }
-    
-    /**
-     * Checks if the perceptual color difference (Delta E for RGB, absolute for Alpha)
-     * between two RGBA colors is above specified thresholds.
-     * Returns true if colors are significantly DIFFERENT, false if they are similar.
-     */
-    static _isColorDifferenceSignificant(rgba1, rgba2) {
-        if (!rgba1 || !rgba2) return true; 
-        if (Math.abs(rgba1.a - rgba2.a) > this.ALPHA_DIFF_THRESHOLD) return true;
-        
-        const xyz1 = this._rgbToXyz(rgba1.r, rgba1.g, rgba1.b);
-        const lab1 = this._xyzToLab(xyz1.x, xyz1.y, xyz1.z);
-        const xyz2 = this._rgbToXyz(rgba2.r, rgba2.g, rgba2.b);
-        const lab2 = this._xyzToLab(xyz2.x, xyz2.y, xyz2.z);
-        const deltaE = this._deltaE76(lab1, lab2);
-        return deltaE > this.COLOR_DIFF_THRESHOLD_DELTA_E;
-    }
-
-    /**
-     * Hybrid consistency check for a column segment.
-     * Finds dominant color, then augments its count with perceptually similar colors.
-     * @returns {{dominantColor: {r,g,b,a}|null, percent: number, totalPixels: number}}
-     * 'percent' is the augmented consistency percentage.
-     */
-    static _getColumnConsistency(imageData, colX, yStart, yEnd, imgWidth, imgHeight) {
-        if (yStart > yEnd || colX < 0 || colX >= imgWidth) {
-            return { dominantColor: null, percent: 0, totalPixels: 0 };
+        const cropR1 = { x: 0, y: 0, width: r1Width, height: sourceImage.height };
+        const cropR2 = { x: region2.x, y: 0, width: r2Width, height: sourceImage.height };
+        let rightGapSize = 0;
+        if (!this.HARD_GAP_CROP) {
+            cropR1.width = gapCenter;
+            cropR2.x = gapCenter;
+            cropR2.width = sourceImage.width - gapCenter;
+            rightGapSize = region2.x - gapCenter;
         }
 
-        const counts = new Map(); 
-        const uniqueColors = new Map(); 
-        let totalValidPixels = 0;
-
-        for (let y = yStart; y <= yEnd; y++) {
-            const p = this._getPixelColor(imageData.data, colX, y, imgWidth, imgHeight);
-            if (p) {
-                const pStr = `${p.r},${p.g},${p.b},${p.a}`;
-                counts.set(pStr, (counts.get(pStr) || 0) + 1);
-                if (!uniqueColors.has(pStr)) uniqueColors.set(pStr, p);
-                totalValidPixels++;
-            }
+        try {
+            const [img1_obj, img2_obj] = await Promise.all([
+                this._cropToImageObject(sourceImage, cropR1),
+                this._cropToImageObject(sourceImage, cropR2)
+            ]);
+            this._finalizeImageLoading(
+                [img1_obj, img2_obj],
+                [`${baseName}_L${ext}`, `${baseName}_R${ext}`],
+                false
+            );
+        } catch (cropError) {
+            console.error("Error cropping sub-images from single image after analysis:", cropError);
+            await this._executeFallbackSplit(singleImg, baseName, ext, "Error cropping analyzed sub-images");
+            return;
         }
 
-        if (totalValidPixels === 0) return { dominantColor: null, percent: 1.0, totalPixels: 0 };
-
-        let initialDominantColorStr = null;
-        let initialMaxCount = 0;
-        for (const [pStr, count] of counts) {
-            if (count > initialMaxCount) {
-                initialMaxCount = count;
-                initialDominantColorStr = pStr;
-            }
-        }
-
-        if (!initialDominantColorStr) return { dominantColor: null, percent: 0, totalPixels: totalValidPixels };
-        
-        const initialDominantColor = uniqueColors.get(initialDominantColorStr);
-        let augmentedDominantCount = initialMaxCount;
-
-        for (const [pStr, count] of counts) {
-            if (pStr === initialDominantColorStr) continue;
-            const otherColor = uniqueColors.get(pStr);
-            if (!this._isColorDifferenceSignificant(initialDominantColor, otherColor)) {
-                augmentedDominantCount += count; // Add count of similar colors
-            }
-        }
-        
-        const finalConsistencyPercent = totalValidPixels > 0 ? augmentedDominantCount / totalValidPixels : 1.0;
-        // Removed console.log for cleaner output, can be re-added for debugging
-        // if (finalConsistencyPercent < this.CONSISTENCY_THRESHOLD) {
-        //     console.log(colX, initialDominantColor);
-        //     console.log(`${finalConsistencyPercent}%`, initialMaxCount, augmentedDominantCount);
-        // }
-        return { 
-            dominantColor: initialDominantColor,
-            percent: finalConsistencyPercent,
-            totalPixels: totalValidPixels
-        };
-    }
-
-    /**
-     * Hybrid consistency check for a row segment.
-     */
-    static _getRowConsistency(imageData, rowY, xStart, xEnd, imgWidth, imgHeight) {
-        if (xStart > xEnd || rowY < 0 || rowY >= imgHeight) {
-            return { dominantColor: null, percent: 0, totalPixels: 0 };
-        }
-        
-        const counts = new Map();
-        const uniqueColors = new Map();
-        let totalValidPixels = 0;
-
-        for (let x = xStart; x <= xEnd; x++) {
-            const p = this._getPixelColor(imageData.data, x, rowY, imgWidth, imgHeight);
-            if (p) {
-                const pStr = `${p.r},${p.g},${p.b},${p.a}`;
-                counts.set(pStr, (counts.get(pStr) || 0) + 1);
-                if (!uniqueColors.has(pStr)) uniqueColors.set(pStr, p);
-                totalValidPixels++;
-            }
-        }
-
-        if (totalValidPixels === 0) return { dominantColor: null, percent: 1.0, totalPixels: 0 };
-
-        let initialDominantColorStr = null;
-        let initialMaxCount = 0;
-        for (const [pStr, count] of counts) {
-            if (count > initialMaxCount) {
-                initialMaxCount = count;
-                initialDominantColorStr = pStr;
-            }
-        }
-         if (!initialDominantColorStr) return { dominantColor: null, percent: 0, totalPixels: totalValidPixels };
-
-        const initialDominantColor = uniqueColors.get(initialDominantColorStr);
-        let augmentedDominantCount = initialMaxCount;
-
-        for (const [pStr, count] of counts) {
-            if (pStr === initialDominantColorStr) continue;
-            const otherColor = uniqueColors.get(pStr);
-            if (!this._isColorDifferenceSignificant(initialDominantColor, otherColor)) {
-                augmentedDominantCount += count;
-            }
-        }
-
-        const finalConsistencyPercent = totalValidPixels > 0 ? augmentedDominantCount / totalValidPixels : 1.0;
-        return { 
-            dominantColor: initialDominantColor,
-            percent: finalConsistencyPercent,
-            totalPixels: totalValidPixels
-        };
-    }
-
-    static _splitAreaInHalfVertically(x, y, width, height) {
-        if (width < this.MIN_IMAGE_DIMENSION * 2 || height < this.MIN_IMAGE_DIMENSION) {
-             console.warn(`Area ${width}x${height} at (${x},${y}) is too small to split meaningfully.`);
-             return null; 
-        }
-        const w1 = Math.floor(width / 2);
-        const w2 = width - w1; 
-        console.log(`Splitting image in half:
-    Img1(x:${x}, y:${y}, w:${w1}, h:${height}), 
-    Img1(x:${x + w1}, y:${y}, w:${w2}, h:${height})`);
-        return {
-            region1: { x: x, y: y, width: w1, height: height },
-            region2: { x: x + w1, y: y, width: w2, height: height }
-        };
-    }
-
-    static _analyzeAndExtractSubImageRegions_MultiStage(imageData, imgWidth, imgHeight) {
-        console.log(`Splitting single image:
-    Width: ${imgWidth}, Height: ${imgHeight}`);
-        // --- Stage 1: Determine Outer Horizontal Crop Points ---
-        let outerX1 = imgWidth; 
-        for (let x = 0; x < imgWidth; x++) {
-            if (this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                outerX1 = x;
-                break;
-            }
-        }
-
-        let outerX2 = -1; 
-        for (let x = imgWidth - 1; x >= outerX1; x--) { 
-            if (this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                outerX2 = x;
-                break;
-            }
-        }
-
-        if (outerX1 >= imgWidth || outerX2 < 0 || outerX2 < outerX1) { 
-            console.warn("Stage 1: Entire image has no valid content. Splitting original image in half.");
-            return this._splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
-        }
-
-        const stage1ContentWidth = outerX2 - outerX1 + 1;
-        if (stage1ContentWidth < this.MIN_IMAGE_DIMENSION * 2) {
-            console.warn(`Stage 1: Content width ${stage1ContentWidth} is too small. Splitting original image in half.`);
-            return this._splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
-        }
-        console.log(`Stage 1 (find outer X boundaries):
-    Outer X-bounds: ${outerX1} to ${outerX2},
-    Width: ${stage1ContentWidth}`);
-
-        // --- Stage 2: Split the Stage 1 cropped area and Refine Inner Horizontal Edges ---
-        const nominalSplitPointAbsolute = outerX1 + Math.floor(stage1ContentWidth / 2);
-        
-        let finalLeftImageRightX = outerX1 - 1; 
-        for (let currentX = nominalSplitPointAbsolute - 1; currentX >= outerX1; currentX--) {
-            if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                finalLeftImageRightX = currentX; 
-                break;
-            }
-        }
-
-        let finalRightImageLeftX = outerX2 + 1;
-        for (let currentX = nominalSplitPointAbsolute; currentX <= outerX2; currentX++) {
-            if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                finalRightImageLeftX = currentX; 
-                break;
-            }
-        }
-
-        const img1ProposedWidth = finalLeftImageRightX - outerX1 + 1;
-        const img2ProposedWidth = outerX2 - finalRightImageLeftX + 1;
-        console.log(`Stage 2 (find gap):
-    Found gap: ${finalRightImageLeftX - finalLeftImageRightX - 1},
-    Img1(x:${outerX1}, w:${img1ProposedWidth}),
-    Img2(x:${finalRightImageLeftX}, w:${img2ProposedWidth})`);
-
-        if (finalRightImageLeftX <= finalLeftImageRightX || 
-            img1ProposedWidth < this.MIN_IMAGE_DIMENSION ||
-            img2ProposedWidth < this.MIN_IMAGE_DIMENSION) {
-            console.warn("Stage 2: Gap refinement invalid. Splitting original image in half.");
-            return this._splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
-            // console.warn("Stage 2: Gap refinement invalid. Splitting Stage 1 X-cropped area (full height).");
-            // return this._splitAreaInHalfVertically(outerX1, 0, stage1ContentWidth, imgHeight);
-        }
-
-        // --- Stage 3: Determine Vertical Crop Points Independently for each nominal image ---
-        let img1_Y1 = 0, img1_Y2 = -1, foundImg1Top = false;
-        for (let y = 0; y < imgHeight; y++) {
-            if (this._getRowConsistency(imageData, y, outerX1, finalLeftImageRightX, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                img1_Y1 = y; foundImg1Top = true; break;
-            }
-        }
-        if (!foundImg1Top) { 
-            console.warn("Stage 3: Left image part has no rows with content.");
-        } else {
-            img1_Y2 = imgHeight - 1;
-            for (let y = imgHeight - 1; y >= img1_Y1; y--) {
-                if (this._getRowConsistency(imageData, y, outerX1, finalLeftImageRightX, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                    img1_Y2 = y; break;
-                }
-            }
-        }
-
-        let img2_Y1 = 0, img2_Y2 = -1, foundImg2Top = false;
-        for (let y = 0; y < imgHeight; y++) {
-            if (this._getRowConsistency(imageData, y, finalRightImageLeftX, outerX2, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                img2_Y1 = y; foundImg2Top = true; break;
-            }
-        }
-        if (!foundImg2Top) {
-            console.warn("Stage 3: Right image part has no rows with content.");
-        } else {
-            img2_Y2 = imgHeight - 1;
-            for (let y = imgHeight - 1; y >= img2_Y1; y--) {
-                if (this._getRowConsistency(imageData, y, finalRightImageLeftX, outerX2, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                    img2_Y2 = y; break;
-                }
-            }
-        }
-        console.log(`Stage 3 (find outer Y boundaries):
-    Img1 Y-bounds: ${img1_Y1}-${img1_Y2},
-    Img2 Y-bounds: ${img2_Y1}-${img2_Y2}`);
-
-        const finalImg1Height = (img1_Y2 < img1_Y1) ? 0 : (img1_Y2 - img1_Y1 + 1);
-        const finalImg2Height = (img2_Y2 < img2_Y1) ? 0 : (img2_Y2 - img2_Y1 + 1);
-
-        // If EITHER image's determined height is too small, trigger fallback.
-        if (finalImg1Height < this.MIN_IMAGE_DIMENSION || finalImg2Height < this.MIN_IMAGE_DIMENSION) {
-//             console.warn(`Stage 3:
-// Height for one or both images is too small:
-//     H1: ${finalImg1Height}, H2: ${finalImg2Height}
-// Using Stage 2 X boundaries and original full height.`);
-//             img1_Y1 = img2_Y1 = 0;
-//             finalImg1Height = finalImg2Height = imgHeight;
-            console.warn(`Stage 3:
-Height for one or both images is too small:
-    H1: ${finalImg1Height}, H2: ${finalImg2Height}
-Splitting original image in half.`);
-            return this._splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
-        }
-
-        // --- Stage 4: Define Final Crop Regions using independent heights ---
-        const region1W = finalLeftImageRightX - outerX1 + 1;
-        const region2W = outerX2 - finalRightImageLeftX + 1;
-        
-        console.log(`Final Images:
-    Found gap: ${finalRightImageLeftX - finalLeftImageRightX - 1},
-    Img1(x:${outerX1}, y:${img1_Y1}, w:${region1W}, h:${finalImg1Height}), 
-    Img2(x:${finalRightImageLeftX}, y:${img2_Y1}, w:${region2W}, h:${finalImg2Height})`);
-
-        return {
-            region1: { x: outerX1, y: img1_Y1, width: region1W, height: finalImg1Height },
-            region2: { x: finalRightImageLeftX, y: img2_Y1, width: region2W, height: finalImg2Height }
-        };
+        const regionsWithoutGap = { region1: { ... region1 }, region2: { ...region2, x: rightGapSize } };
+        CropManager.setCropState(regionsWithoutGap);
     }
 
     static _cropToImageObject(sourceImage, region) {
@@ -739,7 +438,7 @@ Splitting original image in half.`);
         });
     }
 
-    static _finalizeImageLoading(loadedImages, loadedNames) {
+    static _finalizeImageLoading(loadedImages, loadedNames, draw = true) {
         SIC.images = [];
         CropManager.resetCrop();
         SIC.images = loadedImages;
@@ -752,13 +451,15 @@ Splitting original image in half.`);
         if (SIC.images.length === 2 && SIC.images[0] && SIC.images[1]) {
             const optimalScale = ImageRenderer.calculateMaxScale(SIC.images[0], SIC.images[1]);
             ImageRenderer.setScalePercent(ImageRenderer.currentScalePercent(), optimalScale);
-            ImageRenderer.drawImages();
+            if (draw) {
+                ImageRenderer.drawImages();
+            }
 
             UIManager.domElements.saveButton.disabled = false;
             UIManager.domElements.swapButton.disabled = false;
             CropManager.setCropButtonDisabledState(false);
         } else {
-            console.error("Finalizing image loading with invalid images count or objects.", loadedImages);
+            console.error("Finalizing image loading with invalid image count or objects.", loadedImages);
             alert("There was an issue preparing the images for display.");
             UIManager.resetToDropzone(); // Use helper to reset UI
         }
@@ -807,31 +508,6 @@ Splitting original image in half.`);
     }
 
     /**
-     * Gets ImageData from an HTMLImageElement.
-     * @param {HTMLImageElement} imageElement - The image to process.
-     * @returns {ImageData|null} The ImageData object or null if an error occurs.
-     * @private
-     */
-    static _getImageDataFromImage(imageElement) {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = imageElement.width;
-        tempCanvas.height = imageElement.height;
-        const tempCtx = tempCanvas.getContext('2d');
-        if (!tempCtx) {
-            alert('Could not get canvas context for image analysis.');
-            return null;
-        }
-        tempCtx.drawImage(imageElement, 0, 0);
-        try {
-            return tempCtx.getImageData(0, 0, imageElement.width, imageElement.height);
-        } catch (e) {
-            console.error("Error getting imageData (cross-origin?):", e);
-            alert("Could not analyze image pixels. If it's from another website, please download it first, then upload from your computer.");
-            return null;
-        }
-    }
-
-    /**
      * Executes a fallback mechanism to split an image in half if primary processing fails.
      * @param {HTMLImageElement} originalImage - The image to split.
      * @param {string} baseName - The base name for the resulting files.
@@ -841,7 +517,7 @@ Splitting original image in half.`);
      */
     static async _executeFallbackSplit(originalImage, baseName, ext, contextMessage) {
         console.warn(`Executing fallback split due to: ${contextMessage}`);
-        const fallbackRegions = this._splitAreaInHalfVertically(0, 0, originalImage.width, originalImage.height);
+        const fallbackRegions = BorderFinder.splitAreaInHalfVertically(0, 0, originalImage.width, originalImage.height);
         if (fallbackRegions) {
             try {
                 const [fb_img1, fb_img2] = await Promise.all([
@@ -890,36 +566,10 @@ Splitting original image in half.`);
 
             const { baseName, ext } = this._generateImageNameParts(originalName);
 
-            if (singleImg.width < this.MIN_IMAGE_DIMENSION * 2 || singleImg.height < this.MIN_IMAGE_DIMENSION) {
-                await this._executeFallbackSplit(singleImg, baseName, ext, "Image too small for analysis");
-                return;
-            }
+            const regions = BorderFinder.analyzeAndExtractSubImageRegions_MultiStage(singleImg);
 
-            const imageData = this._getImageDataFromImage(singleImg);
-            if (!imageData) {
-                await this._executeFallbackSplit(singleImg, baseName, ext, "Failed to get image data");
-                return;
-            }
-            // Original log line, kept as requested from initial code.
-            console.log(`Analyzing image borders and gap with consistency threshold ${this.CONSISTENCY_THRESHOLD} and Delta E ${this.COLOR_DIFF_THRESHOLD_DELTA_E}`);
-            const regions = this._analyzeAndExtractSubImageRegions_MultiStage(imageData, singleImg.width, singleImg.height);
-
-            if (regions && regions.region1 && regions.region2 &&
-                regions.region1.width >= this.MIN_IMAGE_DIMENSION && regions.region1.height >= this.MIN_IMAGE_DIMENSION &&
-                regions.region2.width >= this.MIN_IMAGE_DIMENSION && regions.region2.height >= this.MIN_IMAGE_DIMENSION) {
-                try {
-                    const [img1_obj, img2_obj] = await Promise.all([
-                        this._cropToImageObject(singleImg, regions.region1),
-                        this._cropToImageObject(singleImg, regions.region2)
-                    ]);
-                    this._finalizeImageLoading(
-                        [img1_obj, img2_obj],
-                        [`${baseName}_L${ext}`, `${baseName}_R${ext}`]
-                    );
-                } catch (cropError) {
-                    console.error("Error cropping sub-images from single image after analysis:", cropError);
-                    await this._executeFallbackSplit(singleImg, baseName, ext, "Error cropping analyzed sub-images");
-                }
+            if (regions && regions.region1 && regions.region2) {
+                await this._cropRegions(singleImg, regions, baseName, ext);
             } else {
                 await this._executeFallbackSplit(singleImg, baseName, ext, "Analysis yielded invalid/null regions");
             }
@@ -1105,6 +755,404 @@ Splitting original image in half.`);
         }
         
         return finalNameCore;
+    }
+}
+
+// ===================================
+// Border finder - finds the gap and borders
+// ===================================
+class BorderFinder {
+    static MIN_IMAGE_DIMENSION = 10;
+
+    // Thresholds for color consistency detection
+    static COLOR_DIFF_THRESHOLD_DELTA_E = 15.0; // Perceptual difference for RGB (Delta E 76)
+    static ALPHA_DIFF_THRESHOLD = 10;           // Absolute difference for alpha channel
+    static CONSISTENCY_THRESHOLD = 0.99;        // Target for augmented dominant color percentage
+
+    /**
+     * Helper to get RGBA color of a pixel from imageData.data.
+     */
+    static _getPixelColor(data, x, y, imgWidth, imgHeight) {
+        if (x < 0 || x >= imgWidth || y < 0 || y >= imgHeight) return null;
+        const i = (y * imgWidth + x) * 4;
+        return { r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] };
+    }
+
+    /**
+     * Converts RGB to XYZ. Assumes R,G,B are 0-255.
+     */
+    static _rgbToXyz(r, g, b) {
+        let R_norm = r / 255;
+        let G_norm = g / 255;
+        let B_norm = b / 255;
+        R_norm = (R_norm > 0.04045) ? Math.pow((R_norm + 0.055) / 1.055, 2.4) : R_norm / 12.92;
+        G_norm = (G_norm > 0.04045) ? Math.pow((G_norm + 0.055) / 1.055, 2.4) : G_norm / 12.92;
+        B_norm = (B_norm > 0.04045) ? Math.pow((B_norm + 0.055) / 1.055, 2.4) : B_norm / 12.92;
+        const X = R_norm * 0.4124564 + G_norm * 0.3575761 + B_norm * 0.1804375;
+        const Y = R_norm * 0.2126729 + G_norm * 0.7151522 + B_norm * 0.0721750;
+        const Z = R_norm * 0.0193339 + G_norm * 0.1191920 + B_norm * 0.9503041;
+        return { x: X * 100, y: Y * 100, z: Z * 100 };
+    }
+
+    /**
+     * Converts XYZ to CIE L*a*b*. Uses D65 reference white.
+     */
+    static _xyzToLab(x, y, z) {
+        const refX = 95.047, refY = 100.000, refZ = 108.883;
+        let xr = x / refX, yr = y / refY, zr = z / refZ;
+        const epsilon = 0.008856, kappa = 903.3;
+        xr = (xr > epsilon) ? Math.cbrt(xr) : (kappa * xr + 16) / 116;
+        yr = (yr > epsilon) ? Math.cbrt(yr) : (kappa * yr + 16) / 116;
+        zr = (zr > epsilon) ? Math.cbrt(zr) : (kappa * zr + 16) / 116;
+        return { l: (116 * yr) - 16, a: 500 * (xr - yr), b: 200 * (yr - zr) };
+    }
+
+    /**
+     * Calculates CIE76 Delta E between two L*a*b* colors.
+     */
+    static _deltaE76(lab1, lab2) {
+        const dL = lab1.l - lab2.l, dA = lab1.a - lab2.a, dB = lab1.b - lab2.b;
+        return Math.sqrt(dL * dL + dA * dA + dB * dB);
+    }
+    
+    /**
+     * Checks if the perceptual color difference (Delta E for RGB, absolute for Alpha)
+     * between two RGBA colors is above specified thresholds.
+     * Returns true if colors are significantly DIFFERENT, false if they are similar.
+     */
+    static _isColorDifferenceSignificant(rgba1, rgba2) {
+        if (!rgba1 || !rgba2) return true; 
+        if (Math.abs(rgba1.a - rgba2.a) > this.ALPHA_DIFF_THRESHOLD) return true;
+
+        const xyz1 = this._rgbToXyz(rgba1.r, rgba1.g, rgba1.b);
+        const lab1 = this._xyzToLab(xyz1.x, xyz1.y, xyz1.z);
+        const xyz2 = this._rgbToXyz(rgba2.r, rgba2.g, rgba2.b);
+        const lab2 = this._xyzToLab(xyz2.x, xyz2.y, xyz2.z);
+        const deltaE = this._deltaE76(lab1, lab2);
+        return deltaE > this.COLOR_DIFF_THRESHOLD_DELTA_E;
+    }
+
+    /**
+     * Hybrid consistency check for a column segment.
+     * Finds dominant color, then augments its count with perceptually similar colors.
+     * @returns {{dominantColor: {r,g,b,a}|null, percent: number, totalPixels: number}}
+     * 'percent' is the augmented consistency percentage.
+     */
+    static _getColumnConsistency(imageData, colX, yStart, yEnd, imgWidth, imgHeight) {
+        if (yStart > yEnd || colX < 0 || colX >= imgWidth) {
+            return { dominantColor: null, percent: 0, totalPixels: 0 };
+        }
+
+        const counts = new Map(); 
+        const uniqueColors = new Map(); 
+        let totalValidPixels = 0;
+
+        for (let y = yStart; y <= yEnd; y++) {
+            const p = this._getPixelColor(imageData.data, colX, y, imgWidth, imgHeight);
+            if (p) {
+                const pStr = `${p.r},${p.g},${p.b},${p.a}`;
+                counts.set(pStr, (counts.get(pStr) || 0) + 1);
+                if (!uniqueColors.has(pStr)) uniqueColors.set(pStr, p);
+                totalValidPixels++;
+            }
+        }
+
+        if (totalValidPixels === 0) return { dominantColor: null, percent: 1.0, totalPixels: 0 };
+
+        let initialDominantColorStr = null;
+        let initialMaxCount = 0;
+        for (const [pStr, count] of counts) {
+            if (count > initialMaxCount) {
+                initialMaxCount = count;
+                initialDominantColorStr = pStr;
+            }
+        }
+
+        if (!initialDominantColorStr) return { dominantColor: null, percent: 0, totalPixels: totalValidPixels };
+
+        const initialDominantColor = uniqueColors.get(initialDominantColorStr);
+        let augmentedDominantCount = initialMaxCount;
+
+        for (const [pStr, count] of counts) {
+            if (pStr === initialDominantColorStr) continue;
+            const otherColor = uniqueColors.get(pStr);
+            if (!this._isColorDifferenceSignificant(initialDominantColor, otherColor)) {
+                augmentedDominantCount += count; // Add count of similar colors
+            }
+        }
+        
+        const finalConsistencyPercent = totalValidPixels > 0 ? augmentedDominantCount / totalValidPixels : 1.0;
+        // Removed console.log for cleaner output, can be re-added for debugging
+        // if (finalConsistencyPercent < this.CONSISTENCY_THRESHOLD) {
+        //     console.log(colX, initialDominantColor);
+        //     console.log(`${finalConsistencyPercent}%`, initialMaxCount, augmentedDominantCount);
+        // }
+        return { 
+            dominantColor: initialDominantColor,
+            percent: finalConsistencyPercent,
+            totalPixels: totalValidPixels
+        };
+    }
+
+    /**
+     * Hybrid consistency check for a row segment.
+     */
+    static _getRowConsistency(imageData, rowY, xStart, xEnd, imgWidth, imgHeight) {
+        if (xStart > xEnd || rowY < 0 || rowY >= imgHeight) {
+            return { dominantColor: null, percent: 0, totalPixels: 0 };
+        }
+        
+        const counts = new Map();
+        const uniqueColors = new Map();
+        let totalValidPixels = 0;
+
+        for (let x = xStart; x <= xEnd; x++) {
+            const p = this._getPixelColor(imageData.data, x, rowY, imgWidth, imgHeight);
+            if (p) {
+                const pStr = `${p.r},${p.g},${p.b},${p.a}`;
+                counts.set(pStr, (counts.get(pStr) || 0) + 1);
+                if (!uniqueColors.has(pStr)) uniqueColors.set(pStr, p);
+                totalValidPixels++;
+            }
+        }
+
+        if (totalValidPixels === 0) return { dominantColor: null, percent: 1.0, totalPixels: 0 };
+
+        let initialDominantColorStr = null;
+        let initialMaxCount = 0;
+        for (const [pStr, count] of counts) {
+            if (count > initialMaxCount) {
+                initialMaxCount = count;
+                initialDominantColorStr = pStr;
+            }
+        }
+         if (!initialDominantColorStr) return { dominantColor: null, percent: 0, totalPixels: totalValidPixels };
+
+        const initialDominantColor = uniqueColors.get(initialDominantColorStr);
+        let augmentedDominantCount = initialMaxCount;
+
+        for (const [pStr, count] of counts) {
+            if (pStr === initialDominantColorStr) continue;
+            const otherColor = uniqueColors.get(pStr);
+            if (!this._isColorDifferenceSignificant(initialDominantColor, otherColor)) {
+                augmentedDominantCount += count;
+            }
+        }
+
+        const finalConsistencyPercent = totalValidPixels > 0 ? augmentedDominantCount / totalValidPixels : 1.0;
+        return { 
+            dominantColor: initialDominantColor,
+            percent: finalConsistencyPercent,
+            totalPixels: totalValidPixels
+        };
+    }
+
+    /**
+     * Gets ImageData from an HTMLImageElement.
+     * @param {HTMLImageElement} imageElement - The image to process.
+     * @returns {ImageData|null} The ImageData object or null if an error occurs.
+     * @private
+     */
+    static _getImageDataFromImage(imageElement) {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = imageElement.width;
+        tempCanvas.height = imageElement.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) {
+            alert('Could not get canvas context for image analysis.');
+            return null;
+        }
+        tempCtx.drawImage(imageElement, 0, 0);
+        try {
+            return tempCtx.getImageData(0, 0, imageElement.width, imageElement.height);
+        } catch (e) {
+            console.error("Error getting imageData (cross-origin?):", e);
+            alert("Could not analyze image pixels. If it's from another website, please download it first, then upload from your computer.");
+            return null;
+        }
+    }
+
+    static splitAreaInHalfVertically(x, y, width, height) {
+        if (width < this.MIN_IMAGE_DIMENSION * 2 || height < this.MIN_IMAGE_DIMENSION) {
+             console.warn(`Area ${width}x${height} at (${x},${y}) is too small to split meaningfully.`);
+             return null; 
+        }
+        const w1 = Math.floor(width / 2);
+        const w2 = width - w1; 
+        console.log(`Splitting image in half:
+    Img1(x:${x}, y:${y}, w:${w1}, h:${height}), 
+    Img1(x:${x + w1}, y:${y}, w:${w2}, h:${height})`);
+        return {
+            region1: { x: x, y: y, width: w1, height: height },
+            region2: { x: x + w1, y: y, width: w2, height: height }
+        };
+    }
+
+    static analyzeAndExtractSubImageRegions_MultiStage(singleImg) {
+        const imgWidth = singleImg.width;
+        const imgHeight = singleImg.height;
+
+        if (imgWidth < this.MIN_IMAGE_DIMENSION * 2 || imgHeight < this.MIN_IMAGE_DIMENSION) {
+            return null;
+        }
+
+        const imageData = this._getImageDataFromImage(singleImg);
+        if (!imageData) {
+            return null;
+        }
+
+        console.log(`Analyzing image borders and gap with:
+    Consistency threshold: ${this.CONSISTENCY_THRESHOLD * 100}%,
+    Delta E: ${this.COLOR_DIFF_THRESHOLD_DELTA_E}`);
+
+        console.log(`Splitting single image:
+    Width: ${imgWidth}, Height: ${imgHeight}`);
+    
+        // --- Stage 1: Determine Outer Horizontal Crop Points ---
+        let outerX1 = imgWidth;
+        for (let x = 0; x < imgWidth; x++) {
+            if (this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                outerX1 = x;
+                break;
+            }
+        }
+
+        let outerX2 = -1; 
+        for (let x = imgWidth - 1; x >= outerX1; x--) { 
+            if (this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                outerX2 = x;
+                break;
+            }
+        }
+
+        if (outerX1 >= imgWidth || outerX2 < 0 || outerX2 < outerX1) { 
+            console.warn("Stage 1: Entire image has no valid content. Splitting original image in half.");
+            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+        }
+
+        const stage1ContentWidth = outerX2 - outerX1 + 1;
+        if (stage1ContentWidth < this.MIN_IMAGE_DIMENSION * 2) {
+            console.warn(`Stage 1: Content width ${stage1ContentWidth} is too small. Splitting original image in half.`);
+            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+        }
+        console.log(`Stage 1 (find outer X boundaries):
+    Outer X-bounds: ${outerX1} to ${outerX2},
+    Width: ${stage1ContentWidth}`);
+
+        // --- Stage 2: Split the Stage 1 cropped area and Refine Inner Horizontal Edges to find the Gap ---
+        let finalLeftImageRightX = 0;
+        let finalRightImageLeftX = 0;
+        let gapSize = 0;
+        const bounds = [
+            { left: outerX1, width: stage1ContentWidth },
+            { left: 0, width: imgWidth }
+        ];
+        // look for gap with left and right of cropped image; failing that, original image left and right
+        for (const { left, width } of bounds) {
+            const nominalSplitPointAbsolute = left + Math.floor(width / 2);
+
+            finalLeftImageRightX = left - 1;
+            for (let currentX = nominalSplitPointAbsolute - 1; currentX >= left; currentX--) {
+                if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                    finalLeftImageRightX = currentX; 
+                    break;
+                }
+            }
+
+            const right = left + width - 1;
+            // console.log(left, right, width, nominalSplitPointAbsolute);
+            finalRightImageLeftX = right + 1;
+            for (let currentX = nominalSplitPointAbsolute; currentX <= right; currentX++) {
+                if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                    finalRightImageLeftX = currentX; 
+                    break;
+                }
+            }
+
+            gapSize = finalRightImageLeftX - finalLeftImageRightX - 1;
+            // break early if gap found or if cropped area = original area
+            if (gapSize > 0 || width === imgWidth) {
+                break;
+            }
+        }
+
+        const img1ProposedWidth = finalLeftImageRightX - outerX1 + 1;
+        const img2ProposedWidth = outerX2 - finalRightImageLeftX + 1;
+        console.log(`Stage 2 (find gap):
+    Found gap at: ${finalLeftImageRightX + 1}, size: ${gapSize},
+    Img1(x:${outerX1}, w:${img1ProposedWidth}),
+    Img2(x:${finalRightImageLeftX}, w:${img2ProposedWidth})`);
+
+        if (finalRightImageLeftX <= finalLeftImageRightX || 
+            img1ProposedWidth < this.MIN_IMAGE_DIMENSION ||
+            img2ProposedWidth < this.MIN_IMAGE_DIMENSION) {
+            console.warn("Stage 2: Gap refinement invalid. Splitting original image in half.");
+            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+        }
+
+        // --- Stage 3: Determine Vertical Crop Points Independently for each nominal image ---
+        let img1_Y1 = 0, img1_Y2 = -1, foundImg1Top = false;
+        for (let y = 0; y < imgHeight; y++) {
+            if (this._getRowConsistency(imageData, y, outerX1, finalLeftImageRightX, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                img1_Y1 = y; foundImg1Top = true; break;
+            }
+        }
+        if (!foundImg1Top) { 
+            console.warn("Stage 3: Left image part has no rows with content.");
+        } else {
+            img1_Y2 = imgHeight - 1;
+            for (let y = imgHeight - 1; y >= img1_Y1; y--) {
+                if (this._getRowConsistency(imageData, y, outerX1, finalLeftImageRightX, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                    img1_Y2 = y; break;
+                }
+            }
+        }
+
+        let img2_Y1 = 0, img2_Y2 = -1, foundImg2Top = false;
+        for (let y = 0; y < imgHeight; y++) {
+            if (this._getRowConsistency(imageData, y, finalRightImageLeftX, outerX2, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                img2_Y1 = y; foundImg2Top = true; break;
+            }
+        }
+        if (!foundImg2Top) {
+            console.warn("Stage 3: Right image part has no rows with content.");
+        } else {
+            img2_Y2 = imgHeight - 1;
+            for (let y = imgHeight - 1; y >= img2_Y1; y--) {
+                if (this._getRowConsistency(imageData, y, finalRightImageLeftX, outerX2, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+                    img2_Y2 = y; break;
+                }
+            }
+        }
+        console.log(`Stage 3 (find outer Y boundaries):
+    Img1 Y-bounds: ${img1_Y1}-${img1_Y2},
+    Img2 Y-bounds: ${img2_Y1}-${img2_Y2}`);
+
+        const finalImg1Height = (img1_Y2 < img1_Y1) ? 0 : (img1_Y2 - img1_Y1 + 1);
+        const finalImg2Height = (img2_Y2 < img2_Y1) ? 0 : (img2_Y2 - img2_Y1 + 1);
+
+        // If EITHER image's determined height is too small, trigger fallback.
+        if (finalImg1Height < this.MIN_IMAGE_DIMENSION || finalImg2Height < this.MIN_IMAGE_DIMENSION) {
+            console.warn(`Stage 3:
+Height for one or both images is too small:
+    H1: ${finalImg1Height}, H2: ${finalImg2Height}
+Splitting original image in half.`);
+            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+        }
+
+        // --- Stage 4: Define Final Crop Regions using independent heights ---
+        const region1W = finalLeftImageRightX - outerX1 + 1;
+        const region2W = outerX2 - finalRightImageLeftX + 1;
+        
+        console.log(`Final Images:
+    Found gap at: ${finalLeftImageRightX + 1}, size: ${gapSize},
+    Img1(x:${outerX1}, y:${img1_Y1}, w:${region1W}, h:${finalImg1Height}), 
+    Img2(x:${finalRightImageLeftX}, y:${img2_Y1}, w:${region2W}, h:${finalImg2Height})`);
+
+        return {
+            region1: { x: outerX1, y: img1_Y1, width: region1W, height: finalImg1Height },
+            region2: { x: finalRightImageLeftX, y: img2_Y1, width: region2W, height: finalImg2Height }
+        };
     }
 }
 
