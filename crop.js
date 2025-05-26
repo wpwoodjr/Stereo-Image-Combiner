@@ -271,13 +271,6 @@ class CropManager {
         const imgH1 = SIC.images[0].height;
         const imgH2 = SIC.images[1].height;
 
-        // if there is no border or gap, a crop is not needed
-        if (x2 === 0 && w1 === imgW1 && w2 === imgW2 && h1 === imgH1 && h2 === imgH2) {
-            console.log("No crop needed");
-            ImageRenderer.drawImages();
-            return;
-        }
-
         // Calculate max possible crop width, constrained by smallest image width
         let cropWidth = Math.min(Math.max(w1, w2), imgW1, imgW2);
 
@@ -299,6 +292,13 @@ h2: ${h2},
 cropHeight: ${cropHeight},
 imgH1: ${imgH1},
 imgH2: ${imgH2}`);
+        }
+
+        // if the crop is the same size as the images, there's no need for a crop
+        if (cropWidth === SIC.images[0].width && cropWidth === SIC.images[1].width && cropHeight === imgH1) {
+            console.log("No crop needed");
+            ImageRenderer.drawImages();
+            return;
         }
 
         // prepare for crop

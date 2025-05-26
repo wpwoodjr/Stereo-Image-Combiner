@@ -202,7 +202,7 @@ class UIManager {
     }
 
     static getDropzoneMessageText() {
-        let text = "Drag and drop one (for auto-split) or two images here, or click to browse";
+        let text = "Drag and drop one image (for auto-split) or two images here, or click to browse";
         if (window.matchMedia('(pointer: fine)').matches) {
             text += "<br><small>(Hold Ctrl or ⌘ while clicking to select two images)</small>";
         }
@@ -768,7 +768,7 @@ class BorderFinder {
     // Thresholds for color consistency detection
     static COLOR_DIFF_THRESHOLD_DELTA_E = 15.0; // Perceptual difference for RGB (Delta E 76)
     static ALPHA_DIFF_THRESHOLD = 10;           // Absolute difference for alpha channel
-    static CONSISTENCY_THRESHOLD = 0.99;        // Target for augmented dominant color percentage
+    static CONSISTENCY_THRESHOLD = 0.98;        // Target for augmented dominant color percentage
 
     /**
      * Helper to get RGBA color of a pixel from imageData.data.
@@ -1139,9 +1139,11 @@ class BorderFinder {
                 }
             }
         }
-        console.log(`Stage 3 (find outer Y boundaries):
+        if (SIC.DEBUG) {
+            console.log(`Stage 3 (find outer Y boundaries):
     Img1 Y-bounds: ${img1_Y1} - ${img1_Y2},
     Img2 Y-bounds: ${img2_Y1} - ${img2_Y2}`);
+        }
 
         const finalImg1Height = (img1_Y2 < img1_Y1) ? 0 : (img1_Y2 - img1_Y1 + 1);
         const finalImg2Height = (img2_Y2 < img2_Y1) ? 0 : (img2_Y2 - img2_Y1 + 1);
