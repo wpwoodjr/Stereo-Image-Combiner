@@ -197,7 +197,7 @@ class CropManager {
                 this.adjustToNewScale(this.currentScale / this.lastCropState.scale);
             }
 
-            if (CropValidator.DEBUG) {
+            if (SIC.DEBUG) {
                 CropValidator.validateCropBoxes("startCrop");
             }
         } else {
@@ -288,16 +288,18 @@ class CropManager {
         let y = Math.min(y1, y2);
         let cropHeight = Math.max(y1 + h1, y2 + h2) - y;
 
-        console.log(`w1: ${w1},
+        if (SIC.DEBUG) {
+            console.log(`w1: ${w1},
 w2: ${w2},
 cropWidth: ${cropWidth},
 imgW1: ${imgW1},
 imgW2: ${imgW2}`);
-        console.log(`h1: ${h1},
+            console.log(`h1: ${h1},
 h2: ${h2},
 cropHeight: ${cropHeight},
 imgH1: ${imgH1},
 imgH2: ${imgH2}`);
+        }
 
         // prepare for crop
         this.preCropScalePercent = ImageRenderer.currentScalePercent();
@@ -709,7 +711,7 @@ class CropInteraction {
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
     }
 
-    static drawCursorBoxes() {
+    static drawHandleBoxes() {
         this.getHandle(0, 0);
     }
 
@@ -795,7 +797,7 @@ class CropInteraction {
             ];
         }
 
-        if (CropValidator.DEBUG) {
+        if (SIC.DEBUG) {
             const ctx = CropManager.ctx;
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#33ccff';
@@ -850,7 +852,7 @@ class CropInteraction {
             this.movableBoxes = this.getMovableBoxes(this.currentHandle);
             CropRenderer.drawCropInterface(highlights);
 
-            if (CropValidator.DEBUG && this.movementAxis === Axis.NONE && !this.resizing) {
+            if (SIC.DEBUG && this.movementAxis === Axis.NONE && !this.resizing) {
                 const ctx = CropManager.ctx;
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = '#ff88ff'
@@ -1404,7 +1406,7 @@ class CropBoxHelper {
             CropManager.saveCropBoxDimensions = { width: CropManager.cropBoxes[Box.LEFT].width, height: CropManager.cropBoxes[Box.LEFT].height };
         }
 
-        if (CropValidator.DEBUG) {
+        if (SIC.DEBUG) {
             // Final validation to ensure boxes stay within bounds
             CropValidator.validateCropBoxes("updateCropBoxes");
         }
@@ -1814,9 +1816,8 @@ class CropRenderer {
         this.handleSize = CropInteraction.HANDLE_SIZE;
         ctx.globalAlpha = 1.0;
 
-        if (CropValidator.DEBUG) {
-            // Draw the touch points
-            CropInteraction.drawCursorBoxes();
+        if (SIC.DEBUG) {
+            CropInteraction.drawHandleBoxes();
         }
     }
     
@@ -2021,10 +2022,8 @@ class CropRenderer {
 // CROP VALIDATOR - Debug validation for crop boxes
 // ===================================
 class CropValidator {
-    static DEBUG = false;
-
     static validateCropBoxes(msg) {
-        if (!this.DEBUG) return;
+        if (!SIC.DEBUG) return;
         
         const minCropSizeCanvas = CropBoxHelper.MIN_CROP_SIZE_PIXELS * CropManager.currentScale;
         // Get current image dimensions
@@ -2243,9 +2242,8 @@ class AlignMode {
         CropRenderer.handleSize = CropInteraction.HANDLE_SIZE;
         ctx.globalAlpha = 1.0;
 
-        if (CropValidator.DEBUG) {
-            // Draw the touch points
-            CropInteraction.drawCursorBoxes();
+        if (SIC.DEBUG) {
+            CropInteraction.drawHandleBoxes();
         }
     }
     

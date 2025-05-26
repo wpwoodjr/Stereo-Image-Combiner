@@ -2,30 +2,22 @@
 
 Try leaving transparent background on
 
-why are the images always the same height?  Maybe better if height is always the same?  max height?
+try determining one line significantly diff to another
+
+setCropState in CropManager not decide if crop is needed
 
 crop borders on single images too?
 
 Sometimes borders/transparent checkboxes in conflict
 
-Toggle checkbox for image border cropping?
-
 Set gap/border based on import single image?
 
-Clean up processFiles??? looks worse?
-
-Apply a crop instead of actually cropping
-
 Why does it find additional border when reload? Maybe only when saved with a border?
-
-No need for crop if no gap or borders?
 
 Arches a mode, initial crop not maintained - ok now?
   but now image alignment is lost because full image not displayed
   but what about aspect ratio
   OK so cross vs parallel arches - alignment
-
-Delta E 15?
 
 ======== old code ===========
 
@@ -55,9 +47,6 @@ iOS may need to call onResize after a timeout, as documented in MB:
     // ios is not always reporting correct width and height on orientation change
     // use timeout to redo the resize after things have hopefully settled down
 
-cursor changes on mobile? esp. with touch
-^^^^^^^ try on chromebook
-
 *Align Mode*
 need better indicators of what will move in align mode, esp arrow mode
   for instance the transparency isn't a clear indicator
@@ -65,26 +54,11 @@ need better indicators of what will move in align mode, esp arrow mode
 
 check fs and align mode
 
-swap needs to tell alignMode because wrong image is being moved - seems ok now?
-
 applyCrop probably doesn't have to call alignModeRestorePreviousScalePercent, except that when re-cropping, startCrop calls
   enterAlignMode, the previous scale is remembered incorrectly as the previous alignMode scale, so switching to side-by-side mode is using the alignMode scale
   
 On the first crop, enterAlignMode captures the previous scale as the uncropped scale; so when switching to side by side mode, this is actually
   perchance OK because side by side mode also uses the uncropped scale.
-
-need this?
-        // prevent cropbox handles from being hidden when images are cut off at the top
-        const leftY = cropBoxes[LEFT].y;
-        let leftYOffset = cropBoxes[LEFT].yOffset;
-        const rightY = cropBoxes[RIGHT].y;
-        let rightYOffset = cropBoxes[RIGHT].yOffset;
-        if (leftYOffset > leftY) {
-            rightYOffset -= leftYOffset - leftY;
-            leftYOffset = leftY;
-            cropBoxes[LEFT].yOffset = leftYOffset;
-            cropBoxes[RIGHT].yOffset = rightYOffset;
-        }
 
 
 ========== Hard to fix and maybe not worth it (or both) ==========
