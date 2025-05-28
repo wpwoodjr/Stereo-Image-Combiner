@@ -86,6 +86,10 @@ class CropManager {
     static setupCanvas() {
         this.canvas = document.getElementById('canvas');
         this.ctx = this.canvas.getContext('2d');
+        if (!this.ctx.roundRect) {
+            // older browsers before 2023 don't have roundRect
+            this.ctx.roundRect = this.ctx.rect;
+        }
     }
 
     static setupDOM() {
@@ -252,6 +256,14 @@ class CropManager {
         this.saveCropBoxDimensions = { width: maxWidth, height: maxHeight };
     }
 
+    static _setDimension(d1, d2) {
+        if (Math.abs(d1 - d2) <= 1) {
+            return Math.min(d1, d2);
+        } else {
+            return Math.max(d1, d2);
+        }
+    }
+
     // Set initial crop state using regions
     static setCropState(regions) {
         const { region1, region2 } = regions;
@@ -272,14 +284,17 @@ class CropManager {
         const imgH2 = SIC.images[1].height;
 
         // Calculate max possible crop width, constrained by smallest image width
-        let cropWidth = Math.min(Math.max(w1, w2), imgW1, imgW2);
+        let cropWidth = Math.min(this._setDimension(w1, w2), imgW1, imgW2);
 
         // crop the gap (x2 already crops the gap)
         x1 = imgW1 - cropWidth;
 
         // crop out border region at top and bottom
         let y = Math.min(y1, y2);
-        let cropHeight = Math.max(y1 + h1, y2 + h2) - y;
+        // if (Math.abs(y1 - y2) <= 1) {
+        //     y = Math.max(y1, y2);
+        // }
+        let cropHeight = this._setDimension(y1 + h1, y2 + h2) - y;
 
         if (SIC.DEBUG) {
             console.log(`w1: ${w1},

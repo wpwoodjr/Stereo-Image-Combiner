@@ -2,6 +2,8 @@
 
 Try leaving transparent background on
 
+98 or 99%
+
 try determining one line significantly diff to another
 
 setCropState in CropManager not decide if crop is needed

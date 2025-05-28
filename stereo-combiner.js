@@ -766,9 +766,10 @@ class BorderFinder {
     static MIN_IMAGE_DIMENSION = 10;
 
     // Thresholds for color consistency detection
-    static COLOR_DIFF_THRESHOLD_DELTA_E = 15.0; // Perceptual difference for RGB (Delta E 76)
+    static DELTA_E_SIMILARITY_THRESHOLD = 15.0; // Perceptual difference for determining similarity of RGB (Delta E 76)
+    static DELTA_E_DIFFERENCE_THRESHOLD = 48.0; // Perceptual difference for determining difference of RGB (Delta E 76)
     static ALPHA_DIFF_THRESHOLD = 10;           // Absolute difference for alpha channel
-    static CONSISTENCY_THRESHOLD = 0.98;        // Target for augmented dominant color percentage
+    static CONSISTENCY_THRESHOLD = 0.99;        // Target for augmented dominant color percentage
 
     /**
      * Helper to get RGBA color of a pixel from imageData.data.
@@ -821,7 +822,7 @@ class BorderFinder {
      * between two RGBA colors is above specified thresholds.
      * Returns true if colors are significantly DIFFERENT, false if they are similar.
      */
-    static _isColorDifferenceSignificant(rgba1, rgba2) {
+    static _isColorDifferenceSignificant(rgba1, rgba2, colorDiffThresholdDeltaE) {
         if (!rgba1 || !rgba2) return true; 
         if (Math.abs(rgba1.a - rgba2.a) > this.ALPHA_DIFF_THRESHOLD) return true;
 
@@ -830,7 +831,28 @@ class BorderFinder {
         const xyz2 = this._rgbToXyz(rgba2.r, rgba2.g, rgba2.b);
         const lab2 = this._xyzToLab(xyz2.x, xyz2.y, xyz2.z);
         const deltaE = this._deltaE76(lab1, lab2);
-        return deltaE > this.COLOR_DIFF_THRESHOLD_DELTA_E;
+        if (SIC.DEBUG && colorDiffThresholdDeltaE === this.DELTA_E_DIFFERENCE_THRESHOLD) {
+            console.log(`delta E: ${deltaE}`);
+        }
+        return deltaE > colorDiffThresholdDeltaE;
+    }
+
+    // try and contract a bound by looking for an edge determined by a big color difference
+    static _contractColumnBounds(consistencyData, imageData, colX, incr, yStart, yEnd, imgWidth, imgHeight) {
+        const newConsistencyData = this._getColumnConsistency(imageData, colX + incr, yStart, yEnd, imgWidth, imgHeight);
+        if (this._isColorDifferenceSignificant(consistencyData.dominantColor, newConsistencyData.dominantColor, this.DELTA_E_DIFFERENCE_THRESHOLD)) {
+            return colX + incr;
+        }
+        return colX;
+    }
+
+    // try and contract a bound by looking for an edge determined by a big color difference
+    static _contractRowBounds(consistencyData, imageData, rowY, incr, xStart, xEnd, imgWidth, imgHeight) {
+        const newConsistencyData = this._getRowConsistency(imageData, rowY + incr, xStart, xEnd, imgWidth, imgHeight);
+        if (this._isColorDifferenceSignificant(consistencyData.dominantColor, newConsistencyData.dominantColor, this.DELTA_E_DIFFERENCE_THRESHOLD)) {
+            return rowY + incr;
+        }
+        return rowY;
     }
 
     /**
@@ -877,7 +899,7 @@ class BorderFinder {
         for (const [pStr, count] of counts) {
             if (pStr === initialDominantColorStr) continue;
             const otherColor = uniqueColors.get(pStr);
-            if (!this._isColorDifferenceSignificant(initialDominantColor, otherColor)) {
+            if (!this._isColorDifferenceSignificant(initialDominantColor, otherColor, this.DELTA_E_SIMILARITY_THRESHOLD)) {
                 augmentedDominantCount += count; // Add count of similar colors
             }
         }
@@ -940,7 +962,7 @@ class BorderFinder {
         for (const [pStr, count] of counts) {
             if (pStr === initialDominantColorStr) continue;
             const otherColor = uniqueColors.get(pStr);
-            if (!this._isColorDifferenceSignificant(initialDominantColor, otherColor)) {
+            if (!this._isColorDifferenceSignificant(initialDominantColor, otherColor, this.DELTA_E_SIMILARITY_THRESHOLD)) {
                 augmentedDominantCount += count;
             }
         }
@@ -1012,15 +1034,17 @@ class BorderFinder {
         if (SIC.DEBUG) {
             console.log(`Analyzing image borders and gap with:
     Consistency threshold: ${this.CONSISTENCY_THRESHOLD * 100}%,
-    Delta E: ${this.COLOR_DIFF_THRESHOLD_DELTA_E}`);
-            console.log(`Splitting single image:
+    Similarity Delta E: ${this.DELTA_E_SIMILARITY_THRESHOLD},
+    Difference Delta E: ${this.DELTA_E_DIFFERENCE_THRESHOLD},
     Width: ${imgWidth}, Height: ${imgHeight}`);
         }
 
+        const consistencyData = {};
         // --- Stage 1: Determine Outer Horizontal Crop Points ---
         let outerX1 = imgWidth;
         for (let x = 0; x < imgWidth; x++) {
-            if (this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+            consistencyData.outerX1 = this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight);
+            if (consistencyData.outerX1.percent < this.CONSISTENCY_THRESHOLD) {
                 outerX1 = x;
                 break;
             }
@@ -1028,7 +1052,8 @@ class BorderFinder {
 
         let outerX2 = -1; 
         for (let x = imgWidth - 1; x >= outerX1; x--) { 
-            if (this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
+            consistencyData.outerX2 = this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight);
+            if (consistencyData.outerX2.percent < this.CONSISTENCY_THRESHOLD) {
                 outerX2 = x;
                 break;
             }
@@ -1051,8 +1076,8 @@ class BorderFinder {
         }
 
         // --- Stage 2: Split the Stage 1 cropped area and Refine Inner Horizontal Edges to find the Gap ---
-        let finalLeftImageRightX = 0;
-        let finalRightImageLeftX = 0;
+        let innerX1 = 0;
+        let innerX2 = 0;
         let gapSize = 0;
         const bounds = [
             { left: outerX1, width: stage1ContentWidth },
@@ -1065,40 +1090,42 @@ class BorderFinder {
                 console.log(`Looking for gap at: ${nominalSplitPointAbsolute}`);
             }
 
-            finalLeftImageRightX = left - 1;
+            innerX1 = left - 1;
             for (let currentX = nominalSplitPointAbsolute - 1; currentX >= left; currentX--) {
-                if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                    finalLeftImageRightX = currentX; 
+                consistencyData.innerX1 = this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight);
+                if (consistencyData.innerX1.percent < this.CONSISTENCY_THRESHOLD) {
+                    innerX1 = currentX; 
                     break;
                 }
             }
 
             const right = left + width - 1;
-            finalRightImageLeftX = right + 1;
+            innerX2 = right + 1;
             for (let currentX = nominalSplitPointAbsolute; currentX <= right; currentX++) {
-                if (this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                    finalRightImageLeftX = currentX; 
+                consistencyData.innerX2 = this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight);
+                if (consistencyData.innerX2.percent < this.CONSISTENCY_THRESHOLD) {
+                    innerX2 = currentX; 
                     break;
                 }
             }
 
-            gapSize = finalRightImageLeftX - finalLeftImageRightX - 1;
+            gapSize = innerX2 - innerX1 - 1;
             // break early if gap found or if cropped area = original area
             if (gapSize > 0 || width === imgWidth) {
                 break;
             }
         }
 
-        const img1ProposedWidth = finalLeftImageRightX - outerX1 + 1;
-        const img2ProposedWidth = outerX2 - finalRightImageLeftX + 1;
+        const img1ProposedWidth = innerX1 - outerX1 + 1;
+        const img2ProposedWidth = outerX2 - innerX2 + 1;
         if (SIC.DEBUG) {
             console.log(`Stage 2 (find gap):
-    Found gap at: ${finalLeftImageRightX + 1}, size: ${gapSize},
+    Found gap at: ${innerX1 + 1}, size: ${gapSize},
     Img1(x:${outerX1}, w:${img1ProposedWidth}),
-    Img2(x:${finalRightImageLeftX}, w:${img2ProposedWidth})`);
+    Img2(x:${innerX2}, w:${img2ProposedWidth})`);
         }
 
-        if (finalRightImageLeftX <= finalLeftImageRightX || 
+        if (innerX2 <= innerX1 || 
             img1ProposedWidth < this.MIN_IMAGE_DIMENSION ||
             img2ProposedWidth < this.MIN_IMAGE_DIMENSION) {
             console.warn("Stage 2: Gap refinement invalid. Splitting original image in half.");
@@ -1106,71 +1133,95 @@ class BorderFinder {
         }
 
         // --- Stage 3: Determine Vertical Crop Points Independently for each nominal image ---
-        let img1_Y1 = 0, img1_Y2 = -1, foundImg1Top = false;
+        let topY1 = 0, bottomY1 = -1, foundImg1Top = false;
         for (let y = 0; y < imgHeight; y++) {
-            if (this._getRowConsistency(imageData, y, outerX1, finalLeftImageRightX, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                img1_Y1 = y; foundImg1Top = true; break;
+            consistencyData.topY1 = this._getRowConsistency(imageData, y, outerX1, innerX1, imgWidth, imgHeight);
+            if (consistencyData.topY1.percent < this.CONSISTENCY_THRESHOLD) {
+                topY1 = y; foundImg1Top = true; break;
             }
         }
         if (!foundImg1Top) { 
             console.warn("Stage 3: Left image part has no rows with content.");
         } else {
-            img1_Y2 = imgHeight - 1;
-            for (let y = imgHeight - 1; y >= img1_Y1; y--) {
-                if (this._getRowConsistency(imageData, y, outerX1, finalLeftImageRightX, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                    img1_Y2 = y; break;
+            bottomY1 = imgHeight - 1;
+            for (let y = imgHeight - 1; y >= topY1; y--) {
+                consistencyData.bottomY1 = this._getRowConsistency(imageData, y, outerX1, innerX1, imgWidth, imgHeight);
+                if (consistencyData.bottomY1.percent < this.CONSISTENCY_THRESHOLD) {
+                    bottomY1 = y; break;
                 }
             }
         }
 
-        let img2_Y1 = 0, img2_Y2 = -1, foundImg2Top = false;
+        let topY2 = 0, bottomY2 = -1, foundImg2Top = false;
         for (let y = 0; y < imgHeight; y++) {
-            if (this._getRowConsistency(imageData, y, finalRightImageLeftX, outerX2, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                img2_Y1 = y; foundImg2Top = true; break;
+            consistencyData.topY2 = this._getRowConsistency(imageData, y, innerX2, outerX2, imgWidth, imgHeight);
+            if (consistencyData.topY2.percent < this.CONSISTENCY_THRESHOLD) {
+                topY2 = y; foundImg2Top = true; break;
             }
         }
         if (!foundImg2Top) {
             console.warn("Stage 3: Right image part has no rows with content.");
         } else {
-            img2_Y2 = imgHeight - 1;
-            for (let y = imgHeight - 1; y >= img2_Y1; y--) {
-                if (this._getRowConsistency(imageData, y, finalRightImageLeftX, outerX2, imgWidth, imgHeight).percent < this.CONSISTENCY_THRESHOLD) {
-                    img2_Y2 = y; break;
+            bottomY2 = imgHeight - 1;
+            for (let y = imgHeight - 1; y >= topY2; y--) {
+                consistencyData.bottomY2 = this._getRowConsistency(imageData, y, innerX2, outerX2, imgWidth, imgHeight);
+                if (consistencyData.bottomY2.percent < this.CONSISTENCY_THRESHOLD) {
+                    bottomY2 = y; break;
                 }
             }
         }
         if (SIC.DEBUG) {
             console.log(`Stage 3 (find outer Y boundaries):
-    Img1 Y-bounds: ${img1_Y1} - ${img1_Y2},
-    Img2 Y-bounds: ${img2_Y1} - ${img2_Y2}`);
+    Img1 Y-bounds: ${topY1} - ${bottomY1},
+    Img2 Y-bounds: ${topY2} - ${bottomY2}`);
         }
 
-        const finalImg1Height = (img1_Y2 < img1_Y1) ? 0 : (img1_Y2 - img1_Y1 + 1);
-        const finalImg2Height = (img2_Y2 < img2_Y1) ? 0 : (img2_Y2 - img2_Y1 + 1);
+        const img1ProposedHeight = (bottomY1 < topY1) ? 0 : (bottomY1 - topY1 + 1);
+        const img2ProposedHeight = (bottomY2 < topY2) ? 0 : (bottomY2 - topY2 + 1);
 
         // If EITHER image's determined height is too small, trigger fallback.
-        if (finalImg1Height < this.MIN_IMAGE_DIMENSION || finalImg2Height < this.MIN_IMAGE_DIMENSION) {
+        if (img1ProposedHeight < this.MIN_IMAGE_DIMENSION || img2ProposedHeight < this.MIN_IMAGE_DIMENSION) {
             console.warn(`Stage 3:
 Height for one or both images is too small:
-    H1: ${finalImg1Height}, H2: ${finalImg2Height}
+    H1: ${img1ProposedHeight}, H2: ${img2ProposedHeight}
 Splitting original image in half.`);
             return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
         }
 
-        // --- Stage 4: Define Final Crop Regions using independent heights ---
-        const region1W = finalLeftImageRightX - outerX1 + 1;
-        const region2W = outerX2 - finalRightImageLeftX + 1;
+        // --- Stage 4: Try and contract the bounds a bit more by looking for transition edges ---
+        if (SIC.DEBUG) {
+            console.log(`Stage 4 (contract boundaries)`);
+        }
+
+        // contract left and right image X bounds
+        outerX1 = this._contractColumnBounds(consistencyData.outerX1, imageData, outerX1, 1, topY1, bottomY1, imgWidth, imgHeight);
+        outerX2 = this._contractColumnBounds(consistencyData.outerX2, imageData, outerX2, -1, topY2, bottomY2, imgWidth, imgHeight);
+        innerX1 = this._contractColumnBounds(consistencyData.innerX1, imageData, innerX1, -1, topY1, bottomY1, imgWidth, imgHeight);
+        innerX2 = this._contractColumnBounds(consistencyData.innerX2, imageData, innerX2, 1, topY2, bottomY2, imgWidth, imgHeight);
+        gapSize = innerX2 - innerX1 - 1;
+
+        // contract left and right image Y bounds
+        topY1 = this._contractRowBounds(consistencyData.topY1, imageData, topY1, 1, outerX1, innerX1, imgWidth, imgHeight);
+        bottomY1 = this._contractRowBounds(consistencyData.bottomY1, imageData, bottomY1, -1, outerX1, innerX1, imgWidth, imgHeight);
+        topY2 = this._contractRowBounds(consistencyData.topY2, imageData, topY2, 1, innerX2, outerX2, imgWidth, imgHeight);
+        bottomY2 = this._contractRowBounds(consistencyData.bottomY2, imageData, bottomY2, -1, innerX2, outerX2, imgWidth, imgHeight);
+
+        // --- Stage 5: Define Final Crop Regions ---
+        const region1W = innerX1 - outerX1 + 1;
+        const region2W = outerX2 - innerX2 + 1;
+        const region1H = bottomY1 - topY1 + 1;
+        const region2H = bottomY2 - topY2 + 1;
 
         console.log(`Split single image:
     Gap size: ${gapSize},
     Border size:
-        left: ${outerX1}, right: ${imgWidth - outerX2 - 1},
-        top: ${Math.min(img1_Y1, img2_Y1)}, bottom: ${imgHeight - (Math.max(img1_Y2, img2_Y2) + 1)},
-    Img1(x:${outerX1}, y:${img1_Y1}, w:${region1W}, h:${finalImg1Height}),
-    Img2(x:${finalRightImageLeftX}, y:${img2_Y1}, w:${region2W}, h:${finalImg2Height})`);
+        left: ${outerX1}, right: ${imgWidth - (outerX2 + 1)},
+        top: ${Math.min(topY1, topY2)}, bottom: ${imgHeight - (Math.max(bottomY1, bottomY2) + 1)},
+    Img1(x:${outerX1}, y:${topY1}, w:${region1W}, h:${region1H}),
+    Img2(x:${innerX2}, y:${topY2}, w:${region2W}, h:${region2H})`);
         return {
-            region1: { x: outerX1, y: img1_Y1, width: region1W, height: finalImg1Height },
-            region2: { x: finalRightImageLeftX, y: img2_Y1, width: region2W, height: finalImg2Height }
+            region1: { x: outerX1, y: topY1, width: region1W, height: region1H },
+            region2: { x: innerX2, y: topY2, width: region2W, height: region2H }
         };
     }
 }
