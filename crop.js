@@ -256,14 +256,6 @@ class CropManager {
         this.saveCropBoxDimensions = { width: maxWidth, height: maxHeight };
     }
 
-    static _setDimension(d1, d2) {
-        if (Math.abs(d1 - d2) <= 1) {
-            return Math.min(d1, d2);
-        } else {
-            return Math.max(d1, d2);
-        }
-    }
-
     // Set initial crop state using regions
     static setCropState(regions) {
         const { region1, region2 } = regions;
@@ -284,26 +276,23 @@ class CropManager {
         const imgH2 = SIC.images[1].height;
 
         // Calculate max possible crop width, constrained by smallest image width
-        let cropWidth = Math.min(this._setDimension(w1, w2), imgW1, imgW2);
+        let cropWidth = Math.min(Math.max(w1, w2), imgW1, imgW2);
 
         // crop the gap (x2 already crops the gap)
         x1 = imgW1 - cropWidth;
 
         // crop out border region at top and bottom
         let y = Math.min(y1, y2);
-        // if (Math.abs(y1 - y2) <= 1) {
-        //     y = Math.max(y1, y2);
-        // }
-        let cropHeight = this._setDimension(y1 + h1, y2 + h2) - y;
+        let cropHeight = Math.max(y1 + h1, y2 + h2) - y;
 
         if (SIC.DEBUG) {
-            console.log(`w1: ${w1},
-w2: ${w2},
+            console.log(`x1: ${x1}, w1: ${w1},
+x2: ${x2}, w2: ${w2},
 cropWidth: ${cropWidth},
 imgW1: ${imgW1},
 imgW2: ${imgW2}`);
-            console.log(`h1: ${h1},
-h2: ${h2},
+            console.log(`y1: ${y1}, h1: ${h1},
+y2: ${y2}, h2: ${h2},
 cropHeight: ${cropHeight},
 imgH1: ${imgH1},
 imgH2: ${imgH2}`);

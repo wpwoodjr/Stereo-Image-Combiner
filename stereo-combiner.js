@@ -774,8 +774,7 @@ class BorderFinder {
     /**
      * Helper to get RGBA color of a pixel from imageData.data.
      */
-    static _getPixelColor(data, x, y, imgWidth, imgHeight) {
-        if (x < 0 || x >= imgWidth || y < 0 || y >= imgHeight) return null;
+    static _getPixelColor(data, x, y, imgWidth) {
         const i = (y * imgWidth + x) * 4;
         return { r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] };
     }
@@ -871,7 +870,7 @@ class BorderFinder {
         let totalValidPixels = 0;
 
         for (let y = yStart; y <= yEnd; y++) {
-            const p = this._getPixelColor(imageData.data, colX, y, imgWidth, imgHeight);
+            const p = this._getPixelColor(imageData.data, colX, y, imgWidth);
             if (p) {
                 const pStr = `${p.r},${p.g},${p.b},${p.a}`;
                 counts.set(pStr, (counts.get(pStr) || 0) + 1);
@@ -935,7 +934,7 @@ class BorderFinder {
         let totalValidPixels = 0;
 
         for (let x = xStart; x <= xEnd; x++) {
-            const p = this._getPixelColor(imageData.data, x, rowY, imgWidth, imgHeight);
+            const p = this._getPixelColor(imageData.data, x, rowY, imgWidth);
             if (p) {
                 const pStr = `${p.r},${p.g},${p.b},${p.a}`;
                 counts.set(pStr, (counts.get(pStr) || 0) + 1);
