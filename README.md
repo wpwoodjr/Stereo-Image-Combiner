@@ -8,11 +8,11 @@ A web-based tool for combining images side by side with customizable options. Pa
 
 Stereo Image Combiner is a lightweight browser-based application that allows users to:
 - Combine two images side by side into a single stereo image (cross or parallel)
+- Work with pre-existing stereo image pairs
 - Crop both images simultaneously with synchronized dimensions
 - Align images precisely using an interactive overlay mode
 - Adjust the size and color (optionally transparent) of the border around images
 - Round the image corners
-- Split a pre-existing stereo image pair for processing
 - Save the resulting combined image as a PNG or JPG file
 
 It works on mobile, touch devices, and desktop.
