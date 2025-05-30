@@ -19,18 +19,18 @@ class SIC {
 // ===================================
 class UIManager {
     static DEFAULT_COLOR = '#000000';
-    static GAP_TO_BORDER_RATIO = 1;
-    static DEFAULT_GAP_PERCENT = 3.0;
+    static GAP_TO_BORDER_RATIO = 2;
+    static DEFAULT_GAP_PERCENT = 5.0;
     static DEFAULT_BORDERS = true;
     static DEFAULT_TRANSPARENT = false;
-    static DEFAULT_CORNER_RADIUS = 0;
+    static DEFAULT_CORNER_RADIUS_PERCENT = 22;
 
     static domElements = null;
     static gapColor = this.DEFAULT_COLOR;
     static gapPercent = this.DEFAULT_GAP_PERCENT;
     static hasBorders = this.DEFAULT_BORDERS;
     static isTransparent = this.DEFAULT_TRANSPARENT;
-    static cornerRadiusPercent = this.DEFAULT_CORNER_RADIUS;
+    static cornerRadiusPercent = this.DEFAULT_CORNER_RADIUS_PERCENT;
 
     static initialize() {
         this.domElements = this.initDOMElements();
@@ -235,7 +235,7 @@ class UIManager {
         this.updateColorPickerState();
 
         // Reset corner radius
-        this.cornerRadiusPercent = StorageManager.getItem('cornerRadiusPercent', this.DEFAULT_CORNER_RADIUS);
+        this.cornerRadiusPercent = StorageManager.getItem('cornerRadiusPercent', this.DEFAULT_CORNER_RADIUS_PERCENT);
         elements.cornerRadiusSlider.value = this.cornerRadiusPercent;
         elements.cornerRadiusValue.textContent = `${this.cornerRadiusPercent}%`;
 
@@ -367,7 +367,7 @@ class UIManager {
 // ===================================
 class FileManager {
     static DEFAULT_FORMAT = 'image/jpeg';
-    static DEFAULT_JPG_QUALITY = 90;
+    static DEFAULT_JPG_QUALITY = 95;
 
     static async _renderRegions(sourceImage, regions, imageNames) {
         const { region1, region2 } = regions;
