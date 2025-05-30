@@ -1,6 +1,6 @@
 # Stereo Image Combiner
 
-A web-based tool for combining two images side by side with customizable options. Particularly useful for stereo image pairs.
+A web-based tool for combining images side by side with customizable options. Particularly useful for stereo image pairs.
 
 ![image](https://github.com/user-attachments/assets/16ed694b-2dbc-4411-b4a4-37cbbf535d05)
 
@@ -12,6 +12,7 @@ Stereo Image Combiner is a lightweight browser-based application that allows use
 - Align images precisely using an interactive overlay mode
 - Adjust the size and color (optionally transparent) of the border around images
 - Round the image corners
+- Split a pre-existing stereo image pair for processing
 - Save the resulting combined image as a PNG or JPG file
 
 It works on mobile, touch devices, and desktop.
@@ -19,7 +20,9 @@ No server processing or uploading is required - all operations happen directly i
 
 ## Features
 
-- **Drag and Drop Interface**: Simply drag and drop your images onto the application, or use the file browser
+- **Drag and Drop Interface**: Simply drag and drop your image(s) onto the application, or use the file browser
+- **Works with Pre-existing Stereo Images**: Open a stereo image and it will be automatically split
+- **Smart Border Crop**: Image borders are automatically detected and a (soft) crop is applied
 - **Live Preview**: See how your combined image will look as you adjust settings
 - **Advanced Image Alignment**: Use the align mode to precisely overlay images with inverse grayscale highlighting for perfect stereo alignment
 - **Sophisticated Cropping**: Multiple cropping modes with synchronized dimensions and fine-grained positioning controls
@@ -37,7 +40,9 @@ No server processing or uploading is required - all operations happen directly i
 
 1. Browse to https://wpwoodjr.github.io/Stereo-Image-Combiner/
    - Images are not uploaded anywhere and all operations are handled locally in your browser
-2. Drag and drop two images onto the designated drop zone or click to browse
+2. Drag and drop one or two images onto the designated drop zone, or click to browse
+   - Borders around the images will be automatically detected and cropped (click "Reset Crop" to remove the crop or "Crop Images" to tweak it)
+   - If a pre-existing stereo image is opened, it will be split automatically into a left and right pair
 3. Use the controls to adjust:
    - Display Scale (for preview only)
    - Border and gap size between images
@@ -54,7 +59,7 @@ No server processing or uploading is required - all operations happen directly i
    - Press `a` to toggle between align mode and side-by-side mode
    - Check `Synchronized Movement` to always move both images together in side-by-side mode
    - Press `h` to toggle horizontal-only movement
-   - Use arrow keys for 1-pixel precision movements (hold `Shift` for 5-pixel movements)
+   - Use arrow keys for precision movements (hold `Shift` for faster movements)
    - Use `Tab` to cycle between selecting the left image, right image, or both
    - Click "Apply Crop" to confirm or "Cancel" to exit crop mode
    - After applying, you may enter crop mode again to continue where you left off

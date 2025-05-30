@@ -140,15 +140,17 @@
     <div id="basics" class="tab-content active">
         <div class="section">
             <h2>Getting Started</h2>
-            <p>Stereo Image Combiner is a web-based tool that lets you combine two images side by side for stereo viewing,
+            <p>Stereo Image Combiner is a web-based tool that lets you combine images side by side for stereo viewing,
                 with customizable border, color, and cropping options.
                 It works on mobile, touch devices, and desktop.
             </p>
             
             <h3>Loading Images</h3>
             <ol>
-                <li>Drag and drop two images onto the drop zone, or</li>
-                <li>Click the drop zone to open a file browser (hold Ctrl or ⌘ to select both images)</li>
+                <li>Drag and drop one or two images onto the drop zone, or</li>
+                <li>Click the drop zone to open a file browser (hold Ctrl or ⌘ to select two images)</li>
+                <li>If just one image is loaded, it will be assumed to be a stereo pair and will be split into two with borders pre-cropped
+                    (click "Reset Crop" to restore the borders, or "Crop Images" to tweak the crop)</li>
                 <li>Once loaded, both images will be displayed side by side</li>
             </ol>
             
@@ -185,6 +187,7 @@
             <h3>Starting Crop Mode</h3>
                 <li>Click the "Crop Images" button to enter crop mode.  By default align mode is active.</li>
                 <li>The images will be displayed with a crop box overlaid</li>
+                <li>Note, images may already have been automatically cropped to the borders</li>
             
             <h3>Crop Box Controls</h3>
             <ul>
@@ -205,6 +208,7 @@
             <ul>
                 <li>Click inside the crop box, and the images appear overlaid with inverse grayscale coloring to highlight differences</li>
                 <li>Click and drag the image to align key features.  A feature is aligned when it turns a uniform gray color.</li>
+                <li>Click and drag outside the crop box to move the crop box relative to the images.</li>
                 <li>Click the "Align Mode" checkbox or press the <span class="shortcut">a</span> key to toggle between align mode and side-by-side mode</li>
             </ul>
 
@@ -236,8 +240,9 @@
             <p>For smooth workflow, the steps below are recommended.</p>
             
             <h3>Load Images</h3>
-                <li>Click on the dropzone or drag and drop two images onto the dropzone to load the images</li>
-                <li>The images will be displayed side by side</li>
+                <li>Click on the dropzone or drag and drop the image(s) onto the dropzone to load the images</li>
+                <li>In Chrome, you can drag an existing stereo image from another web page onto the drop zone</li>
+                <li>The images will be displayed side by side, with any borders pre-cropped</li>
                 <li>Swap the images as needed to achieve a cross stereo view or parallel stereo view</li>
             
             <h3>Aligning</h3>
@@ -252,7 +257,7 @@
                     so that the image extends behind the viewing window and not in front of the border of the window (creating a "window violation")</li>
                     <li>For example, for a stereo image of a mountain with a bush close to the viewer, align the bush, or the ground in front of the bush</li>
                     <li>An area is aligned when it looks a uniform gray</li>
-                    <li>Use the arrow keys for precision aligning at the pixel level</li>
+                    <li>Use the arrow keys for precision aligning at the pixel level (note the cursor must be inside the crop area, otherwise both images are moved together)</li>
                 </ul>
                 <li>Adjust the crop box size</li>
                 <li>Move the crop box by clicking and dragging on the images outside the crop box
@@ -335,6 +340,8 @@
             <ul>
                 <li>Arrow keys move the active image(s) by 1 pixel</li>
                 <li>Hold <span class="shortcut">Shift</span> + arrow keys for 5-pixel movements</li>
+                <li>An image is active when the cursor is inside its crop box.
+                    If the cursor is outside any crop box, both images are moved together. Or,</li>
                 <li>In side-by-side mode, press <span class="shortcut">Tab</span> to to cycle between moving the left image, the right image, and both images</li>
                 <ul>
                     <li>In align mode, <span class="shortcut">Tab</span> toggles between moving the images together under the crop box, or moving one image relative to the other.</li>
