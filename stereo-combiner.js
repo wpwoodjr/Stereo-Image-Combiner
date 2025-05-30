@@ -368,47 +368,39 @@ class UIManager {
 class FileManager {
     static DEFAULT_FORMAT = 'image/jpeg';
     static DEFAULT_JPG_QUALITY = 90;
-    static HARD_GAP_CROP = false;
 
-    static async _cropRegions(sourceImage, regions, baseName, ext) {
+    static async _renderRegions(sourceImage, regions, imageNames) {
         const { region1, region2 } = regions;
         // width without gap
         const r1Width = region1.x + region1.width;
         const r2Width = sourceImage.width - region2.x;
-        const gapSize = region2.x - r1Width;
-        const gapCenter = r1Width + Math.floor(gapSize / 2);
 
-        const cropR1 = { x: 0, y: 0, width: r1Width, height: sourceImage.height };
-        const cropR2 = { x: region2.x, y: 0, width: r2Width, height: sourceImage.height };
-        let rightGapSize = 0;
-        if (!this.HARD_GAP_CROP) {
-            cropR1.width = gapCenter;
-            cropR2.x = gapCenter;
-            cropR2.width = sourceImage.width - gapCenter;
-            rightGapSize = region2.x - gapCenter;
+        const img1Height = regions.img1Height;
+        const img2Height = regions.img2Height;
+        const splitPoint = regions.splitPoint;
+
+        const renderR1 = { x: 0, y: 0, width: r1Width, height: img1Height };
+        const renderR2 = { x: region2.x, y: 0, width: r2Width, height: img2Height };
+        if (BorderFinder.SOFT_GAP_CROP) {
+            renderR1.width = splitPoint;
+            renderR2.x = splitPoint;
+            renderR2.width = sourceImage.width - splitPoint;
         }
 
         try {
             const [img1_obj, img2_obj] = await Promise.all([
-                this._cropToImageObject(sourceImage, cropR1),
-                this._cropToImageObject(sourceImage, cropR2)
+                this._renderToImageObject(sourceImage, renderR1),
+                this._renderToImageObject(sourceImage, renderR2)
             ]);
-            this._finalizeImageLoading(
-                [img1_obj, img2_obj],
-                [`${baseName}_L${ext}`, `${baseName}_R${ext}`],
-                false
-            );
+            this._finalizeImageLoading([ img1_obj, img2_obj ], imageNames);
+            this._applyCrop(regions);
         } catch (cropError) {
-            console.error("Error cropping sub-images from single image after analysis:", cropError);
-            await this._executeFallbackSplit(singleImg, baseName, ext, "Error cropping analyzed sub-images");
-            return;
+            console.error("Error rendering sub-images from single image after analysis:", cropError);
+            await this._executeFallbackSplit(sourceImage, imageNames, "Error rendering analyzed sub-images.");
         }
-
-        const regionsWithoutGap = { region1: { ... region1 }, region2: { ...region2, x: rightGapSize } };
-        CropManager.setCropState(regionsWithoutGap);
     }
 
-    static _cropToImageObject(sourceImage, region) {
+    static _renderToImageObject(sourceImage, region) {
         return new Promise((resolve, reject) => {
             if (!region || region.width <= 0 || region.height <= 0) {
                 return reject(new Error(`Invalid crop region: ${JSON.stringify(region)}`));
@@ -439,7 +431,7 @@ class FileManager {
         });
     }
 
-    static _finalizeImageLoading(loadedImages, loadedNames, draw = true) {
+    static _finalizeImageLoading(loadedImages, loadedNames) {
         SIC.images = [];
         CropManager.resetCrop();
         SIC.images = loadedImages;
@@ -452,9 +444,6 @@ class FileManager {
         if (SIC.images.length === 2 && SIC.images[0] && SIC.images[1]) {
             const optimalScale = ImageRenderer.calculateMaxScale(SIC.images[0], SIC.images[1]);
             ImageRenderer.setScalePercent(ImageRenderer.currentScalePercent(), optimalScale);
-            if (draw) {
-                ImageRenderer.drawImages();
-            }
 
             UIManager.domElements.saveButton.disabled = false;
             UIManager.domElements.swapButton.disabled = false;
@@ -511,24 +500,21 @@ class FileManager {
     /**
      * Executes a fallback mechanism to split an image in half if primary processing fails.
      * @param {HTMLImageElement} originalImage - The image to split.
-     * @param {string} baseName - The base name for the resulting files.
-     * @param {string} ext - The extension for the resulting files.
+     * @param {array} imageNames - Array of two image names.
      * @param {string} contextMessage - A message for console logging about why fallback is triggered.
      * @private
      */
-    static async _executeFallbackSplit(originalImage, baseName, ext, contextMessage) {
+    static async _executeFallbackSplit(originalImage, imageNames, contextMessage) {
         console.warn(`Executing fallback split due to: ${contextMessage}`);
         const fallbackRegions = BorderFinder.splitAreaInHalfVertically(0, 0, originalImage.width, originalImage.height);
         if (fallbackRegions) {
             try {
                 const [fb_img1, fb_img2] = await Promise.all([
-                    this._cropToImageObject(originalImage, fallbackRegions.region1),
-                    this._cropToImageObject(originalImage, fallbackRegions.region2)
+                    this._renderToImageObject(originalImage, fallbackRegions.region1),
+                    this._renderToImageObject(originalImage, fallbackRegions.region2)
                 ]);
-                this._finalizeImageLoading(
-                    [fb_img1, fb_img2],
-                    [`${baseName}_L_half${ext}`, `${baseName}_R_half${ext}`]
-                );
+                this._finalizeImageLoading([ fb_img1, fb_img2 ], imageNames);
+                ImageRenderer.drawImages();
             } catch (fbError) {
                 console.error(`Error during fallback image splitting (${contextMessage}):`, fbError);
                 alert(`Fallback image splitting failed: ${fbError.message}. Please provide two separate images.`);
@@ -566,13 +552,18 @@ class FileManager {
             }
 
             const { baseName, ext } = this._generateImageNameParts(originalName);
+            const imageNames = [`${baseName}_L${ext}`, `${baseName}_R${ext}`];
 
-            const regions = BorderFinder.analyzeAndExtractSubImageRegions_MultiStage(singleImg);
+            const regions = BorderFinder.analyzeAndExtractSubImageRegions_MultiStage(
+                singleImg,
+                singleImg.naturalHeight,
+                singleImg.naturalHeight
+            );
 
             if (regions && regions.region1 && regions.region2) {
-                await this._cropRegions(singleImg, regions, baseName, ext);
+                await this._renderRegions(singleImg, regions, imageNames);
             } else {
-                await this._executeFallbackSplit(singleImg, baseName, ext, "Analysis yielded invalid/null regions");
+                await this._executeFallbackSplit(singleImg, imageNames, "Analysis yielded invalid/null regions.");
             }
 
         } else if (files.length === 2) {
@@ -580,6 +571,7 @@ class FileManager {
                 for (const file of files) {
                     if (!file.type.startsWith('image/')) {
                         alert('Please select only image files.');
+                        UIManager.resetToDropzone();
                         return;
                     }
                 }
@@ -587,18 +579,86 @@ class FileManager {
                 const imageLoadPromises = Array.from(files).map(file => this._loadImageFromFile(file));
                 const loadedImageResults = await Promise.all(imageLoadPromises);
 
-                const newImages = loadedImageResults.map(result => result.image);
-                const newImageNames = loadedImageResults.map(result => result.name);
+                const originalImages = loadedImageResults.map(result => result.image);
+                const imageNames = loadedImageResults.map(result => result.name);
                 
-                this._finalizeImageLoading(newImages, newImageNames);
+                const img1 = originalImages[0];
+                const img2 = originalImages[1];
+
+                if (!img1 || !img2 || !img1.naturalWidth || !img1.naturalHeight || !img2.naturalWidth || !img2.naturalHeight) {
+                    console.error("One or both images have invalid dimensions after loading.", img1, img2);
+                    alert("Could not process images due to invalid dimensions.");
+                    UIManager.resetToDropzone();
+                    return;
+                }
+                
+                const combinedCanvas = document.createElement('canvas');
+                const combinedCtx = combinedCanvas.getContext('2d');
+                if (!combinedCtx) {
+                    alert("Failed to create canvas context for combining images.");
+                    UIManager.resetToDropzone();
+                    return;
+                }
+
+                combinedCanvas.width = img1.naturalWidth + img2.naturalWidth;
+                combinedCanvas.height = Math.max(img1.naturalHeight, img2.naturalHeight);
+
+                combinedCtx.drawImage(img1, 0, 0);
+                combinedCtx.drawImage(img2, img1.naturalWidth, 0);
+
+                const combinedImageElement = new Image();
+                const combinedImagePromise = new Promise((resolve, reject) => {
+                    combinedImageElement.onload = () => resolve(combinedImageElement);
+                    combinedImageElement.onerror = (err) => {
+                        console.error("Error loading combined image from dataURL:", err);
+                        reject(new Error("Could not load combined image for analysis."));
+                    };
+                });
+                combinedImageElement.src = combinedCanvas.toDataURL();
+
+                let combinedImg;
+                try {
+                    combinedImg = await combinedImagePromise;
+                } catch (error) {
+                    alert(error.message);
+                    UIManager.resetToDropzone();
+                    return;
+                }
+
+                const actualSplitPoint = img1.naturalWidth;
+                const regions = BorderFinder.analyzeAndExtractSubImageRegions_MultiStage(
+                    combinedImg,
+                    img1.naturalHeight,
+                    img2.naturalHeight,
+                    actualSplitPoint
+                );
+
+                this._finalizeImageLoading(originalImages, imageNames);
+                if (regions && regions.region1 && regions.region2) {
+                    this._applyCrop(regions);
+                } else {
+                    console.warn("Analysis of the combined images failed to find distinct regions.");
+                    console.log(`Loading original images:
+    Img1(x:${0}, y:${0}, w:${img1.naturalWidth}, h:${img1.naturalHeight}),
+    Img2(x:${img1.naturalWidth}, y:${0}, w:${img2.naturalWidth}, h:${img2.naturalHeight})`);
+                    ImageRenderer.drawImages();
+                }
 
             } catch (error) {
-                console.error("Error loading two images:", error.message || error);
-                alert('Error loading two images.');
+                console.error("Error processing two images:", error.message || error);
+                alert('Error processing two images.');
                 UIManager.resetToDropzone();
             }
         } else {
             alert('Please select one or two images.');
+        }
+    }
+
+    static _applyCrop(regions) {
+        if (regions.cropBoundaries) {
+            CropManager.setCropState(regions.cropBoundaries);
+        } else {
+            ImageRenderer.drawImages();
         }
     }
 
@@ -764,12 +824,15 @@ class FileManager {
 // ===================================
 class BorderFinder {
     static MIN_IMAGE_DIMENSION = 10;
+    static MAXIMIZE_BORDER_CROP = true;
+    static SOFT_GAP_CROP = true;
 
     // Thresholds for color consistency detection
-    static DELTA_E_SIMILARITY_THRESHOLD = 15.0; // Perceptual difference for determining similarity of RGB (Delta E 76)
-    static DELTA_E_DIFFERENCE_THRESHOLD = 48.0; // Perceptual difference for determining difference of RGB (Delta E 76)
-    static ALPHA_DIFF_THRESHOLD = 10;           // Absolute difference for alpha channel
-    static CONSISTENCY_THRESHOLD = 0.99;        // Target for augmented dominant color percentage
+    static DELTA_E_SIMILARITY_THRESHOLD = 15.0;     // Perceptual difference for determining similarity of RGB (Delta E 76)
+    static DELTA_E_DIFFERENCE_THRESHOLD = 45.0;     // Perceptual difference for determining difference of RGB (Delta E 76)
+    static ALPHA_DIFF_THRESHOLD = 10;               // Absolute difference for alpha channel
+    static CONSISTENCY_SIMILARITY_THRESHOLD = 0.99; // Target for augmented dominant color percentage similarity
+    static CONSISTENCY_DIFFERENCE_THRESHOLD = 0.20; // Target for augmented dominant color percentage difference
 
     /**
      * Helper to get RGBA color of a pixel from imageData.data.
@@ -837,19 +900,37 @@ class BorderFinder {
     }
 
     // try and contract a bound by looking for an edge determined by a big color difference
-    static _contractColumnBounds(consistencyData, imageData, colX, incr, yStart, yEnd, imgWidth, imgHeight) {
-        const newConsistencyData = this._getColumnConsistency(imageData, colX + incr, yStart, yEnd, imgWidth, imgHeight);
-        if (this._isColorDifferenceSignificant(consistencyData.dominantColor, newConsistencyData.dominantColor, this.DELTA_E_DIFFERENCE_THRESHOLD)) {
-            return colX + incr;
+    static _contractColumnBounds(consistencyData, imageData, colX, incr, yStart, yEnd, imgWidth) {
+        if (SIC.DEBUG) {
+            console.log(`col: ${colX}, ${(consistencyData.percent*100).toFixed(1)}%`);
+            console.log(consistencyData.dominantColor);
+        }
+        if (consistencyData.percent >= this.CONSISTENCY_DIFFERENCE_THRESHOLD) {
+            const newConsistencyData = this._getColumnConsistency(imageData, colX + incr, yStart, yEnd, imgWidth);
+            if (this._isColorDifferenceSignificant(consistencyData.dominantColor, newConsistencyData.dominantColor, this.DELTA_E_DIFFERENCE_THRESHOLD)) {
+                if (SIC.DEBUG) {
+                    console.log(`Contracting column ${colX} by ${incr}`);
+                }
+                return colX + incr;
+            }
         }
         return colX;
     }
 
     // try and contract a bound by looking for an edge determined by a big color difference
     static _contractRowBounds(consistencyData, imageData, rowY, incr, xStart, xEnd, imgWidth, imgHeight) {
-        const newConsistencyData = this._getRowConsistency(imageData, rowY + incr, xStart, xEnd, imgWidth, imgHeight);
-        if (this._isColorDifferenceSignificant(consistencyData.dominantColor, newConsistencyData.dominantColor, this.DELTA_E_DIFFERENCE_THRESHOLD)) {
-            return rowY + incr;
+        if (SIC.DEBUG) {
+            console.log(`row: ${rowY}, ${(consistencyData.percent*100).toFixed(1)}%`);
+            console.log(consistencyData.dominantColor);
+        }
+        if (consistencyData.percent >= this.CONSISTENCY_DIFFERENCE_THRESHOLD) {
+            const newConsistencyData = this._getRowConsistency(imageData, rowY + incr, xStart, xEnd, imgWidth, imgHeight);
+            if (this._isColorDifferenceSignificant(consistencyData.dominantColor, newConsistencyData.dominantColor, this.DELTA_E_DIFFERENCE_THRESHOLD)) {
+                if (SIC.DEBUG) {
+                    console.log(`Contracting row ${rowY} by ${incr}`);
+                }
+                return rowY + incr;
+            }
         }
         return rowY;
     }
@@ -860,7 +941,7 @@ class BorderFinder {
      * @returns {{dominantColor: {r,g,b,a}|null, percent: number, totalPixels: number}}
      * 'percent' is the augmented consistency percentage.
      */
-    static _getColumnConsistency(imageData, colX, yStart, yEnd, imgWidth, imgHeight) {
+    static _getColumnConsistency(imageData, colX, yStart, yEnd, imgWidth) {
         if (yStart > yEnd || colX < 0 || colX >= imgWidth) {
             return { dominantColor: null, percent: 0, totalPixels: 0 };
         }
@@ -905,7 +986,7 @@ class BorderFinder {
         
         const finalConsistencyPercent = totalValidPixels > 0 ? augmentedDominantCount / totalValidPixels : 1.0;
         if (SIC.DEBUG) {
-            if (finalConsistencyPercent < this.CONSISTENCY_THRESHOLD) {
+            if (finalConsistencyPercent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                 console.log(`Consistency check failed:
     column: ${colX},
     color: ${initialDominantColorStr},
@@ -1005,23 +1086,22 @@ class BorderFinder {
              return null; 
         }
         const w1 = Math.floor(width / 2);
-        const w2 = width - w1; 
-        if (SIC.DEBUG) {
-            console.log(`Splitting image in half:
-    Img1(x:${x}, y:${y}, w:${w1}, h:${height}), 
-    Img1(x:${x + w1}, y:${y}, w:${w2}, h:${height})`);
-        }
+        const w2 = width - w1;
+
+        console.log(`Splitting image in half:
+    Img1(x:${x}, y:${y}, w:${w1}, h:${height}),
+    Img2(x:${x + w1}, y:${y}, w:${w2}, h:${height})`);
+
         return {
             region1: { x: x, y: y, width: w1, height: height },
             region2: { x: x + w1, y: y, width: w2, height: height }
         };
     }
 
-    static analyzeAndExtractSubImageRegions_MultiStage(singleImg) {
-        const imgWidth = singleImg.width;
-        const imgHeight = singleImg.height;
+    static analyzeAndExtractSubImageRegions_MultiStage(singleImg, img1Height, img2Height, actualSplitPoint = -1) {
+        const singleImgWidth = singleImg.width;
 
-        if (imgWidth < this.MIN_IMAGE_DIMENSION * 2 || imgHeight < this.MIN_IMAGE_DIMENSION) {
+        if (singleImgWidth < this.MIN_IMAGE_DIMENSION * 2 || singleImg.height < this.MIN_IMAGE_DIMENSION) {
             return null;
         }
 
@@ -1032,41 +1112,43 @@ class BorderFinder {
 
         if (SIC.DEBUG) {
             console.log(`Analyzing image borders and gap with:
-    Consistency threshold: ${this.CONSISTENCY_THRESHOLD * 100}%,
+    Consistency similarity threshold: ${this.CONSISTENCY_SIMILARITY_THRESHOLD * 100}%,
+    Consistency difference threshold: ${this.CONSISTENCY_DIFFERENCE_THRESHOLD * 100}%,
     Similarity Delta E: ${this.DELTA_E_SIMILARITY_THRESHOLD},
     Difference Delta E: ${this.DELTA_E_DIFFERENCE_THRESHOLD},
-    Width: ${imgWidth}, Height: ${imgHeight}`);
+    Width: ${singleImgWidth}, Split: ${actualSplitPoint},
+    Height: (l:${img1Height}, r:${img2Height})`);
         }
 
         const consistencyData = {};
         // --- Stage 1: Determine Outer Horizontal Crop Points ---
-        let outerX1 = imgWidth;
-        for (let x = 0; x < imgWidth; x++) {
-            consistencyData.outerX1 = this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight);
-            if (consistencyData.outerX1.percent < this.CONSISTENCY_THRESHOLD) {
+        let outerX1 = singleImgWidth;
+        for (let x = 0; x < singleImgWidth; x++) {
+            consistencyData.outerX1 = this._getColumnConsistency(imageData, x, 0, img1Height - 1, singleImgWidth);
+            if (consistencyData.outerX1.percent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                 outerX1 = x;
                 break;
             }
         }
 
         let outerX2 = -1; 
-        for (let x = imgWidth - 1; x >= outerX1; x--) { 
-            consistencyData.outerX2 = this._getColumnConsistency(imageData, x, 0, imgHeight - 1, imgWidth, imgHeight);
-            if (consistencyData.outerX2.percent < this.CONSISTENCY_THRESHOLD) {
+        for (let x = singleImgWidth - 1; x >= outerX1; x--) { 
+            consistencyData.outerX2 = this._getColumnConsistency(imageData, x, 0, img2Height - 1, singleImgWidth);
+            if (consistencyData.outerX2.percent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                 outerX2 = x;
                 break;
             }
         }
 
-        if (outerX1 >= imgWidth || outerX2 < 0 || outerX2 < outerX1) { 
-            console.warn("Stage 1: Entire image has no valid content. Splitting original image in half.");
-            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+        if (outerX1 >= singleImgWidth || outerX2 < 0 || outerX2 < outerX1) { 
+            console.warn("Stage 1: Entire image has no valid content.");
+            return null;
         }
 
         const stage1ContentWidth = outerX2 - outerX1 + 1;
         if (stage1ContentWidth < this.MIN_IMAGE_DIMENSION * 2) {
-            console.warn(`Stage 1: Content width ${stage1ContentWidth} is too small. Splitting original image in half.`);
-            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+            console.warn(`Stage 1: Content width ${stage1ContentWidth} is too small.`);
+            return null;
         }
         if (SIC.DEBUG) {
             console.log(`Stage 1 (find outer X boundaries):
@@ -1078,21 +1160,22 @@ class BorderFinder {
         let innerX1 = 0;
         let innerX2 = 0;
         let gapSize = 0;
-        const bounds = [
-            { left: outerX1, width: stage1ContentWidth },
-            { left: 0, width: imgWidth }
-        ];
+        let bounds = [ { left: outerX1, width: stage1ContentWidth } ]
+        if (actualSplitPoint === -1) {
+            bounds.push({ left: 0, width: singleImgWidth });
+        }
+        let testSplitPoint = 0;
         // look for gap with left and right of cropped image; failing that, original image left and right
         for (const { left, width } of bounds) {
-            const nominalSplitPointAbsolute = left + Math.floor(width / 2);
+            testSplitPoint = actualSplitPoint > 0 ? actualSplitPoint : left + Math.floor(width / 2);
             if (SIC.DEBUG) {
-                console.log(`Looking for gap at: ${nominalSplitPointAbsolute}`);
+                console.log(`Looking for gap at: ${testSplitPoint}`);
             }
 
             innerX1 = left - 1;
-            for (let currentX = nominalSplitPointAbsolute - 1; currentX >= left; currentX--) {
-                consistencyData.innerX1 = this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight);
-                if (consistencyData.innerX1.percent < this.CONSISTENCY_THRESHOLD) {
+            for (let currentX = testSplitPoint - 1; currentX >= left; currentX--) {
+                consistencyData.innerX1 = this._getColumnConsistency(imageData, currentX, 0, img1Height - 1, singleImgWidth);
+                if (consistencyData.innerX1.percent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                     innerX1 = currentX; 
                     break;
                 }
@@ -1100,9 +1183,9 @@ class BorderFinder {
 
             const right = left + width - 1;
             innerX2 = right + 1;
-            for (let currentX = nominalSplitPointAbsolute; currentX <= right; currentX++) {
-                consistencyData.innerX2 = this._getColumnConsistency(imageData, currentX, 0, imgHeight - 1, imgWidth, imgHeight);
-                if (consistencyData.innerX2.percent < this.CONSISTENCY_THRESHOLD) {
+            for (let currentX = testSplitPoint; currentX <= right; currentX++) {
+                consistencyData.innerX2 = this._getColumnConsistency(imageData, currentX, 0, img2Height - 1, singleImgWidth);
+                if (consistencyData.innerX2.percent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                     innerX2 = currentX; 
                     break;
                 }
@@ -1110,7 +1193,7 @@ class BorderFinder {
 
             gapSize = innerX2 - innerX1 - 1;
             // break early if gap found or if cropped area = original area
-            if (gapSize > 0 || width === imgWidth) {
+            if (gapSize > 0 || width === singleImgWidth) {
                 break;
             }
         }
@@ -1119,7 +1202,7 @@ class BorderFinder {
         const img2ProposedWidth = outerX2 - innerX2 + 1;
         if (SIC.DEBUG) {
             console.log(`Stage 2 (find gap):
-    Found gap at: ${innerX1 + 1}, size: ${gapSize},
+    Gap starts at: ${innerX1 + 1}, size: ${gapSize},
     Img1(x:${outerX1}, w:${img1ProposedWidth}),
     Img2(x:${innerX2}, w:${img2ProposedWidth})`);
         }
@@ -1127,44 +1210,44 @@ class BorderFinder {
         if (innerX2 <= innerX1 || 
             img1ProposedWidth < this.MIN_IMAGE_DIMENSION ||
             img2ProposedWidth < this.MIN_IMAGE_DIMENSION) {
-            console.warn("Stage 2: Gap refinement invalid. Splitting original image in half.");
-            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+            console.warn("Stage 2: Gap refinement invalid.");
+            return null;
         }
 
         // --- Stage 3: Determine Vertical Crop Points Independently for each nominal image ---
         let topY1 = 0, bottomY1 = -1, foundImg1Top = false;
-        for (let y = 0; y < imgHeight; y++) {
-            consistencyData.topY1 = this._getRowConsistency(imageData, y, outerX1, innerX1, imgWidth, imgHeight);
-            if (consistencyData.topY1.percent < this.CONSISTENCY_THRESHOLD) {
+        for (let y = 0; y < img1Height; y++) {
+            consistencyData.topY1 = this._getRowConsistency(imageData, y, outerX1, innerX1, singleImgWidth, img1Height);
+            if (consistencyData.topY1.percent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                 topY1 = y; foundImg1Top = true; break;
             }
         }
         if (!foundImg1Top) { 
             console.warn("Stage 3: Left image part has no rows with content.");
         } else {
-            bottomY1 = imgHeight - 1;
-            for (let y = imgHeight - 1; y >= topY1; y--) {
-                consistencyData.bottomY1 = this._getRowConsistency(imageData, y, outerX1, innerX1, imgWidth, imgHeight);
-                if (consistencyData.bottomY1.percent < this.CONSISTENCY_THRESHOLD) {
+            bottomY1 = img1Height - 1;
+            for (let y = img1Height - 1; y >= topY1; y--) {
+                consistencyData.bottomY1 = this._getRowConsistency(imageData, y, outerX1, innerX1, singleImgWidth, img1Height);
+                if (consistencyData.bottomY1.percent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                     bottomY1 = y; break;
                 }
             }
         }
 
         let topY2 = 0, bottomY2 = -1, foundImg2Top = false;
-        for (let y = 0; y < imgHeight; y++) {
-            consistencyData.topY2 = this._getRowConsistency(imageData, y, innerX2, outerX2, imgWidth, imgHeight);
-            if (consistencyData.topY2.percent < this.CONSISTENCY_THRESHOLD) {
+        for (let y = 0; y < img2Height; y++) {
+            consistencyData.topY2 = this._getRowConsistency(imageData, y, innerX2, outerX2, singleImgWidth, img2Height);
+            if (consistencyData.topY2.percent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                 topY2 = y; foundImg2Top = true; break;
             }
         }
         if (!foundImg2Top) {
             console.warn("Stage 3: Right image part has no rows with content.");
         } else {
-            bottomY2 = imgHeight - 1;
-            for (let y = imgHeight - 1; y >= topY2; y--) {
-                consistencyData.bottomY2 = this._getRowConsistency(imageData, y, innerX2, outerX2, imgWidth, imgHeight);
-                if (consistencyData.bottomY2.percent < this.CONSISTENCY_THRESHOLD) {
+            bottomY2 = img2Height - 1;
+            for (let y = img2Height - 1; y >= topY2; y--) {
+                consistencyData.bottomY2 = this._getRowConsistency(imageData, y, innerX2, outerX2, singleImgWidth, img2Height);
+                if (consistencyData.bottomY2.percent < this.CONSISTENCY_SIMILARITY_THRESHOLD) {
                     bottomY2 = y; break;
                 }
             }
@@ -1182,45 +1265,94 @@ class BorderFinder {
         if (img1ProposedHeight < this.MIN_IMAGE_DIMENSION || img2ProposedHeight < this.MIN_IMAGE_DIMENSION) {
             console.warn(`Stage 3:
 Height for one or both images is too small:
-    H1: ${img1ProposedHeight}, H2: ${img2ProposedHeight}
-Splitting original image in half.`);
-            return this.splitAreaInHalfVertically(0, 0, imgWidth, imgHeight);
+    H1: ${img1ProposedHeight}, H2: ${img2ProposedHeight}`);
+            return null;
         }
 
         // --- Stage 4: Try and contract the bounds a bit more by looking for transition edges ---
         if (SIC.DEBUG) {
-            console.log(`Stage 4 (contract boundaries)`);
+            console.log(`Stage 4 (try to contract boundaries):`);
         }
 
         // contract left and right image X bounds
-        outerX1 = this._contractColumnBounds(consistencyData.outerX1, imageData, outerX1, 1, topY1, bottomY1, imgWidth, imgHeight);
-        outerX2 = this._contractColumnBounds(consistencyData.outerX2, imageData, outerX2, -1, topY2, bottomY2, imgWidth, imgHeight);
-        innerX1 = this._contractColumnBounds(consistencyData.innerX1, imageData, innerX1, -1, topY1, bottomY1, imgWidth, imgHeight);
-        innerX2 = this._contractColumnBounds(consistencyData.innerX2, imageData, innerX2, 1, topY2, bottomY2, imgWidth, imgHeight);
+        outerX1 = this._contractColumnBounds(consistencyData.outerX1, imageData, outerX1, 1, topY1, bottomY1, singleImgWidth);
+        outerX2 = this._contractColumnBounds(consistencyData.outerX2, imageData, outerX2, -1, topY2, bottomY2, singleImgWidth);
+        innerX1 = this._contractColumnBounds(consistencyData.innerX1, imageData, innerX1, -1, topY1, bottomY1, singleImgWidth);
+        innerX2 = this._contractColumnBounds(consistencyData.innerX2, imageData, innerX2, 1, topY2, bottomY2, singleImgWidth);
         gapSize = innerX2 - innerX1 - 1;
 
         // contract left and right image Y bounds
-        topY1 = this._contractRowBounds(consistencyData.topY1, imageData, topY1, 1, outerX1, innerX1, imgWidth, imgHeight);
-        bottomY1 = this._contractRowBounds(consistencyData.bottomY1, imageData, bottomY1, -1, outerX1, innerX1, imgWidth, imgHeight);
-        topY2 = this._contractRowBounds(consistencyData.topY2, imageData, topY2, 1, innerX2, outerX2, imgWidth, imgHeight);
-        bottomY2 = this._contractRowBounds(consistencyData.bottomY2, imageData, bottomY2, -1, innerX2, outerX2, imgWidth, imgHeight);
+        topY1 = this._contractRowBounds(consistencyData.topY1, imageData, topY1, 1, outerX1, innerX1, singleImgWidth, img1Height);
+        bottomY1 = this._contractRowBounds(consistencyData.bottomY1, imageData, bottomY1, -1, outerX1, innerX1, singleImgWidth, img1Height);
+        topY2 = this._contractRowBounds(consistencyData.topY2, imageData, topY2, 1, innerX2, outerX2, singleImgWidth, img2Height);
+        bottomY2 = this._contractRowBounds(consistencyData.bottomY2, imageData, bottomY2, -1, innerX2, outerX2, singleImgWidth, img2Height);
 
-        // --- Stage 5: Define Final Crop Regions ---
+        // --- Stage 5: Define Final image Regions ---
         const region1W = innerX1 - outerX1 + 1;
         const region2W = outerX2 - innerX2 + 1;
         const region1H = bottomY1 - topY1 + 1;
         const region2H = bottomY2 - topY2 + 1;
+        const splitPoint = actualSplitPoint > 0 ? actualSplitPoint : innerX1 + 1 + Math.floor(gapSize / 2);
 
-        console.log(`Split single image:
-    Gap size: ${gapSize},
-    Border size:
-        left: ${outerX1}, right: ${imgWidth - (outerX2 + 1)},
-        top: ${Math.min(topY1, topY2)}, bottom: ${imgHeight - (Math.max(bottomY1, bottomY2) + 1)},
-    Img1(x:${outerX1}, y:${topY1}, w:${region1W}, h:${region1H}),
-    Img2(x:${innerX2}, y:${topY2}, w:${region2W}, h:${region2H})`);
+        console.log(`Stage 5 (define image regions):
+Gap size: ${gapSize}, split at: ${splitPoint},
+Border(l:${outerX1}, r:${singleImgWidth - outerX2 - 1},
+    t:(l:${topY1}, r:${topY2}), b:(l:${img1Height - bottomY1 - 1}, r:${img2Height - bottomY2 - 1})),
+Img1(x:${outerX1}, y:${topY1}, w:${region1W}, h:${region1H}),
+Img2(x:${innerX2}, y:${topY2}, w:${region2W}, h:${region2H})`);
+
+        // --- Stage 6: Define crop boundaries
+        let cropX1 = 0, cropX2 = 0, cropY = 0, cropWidth = 0, cropHeight = 0;
+
+        // find the width of the images including the borders but not including the gap
+        const widthWithoutGap1 = innerX1 + 1;
+        const widthWithoutGap2 = singleImgWidth - innerX2;
+
+        // determine boundaries based on whether we are cropping to the outer boundaries of the two images, or maximizing the border crop 
+        if (this.MAXIMIZE_BORDER_CROP) {
+            // Calculate min crop width, constrained by smallest image width
+            cropWidth = Math.min(Math.min(region1W, region2W), widthWithoutGap1, widthWithoutGap2);
+            // crop out border region of both images at top and bottom
+            cropY = Math.max(topY1, topY2);
+            // Calculate min crop height, constrained by overall image height
+            cropHeight = Math.min(Math.min(topY1 + region1H, topY2 + region2H), img1Height, img2Height) - cropY;
+        } else {
+            // Calculate max crop width, constrained by smallest image width
+            cropWidth = Math.min(Math.max(region1W, region2W), widthWithoutGap1, widthWithoutGap2);
+            // crop out border region of highest / lowest image at top and bottom
+            cropY = Math.min(topY1, topY2);
+            // Calculate max crop height, constrained by overall image height
+            cropHeight = Math.min(Math.max(topY1 + region1H, topY2 + region2H), img1Height, img2Height) - cropY;
+        }
+
+        // crop the gap
+        cropX1 = widthWithoutGap1 - cropWidth;
+        cropX2 = this.SOFT_GAP_CROP ? innerX2 - splitPoint : 0;
+
+        // see if we need to crop
+        const needsCrop =
+            (gapSize && this.SOFT_GAP_CROP) ||
+            cropX1 || cropX2 || cropY ||
+            (cropY + cropHeight < singleImg.height);
+
+        let cropBoundaries = null;
+        if (needsCrop) {
+            cropBoundaries = { cropX1, cropX2, cropY, cropWidth, cropHeight } 
+            console.log(`Stage 6 (define crop boundaries):
+Crop(x1:${cropX1}, x2:${cropX2}, y:${cropY}, w:${cropWidth}, h:${cropHeight})`);
+
+        } else {
+            console.log(`Stage 6 (define crop boundaries):
+No crop needed`);
+        }
+
         return {
             region1: { x: outerX1, y: topY1, width: region1W, height: region1H },
-            region2: { x: innerX2, y: topY2, width: region2W, height: region2H }
+            region2: { x: innerX2, y: topY2, width: region2W, height: region2H },
+            img1Height: img1Height,
+            img2Height: img2Height,
+            splitPoint: splitPoint,
+            cropBoundaries
         };
     }
 }

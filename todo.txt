@@ -1,18 +1,17 @@
 ==========  new code ===========
 
+Goose H/V:
+  No crop needed not ok when h1 != h2 and using min crop
+    Move crop region creation into analyse phase
+    Check X and Y not just Y
+
+Contraction OK on single image?
+    No... on Goose vertical / goose square with black background, it sees a gap of 1 and right border of 1
+    This is because the initial outerX2 and innerX2 scans are scanning the whole image, not just where the Goose is
+
 Try leaving transparent background on
 
-98 or 99%
-
-try determining one line significantly diff to another
-
-setCropState in CropManager not decide if crop is needed
-
-crop borders on single images too?
-
-Sometimes borders/transparent checkboxes in conflict
-
-Set gap/border based on import single image?
+why no handles on right in DEBUG mode?
 
 Why does it find additional border when reload? Maybe only when saved with a border?
 
@@ -21,14 +20,10 @@ Arches a mode, initial crop not maintained - ok now?
   but what about aspect ratio
   OK so cross vs parallel arches - alignment
 
-======== old code ===========
-
-Mac cropbox drawing all screwed up
-
-Check drawImage in alignMode works with Safari
-
 ========== Maybe later ==========
-thin line at 0% gap (but not in saved image)
+Have button to select type of cropping: min, max, none
+
+Have fn to crop borders on two images instead of having to recombine them first
 
 Use currentparams for imgages[0].width etc
 need currentScale?
@@ -64,6 +59,11 @@ On the first crop, enterAlignMode captures the previous scale as the uncropped s
 
 
 ========== Hard to fix and maybe not worth it (or both) ==========
+drag and drop doesn't work in firefox
+  set about:config setting: dom.events.dataTransfer.imageAsFile.enabled to true
+  then will work ff to ff but not chrome to ff
+
+thin line at 0% gap (but not in saved image)
 
 Crop, since gap gets smaller on geese, scale size is too small, not optimal, can't even get it bigger with resize
 
