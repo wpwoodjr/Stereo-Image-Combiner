@@ -150,7 +150,7 @@
                 <li>Drag and drop one or two images onto the drop zone, or</li>
                 <li>Click the drop zone to open a file browser (hold Ctrl or ⌘ to select two images)</li>
                 <li>If just one image is loaded, it will be assumed to be a stereo pair and will be split into two</li>
-                <li>Once loaded, both images will be displayed side by side with any borders pre-cropped
+                <li>Once loaded, both images will be displayed side by side with borders pre-cropped
                     (click "Reset Crop" to restore the borders, or "Crop Images" to tweak the crop)
                 </li>
             </ol>
@@ -186,9 +186,11 @@
             <p>The cropping feature allows you to select matching regions from both images with synchronized dimensions.</p>
             
             <h3>Starting Crop Mode</h3>
+            <ul>
                 <li>Click the "Crop Images" button to enter crop mode.  By default align mode is active.</li>
                 <li>The images will be displayed with a crop box overlaid</li>
                 <li>Note, images may already have been automatically cropped to the borders</li>
+            </ul>
             
             <h3>Crop Box Controls</h3>
             <ul>
@@ -241,11 +243,17 @@
             <p>For smooth workflow, the steps below are recommended.</p>
             
             <h3>Load Images</h3>
+            <ul>
                 <li>Click on the dropzone or drag and drop the image(s) onto the dropzone to load the images</li>
                 <li>In Chrome, you can drag an existing stereo image from another web page onto the drop zone</li>
                 <li>The images will be displayed side by side, with any borders pre-cropped</li>
+                <ul>
+                    <li>Note, sometimes the automatic border detection may inadvertently crop image content, for example a cloudy sky.
+                    This is easily adjusted using the resize handles in crop mode.</li>
+                </ul>
                 <li>Swap the images as needed to achieve a cross stereo view or parallel stereo view</li>
-            
+            </ul>
+
             <h3>Aligning</h3>
             <ul>
                 <li>Enter crop mode and activate align mode initially</li>
