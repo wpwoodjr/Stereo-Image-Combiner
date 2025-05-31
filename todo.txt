@@ -1,5 +1,4 @@
 ==========  new code ===========
-
 Goose H/V:
   No crop needed not ok when h1 != h2 and using min crop
     Move crop region creation into analyse phase
@@ -70,8 +69,6 @@ Crop, since gap gets smaller on geese, scale size is too small, not optimal, can
 Gap should only be in area between crop boxes
 
 scroll bar beside image moves header to left in Chrome
-
-reducing 1 from full display scale moves right filename and fullscreen icon to the left
 
 May want to revert scale after fullscreen mode
 

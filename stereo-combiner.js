@@ -1647,23 +1647,47 @@ class DisplayManager {
 
         // Add fullscreen styles
         const style = document.createElement('style');
+
+        const fullscreenContainerStyles = `
+            background-color: ${ImageRenderer.BODY_BG_COLOR};
+            padding: 20px;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        `;
+
+        const fullscreenCanvasStyles = `
+            max-width: 100%;
+            max-height: 100%;
+        `;
+
+        // Apply the styles separately for each selector
         style.textContent = `
-            #canvasContainer:fullscreen,
-            #canvasContainer:-webkit-full-screen,
-            #canvasContainer:-moz-full-screen,
-            #canvasContainer:-ms-fullscreen {
-                background-color: #121212;
-                padding: 20px;
-                display: flex !important;
-                align-items: center;
-                justify-content: center;
-                overflow: auto;
+            #canvasContainer:fullscreen {
+                ${fullscreenContainerStyles}
             }
-            #canvasContainer:fullscreen #canvas,
-            #canvasContainer:-webkit-full-screen #canvas,
-            #canvasContainer:-moz-full-screen #canvas,
+            #canvasContainer:-webkit-full-screen {
+                ${fullscreenContainerStyles}
+            }
+            #canvasContainer:-moz-full-screen {
+                ${fullscreenContainerStyles}
+            }
+            #canvasContainer:-ms-fullscreen {
+                ${fullscreenContainerStyles}
+            }
+
+            #canvasContainer:fullscreen #canvas {
+                ${fullscreenCanvasStyles}
+            }
+            #canvasContainer:-webkit-full-screen #canvas {
+                ${fullscreenCanvasStyles}
+            }
+            #canvasContainer:-moz-full-screen #canvas {
+                ${fullscreenCanvasStyles}
+            }
             #canvasContainer:-ms-fullscreen #canvas {
-                object-fit: contain;
+                ${fullscreenCanvasStyles}
             }
         `;
         document.head.appendChild(style);
