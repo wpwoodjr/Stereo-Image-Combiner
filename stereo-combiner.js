@@ -1650,7 +1650,7 @@ class DisplayManager {
 
         const fullscreenContainerStyles = `
             background-color: ${ImageRenderer.BODY_BG_COLOR};
-            padding: 20px;
+            padding: 0px;
             display: flex !important;
             align-items: center;
             justify-content: center;
