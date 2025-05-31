@@ -5,11 +5,6 @@ Throttle during crop mode?
 
 It crops when widths of two images are different.  Is this desirable?  Heights?
 
-Goose H/V:
-  No crop needed not ok when h1 != h2 and using min crop
-    Move crop region creation into analyse phase
-    Check X and Y not just Y
-
 Contraction OK on single image?
     No... on Goose vertical / goose square with black background, it sees a gap of 1 and right border of 1
     This is because the initial outerX2 and innerX2 scans are scanning the whole image, not just where the Goose is
@@ -19,11 +14,6 @@ Try leaving transparent background on
 why no handles on right in DEBUG mode?
 
 Why does it find additional border when reload? Maybe only when saved with a border?
-
-Arches a mode, initial crop not maintained - ok now?
-  but now image alignment is lost because full image not displayed
-  but what about aspect ratio
-  OK so cross vs parallel arches - alignment
 
 ========== Maybe later ==========
 Have button to select type of cropping: min, max, none
