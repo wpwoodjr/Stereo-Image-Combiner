@@ -1,4 +1,10 @@
 ==========  new code ===========
+Optimized color space conversion
+
+Throttle during crop mode?
+
+It crops when widths of two images are different.  Is this desirable?  Heights?
+
 Goose H/V:
   No crop needed not ok when h1 != h2 and using min crop
     Move crop region creation into analyse phase

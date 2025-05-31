@@ -1333,7 +1333,7 @@ Img2(x:${innerX2}, y:${topY2}, w:${region2W}, h:${region2H})`);
         const needsCrop =
             (gapSize && this.SOFT_GAP_CROP) ||
             cropX1 || cropX2 || cropY ||
-            (cropY + cropHeight < singleImg.height);
+            (cropHeight < singleImg.height);
 
         let cropBoundaries = null;
         if (needsCrop) {
