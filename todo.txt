@@ -1,7 +1,4 @@
 ==========  new code ===========
-If you immediately go to s-b-s mode after left arrow in A mode while it is still showing B&W image,
-    the crop result is different to if you wait
-
 Optimized color space conversion
 
 Throttle during crop mode?
@@ -12,7 +9,7 @@ Contraction OK on single image?
     No... on Goose vertical / goose square with black background, it sees a gap of 1 and right border of 1
     This is because the initial outerX2 and innerX2 scans are scanning the whole image, not just where the Goose is
 
-Try leaving transparent background on
+Try leaving transparent background on for better rendering of transparent images?
 
 why no handles on right in DEBUG mode?
 

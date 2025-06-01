@@ -310,6 +310,7 @@ class CropManager {
     }
 
     static applyCrop() {
+        CropInteraction.onArrowEnd();
         AlignMode.restorePreviousScalePercent();
         this.exitCrop();
         this.finalizeCrop();
@@ -437,6 +438,7 @@ class CropManager {
     }
 
     static onScaleChange(scalePercent) {
+        CropInteraction.onArrowEnd();
         // Only gets called when CropManager.isCropping
         if (scalePercent !== 0) {
             // New scale percent
@@ -466,6 +468,7 @@ class CropManager {
     }
 
     static onSwap() {
+        CropInteraction.onArrowEnd();
         if (this.originalImages) {
             [this.originalImages[0], this.originalImages[1]] = [this.originalImages[1], this.originalImages[0]];
         }
@@ -1221,7 +1224,7 @@ class CropInteraction {
         // Ensure that both images are not above or below the top of the canvas
         // Delay until the user releases the key
         this.deltaYOffsetChangeTimeoutID = setTimeout(
-            () => this.onArrowEnd(), 
+            () => this.onArrowEnd(),
             CropManager.alignMode && this.currentHandle === Handle.INSIDE ? 1500 : 500
         );
 
@@ -1230,6 +1233,12 @@ class CropInteraction {
     }
     
     static onArrowEnd() {
+        // Stop any scheduled process
+        if (this.deltaYOffsetChangeTimeoutID) {
+            clearTimeout(this.deltaYOffsetChangeTimeoutID);
+            this.deltaYOffsetChangeTimeoutID = null;
+        }
+
         if (CropManager.isCropping && this.isArrowing) {
             this.isArrowing = false;
 
@@ -2142,6 +2151,7 @@ class AlignMode {
     }
     
     static toggle() {
+        CropInteraction.onArrowEnd();
         if (CropManager.alignMode) {
             this.exit();
         } else {
