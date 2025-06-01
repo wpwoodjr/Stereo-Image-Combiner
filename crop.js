@@ -147,6 +147,13 @@ class CropManager {
     }
 
     static startCrop() {
+        const minDimension = Math.min(SIC.images[0].width, SIC.images[1].width, SIC.images[0].height, SIC.images[1].height);
+        if (minDimension < CropBoxHelper.MIN_CROP_SIZE_PIXELS) {
+            console.warn(`Not cropping: the image size is smaller than ${CropBoxHelper.MIN_CROP_SIZE_PIXELS} pixels in at least one dimension`);
+            alert(`Cannot crop - the image size is smaller than ${CropBoxHelper.MIN_CROP_SIZE_PIXELS} pixels in at least one dimension`);
+            return;
+        }
+
         // Store current scale before changing it
         this.preCropScalePercent = ImageRenderer.currentScalePercent();
 
@@ -259,6 +266,11 @@ class CropManager {
     // Set initial crop state using regions
     static setCropState(cropBoundaries) {
         let { cropX1, cropX2, cropY, cropWidth, cropHeight } = cropBoundaries;
+        if (cropWidth < CropBoxHelper.MIN_CROP_SIZE_PIXELS || cropHeight < CropBoxHelper.MIN_CROP_SIZE_PIXELS) {
+            console.warn("Not cropping: crop area too small")
+            ImageRenderer.drawImages();
+            return;
+        }
 
         // prepare for crop
         this.preCropScalePercent = ImageRenderer.currentScalePercent();

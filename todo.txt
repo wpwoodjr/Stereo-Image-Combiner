@@ -1,10 +1,4 @@
 ==========  new code ===========
-Stick figure not correct in A mode, first move and it jumps.
-  Because it is a very low res image, I think not initialized properly in A mode
-  Maybe MIN border pic size should be the same as MIN crop size?
-  Even non A mode has trouble with this image - crop, A mode, Left arrow, side-by-side mode,
-    not all crop handles are drawn
-
 If you immediately go to s-b-s mode after left arrow in A mode while it is still showing B&W image,
     the crop result is different to if you wait
 
