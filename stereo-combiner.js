@@ -360,6 +360,97 @@ class UIManager {
     static setSaveButtonDisabledState(state) {
         this.domElements.saveButton.disabled = state;
     }
+
+    static progressElements = new Map();
+    static progressIdCounter = 0;
+
+    static showSaveProgress(message) {
+        const id = ++this.progressIdCounter;
+        
+        const progressElement = document.createElement('div');
+        progressElement.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            min-width: 250px;
+            text-align: center;
+        `;
+        
+        const messageElement = document.createElement('div');
+        messageElement.textContent = message;
+        messageElement.style.marginBottom = '10px';
+        
+        const spinner = document.createElement('div');
+        spinner.style.cssText = `
+            width: 20px;
+            height: 20px;
+            border: 2px solid #666;
+            border-top: 2px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        `;
+        
+        // Add CSS animation
+        if (!document.getElementById('progress-spinner-style')) {
+            const style = document.createElement('style');
+            style.id = 'progress-spinner-style';
+            style.textContent = `
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        progressElement.appendChild(messageElement);
+        progressElement.appendChild(spinner);
+        document.body.appendChild(progressElement);
+        
+        this.progressElements.set(id, {
+            element: progressElement,
+            messageElement: messageElement
+        });
+        
+        return id;
+    }
+
+    static updateSaveProgress(id, message) {
+        const progress = this.progressElements.get(id);
+        if (progress) {
+            progress.messageElement.textContent = message;
+        }
+    }
+
+    static hideSaveProgress(id) {
+        const progress = this.progressElements.get(id);
+        if (progress) {
+            document.body.removeChild(progress.element);
+            this.progressElements.delete(id);
+        }
+    }
+
+    // Clean up all progress indicators (useful for error handling)
+    static hideAllProgress() {
+        for (const [id, progress] of this.progressElements) {
+            try {
+                document.body.removeChild(progress.element);
+            } catch (error) {
+                // Element might already be removed
+            }
+        }
+        this.progressElements.clear();
+    }
 }
 
 // ===================================
@@ -368,6 +459,8 @@ class UIManager {
 class FileManager {
     static DEFAULT_FORMAT = 'image/jpeg';
     static DEFAULT_JPG_QUALITY = 95;
+    static LARGE_IMAGE_MOBILE = 8 * 1024 * 1024;
+    static LARGE_IMAGE = this.LARGE_IMAGE_MOBILE * 2;
 
     static async _renderRegions(sourceImage, regions, imageNames) {
         const { region1, region2 } = regions;
@@ -662,7 +755,7 @@ class FileManager {
         }
     }
 
-    static saveImage() {
+    static async saveImage() {
         const format = UIManager.domElements.formatSelect.value;
         
         if (UIManager.isTransparent && format === 'image/jpeg') {
@@ -670,27 +763,506 @@ class FileManager {
             return;
         }
 
-        const saveCanvas = document.createElement('canvas');
-        if (!SIC.images || SIC.images.length !== 2 || !SIC.images[0] || !SIC.images[1]) {
-            alert("Cannot save, images are not properly loaded.");
-            return;
-        }
-        ImageRenderer.renderCombinedImage(saveCanvas, 1, {}); // Pass scale 1 for full resolution
+        let progressId = null;
+        
+        try {
+            // Validate images first
+            if (!SIC.images || SIC.images.length !== 2 || !SIC.images[0] || !SIC.images[1]) {
+                throw new Error("Images are not properly loaded");
+            }
 
+            // Calculate final dimensions and check if we need scale options
+            const { totalWidth, totalHeight } = ImageRenderer.renderCombinedImage(null, 1, { doRender: false });
+            const dimensions = { width: totalWidth, height: totalHeight, pixelCount: totalWidth * totalHeight };
+
+            let scale = 1.0;
+
+            // Show scale dialog for large images
+            if (dimensions.pixelCount > (DisplayManager.isMobile() ? this.LARGE_IMAGE_MOBILE : this.LARGE_IMAGE)) {
+                scale = await this.showScaleDialog(dimensions, format);
+                if (scale === null) return; // User cancelled
+            }
+
+            // Show initial progress
+            progressId = UIManager.showSaveProgress('Rendering image...');
+
+            // Create canvas and render
+            const canvas = document.createElement('canvas');
+            ImageRenderer.renderCombinedImage(canvas, scale, { renderLog: true });
+
+            // Convert to blob
+            UIManager.updateSaveProgress(progressId, 'Preparing image for download...');
+            const blob = await this.canvasToBlob(canvas, format);
+
+            // Download with smart cleanup
+            UIManager.updateSaveProgress(progressId, 'Starting download...');
+            this.downloadWithCleanup(blob, format);
+
+            UIManager.updateSaveProgress(progressId, 'Download initiated successfully!');
+            
+            // Auto-hide after a reasonable delay
+            setTimeout(() => {
+                UIManager.hideSaveProgress(progressId);
+            }, 2000);
+
+        } catch (error) {
+            console.error('Save operation failed:', error);
+            alert(`Failed to save image: ${error.message}`);
+            
+            if (progressId) {
+                UIManager.hideSaveProgress(progressId);
+            }
+        }
+    }
+
+    static async showScaleDialog(dimensions) {
+        return new Promise((resolve) => {
+            // Better mobile detection - check both width AND height for landscape
+            const isMobile = DisplayManager.isMobile();
+            const isPortrait = window.innerHeight > window.innerWidth;
+            const useMobileLayout = isMobile && isPortrait; // Only use mobile layout in portrait
+            
+            // Calculate scale options with realistic size estimates
+            const scaleOptions = [
+                { 
+                    scale: 1.0, 
+                    label: `Full Size (${dimensions.width}×${dimensions.height})`,
+                },
+                { 
+                    scale: 0.75, 
+                    label: `75% Size (${Math.round(dimensions.width * 0.75)}×${Math.round(dimensions.height * 0.75)})`,
+                },
+                { 
+                    scale: 0.5, 
+                    label: `50% Size (${Math.round(dimensions.width * 0.5)}×${Math.round(dimensions.height * 0.5)})`,
+                },
+                { 
+                    scale: 0.25, 
+                    label: `25% Size (${Math.round(dimensions.width * 0.25)}×${Math.round(dimensions.height * 0.25)})`,
+                }
+            ];
+
+            // Create modal dialog with responsive design
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, ${useMobileLayout ? '0.9' : '0.8'});
+                backdrop-filter: blur(8px);
+                z-index: 10001;
+                display: flex;
+                align-items: ${useMobileLayout ? 'flex-end' : 'center'};
+                justify-content: center;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+                animation: fadeIn 0.3s ease-out;
+                padding: ${useMobileLayout ? '0' : '20px'};
+                box-sizing: border-box;
+            `;
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = useMobileLayout ? `
+                background: #1e1e1e;
+                border: 1px solid #333333;
+                border-radius: 24px 24px 0 0;
+                padding: 24px 20px;
+                width: 100%;
+                max-height: 85vh;
+                overflow-y: auto;
+                box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+                animation: slideUpMobile 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                padding-bottom: calc(24px + env(safe-area-inset-bottom));
+            ` : `
+                background: #1e1e1e;
+                border: 1px solid #333333;
+                border-radius: 16px;
+                padding: ${window.innerHeight <= 600 ? '20px' : '32px'};
+                max-width: ${window.innerHeight <= 600 ? '480px' : '520px'};
+                width: 90%;
+                max-height: ${window.innerHeight <= 600 ? '95vh' : '80vh'};
+                overflow-y: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
+                animation: slideUp 0.3s ease-out;
+            `;
+
+            // Mobile swipe handler - only for mobile portrait
+            let startY = 0;
+            let currentY = 0;
+            let isDragging = false;
+
+            if (useMobileLayout) {
+                const handleTouchStart = (e) => {
+                    startY = e.touches[0].clientY;
+                    isDragging = true;
+                    dialog.style.transition = 'none';
+                };
+
+                const handleTouchMove = (e) => {
+                    if (!isDragging) return;
+                    currentY = e.touches[0].clientY;
+                    const deltaY = Math.max(0, currentY - startY);
+                    
+                    if (deltaY > 0) {
+                        dialog.style.transform = `translateY(${deltaY}px)`;
+                    }
+                };
+
+                dialog.addEventListener('touchstart', handleTouchStart, { passive: true });
+                dialog.addEventListener('touchmove', handleTouchMove, { passive: true });
+            }
+
+            const title = document.createElement('h2');
+            title.textContent = 'Choose Image Size';
+            title.style.cssText = `
+                margin: 0 0 ${useMobileLayout ? '12px' : (window.innerHeight <= 600 ? '8px' : '8px')} 0;
+                font-size: ${useMobileLayout ? '28px' : (window.innerHeight <= 600 ? '20px' : '24px')};
+                font-weight: 700;
+                color: #ffffff;
+                letter-spacing: -0.02em;
+                text-align: ${useMobileLayout ? 'center' : 'left'};
+            `;
+
+            const description = document.createElement('p');
+            description.textContent = 'This image is quite large. Choose a size option to balance quality and file size:';
+            description.style.cssText = `
+                margin: 0 0 ${useMobileLayout ? '32px' : (window.innerHeight <= 600 ? '16px' : '28px')} 0;
+                color: #a1a1aa;
+                line-height: 1.4;
+                font-size: ${useMobileLayout ? '16px' : (window.innerHeight <= 600 ? '13px' : '15px')};
+                text-align: ${useMobileLayout ? 'center' : 'left'};
+            `;
+
+            const optionsContainer = document.createElement('div');
+            optionsContainer.style.cssText = `
+                margin-bottom: ${useMobileLayout ? '28px' : (window.innerHeight <= 600 ? '16px' : '32px')};
+                display: ${window.innerHeight <= 600 && !useMobileLayout ? 'grid' : 'flex'};
+                ${window.innerHeight <= 600 && !useMobileLayout ? 'grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;' : 'flex-direction: column;'}
+                gap: ${useMobileLayout ? '16px' : (window.innerHeight <= 600 ? '12px' : '12px')};
+            `;
+
+            // Create radio buttons for each scale option
+            scaleOptions.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                const isGridLayout = window.innerHeight <= 600 && !useMobileLayout;
+                
+                optionDiv.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    padding: ${useMobileLayout ? '20px 16px' : (isGridLayout ? '16px 12px' : '16px')};
+                    border: 2px solid #404040;
+                    border-radius: ${useMobileLayout ? '16px' : '12px'};
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    background: #2a2a2a;
+                    position: relative;
+                    min-height: ${useMobileLayout ? '60px' : 'auto'};
+                `;
+
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'imageScale';
+                radio.value = option.scale;
+                radio.checked = index === 1; // Default to 75%
+                radio.style.cssText = `
+                    width: ${useMobileLayout ? '24px' : '20px'};
+                    height: ${useMobileLayout ? '24px' : '20px'};
+                    margin-right: ${isGridLayout ? '0' : (useMobileLayout ? '20px' : '16px')};
+                    ${isGridLayout ? 'margin-bottom: 8px;' : ''}
+                    accent-color: #6b7280;
+                    cursor: pointer;
+                    flex-shrink: 0;
+                `;
+
+                const labelDiv = document.createElement('div');
+                labelDiv.style.cssText = `
+                    flex: 1;
+                    ${isGridLayout ? 'text-align: center;' : ''}
+                `;
+
+                // Shorter labels for grid layout
+                const labelText = document.createElement('div');
+                labelText.textContent = option.label;
+                
+                labelText.style.cssText = `
+                    font-weight: 600;
+                    color: #ffffff;
+                    font-size: ${useMobileLayout ? '18px' : (isGridLayout ? '14px' : '16px')};
+                    margin-bottom: ${useMobileLayout ? '6px' : (isGridLayout ? '6px' : '4px')};
+                    line-height: ${isGridLayout ? '1.2' : '1.3'};
+                `;
+
+                labelDiv.appendChild(labelText);
+
+                optionDiv.appendChild(radio);
+                optionDiv.appendChild(labelDiv);
+
+                // Enhanced touch feedback for mobile
+                if (useMobileLayout) {
+                    optionDiv.addEventListener('touchstart', () => {
+                        optionDiv.style.transform = 'scale(0.98)';
+                    }, { passive: true });
+
+                    optionDiv.addEventListener('touchend', () => {
+                        optionDiv.style.transform = 'scale(1)';
+                    }, { passive: true });
+                }
+
+                // Hover and selection styles
+                optionDiv.addEventListener('mouseenter', () => {
+                    if (!radio.checked) {
+                        optionDiv.style.borderColor = '#525252';
+                        optionDiv.style.backgroundColor = '#333333';
+                    }
+                });
+
+                optionDiv.addEventListener('mouseleave', () => {
+                    if (!radio.checked) {
+                        optionDiv.style.borderColor = '#404040';
+                        optionDiv.style.backgroundColor = '#2a2a2a';
+                    }
+                });
+
+                // Click handler for the entire option
+                optionDiv.addEventListener('click', () => {
+                    radio.checked = true;
+                    // Update visual selection
+                    optionsContainer.querySelectorAll('[data-option]').forEach(div => {
+                        div.style.borderColor = '#404040';
+                        div.style.backgroundColor = '#2a2a2a';
+                        div.style.boxShadow = 'none';
+                    });
+                    optionDiv.style.borderColor = '#6b7280';
+                    optionDiv.style.backgroundColor = '#374151';
+                    optionDiv.style.boxShadow = '0 0 0 3px rgba(107, 114, 128, 0.2)';
+                });
+
+                // Set initial selection style
+                if (radio.checked) {
+                    optionDiv.style.borderColor = '#6b7280';
+                    optionDiv.style.backgroundColor = '#374151';
+                    optionDiv.style.boxShadow = '0 0 0 3px rgba(107, 114, 128, 0.2)';
+                }
+
+                optionDiv.setAttribute('data-option', 'true');
+                optionsContainer.appendChild(optionDiv);
+            });
+
+            // Buttons with responsive layout
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex;
+                gap: ${useMobileLayout ? '12px' : (window.innerHeight <= 600 ? '8px' : '16px')};
+                justify-content: ${useMobileLayout ? 'stretch' : 'flex-end'};
+                flex-direction: row;
+            `;
+
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Cancel';
+            cancelButton.style.cssText = `
+                padding: ${useMobileLayout ? '16px 20px' : (window.innerHeight <= 600 ? '8px 16px' : '12px 24px')};
+                border: 2px solid #525252;
+                background: #2a2a2a;
+                color: #d4d4d8;
+                border-radius: ${useMobileLayout ? '12px' : '10px'};
+                cursor: pointer;
+                font-size: ${useMobileLayout ? '17px' : (window.innerHeight <= 600 ? '13px' : '15px')};
+                font-weight: 600;
+                transition: all 0.2s ease;
+                min-width: ${useMobileLayout ? 'auto' : (window.innerHeight <= 600 ? '80px' : '100px')};
+                flex: ${useMobileLayout ? '1' : 'none'};
+                min-height: ${useMobileLayout ? '52px' : 'auto'};
+            `;
+
+            const saveButton = document.createElement('button');
+            saveButton.textContent = 'Save Image';
+            saveButton.style.cssText = `
+                padding: ${useMobileLayout ? '16px 20px' : (window.innerHeight <= 600 ? '8px 16px' : '12px 24px')};
+                border: 2px solid #6b7280;
+                background: #4b5563;
+                color: white;
+                border-radius: ${useMobileLayout ? '12px' : '10px'};
+                cursor: pointer;
+                font-size: ${useMobileLayout ? '17px' : (window.innerHeight <= 600 ? '13px' : '15px')};
+                font-weight: 600;
+                transition: all 0.2s ease;
+                min-width: ${useMobileLayout ? 'auto' : (window.innerHeight <= 600 ? '100px' : '120px')};
+                flex: ${useMobileLayout ? '2' : 'none'};
+                min-height: ${useMobileLayout ? '52px' : 'auto'};
+            `;
+
+            // Add CSS animations with mobile variants
+            if (!document.getElementById('modal-animations')) {
+                const style = document.createElement('style');
+                style.id = 'modal-animations';
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes slideUp {
+                        from { 
+                            opacity: 0;
+                            transform: translateY(20px) scale(0.95);
+                        }
+                        to { 
+                            opacity: 1;
+                            transform: translateY(0) scale(1);
+                        }
+                    }
+                    @keyframes slideUpMobile {
+                        from { 
+                            transform: translateY(100%);
+                        }
+                        to { 
+                            transform: translateY(0);
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // Enhanced button hover effects
+            cancelButton.addEventListener('mouseenter', () => {
+                cancelButton.style.borderColor = '#737373';
+                cancelButton.style.color = '#ffffff';
+                cancelButton.style.backgroundColor = '#404040';
+            });
+
+            cancelButton.addEventListener('mouseleave', () => {
+                cancelButton.style.borderColor = '#525252';
+                cancelButton.style.color = '#d4d4d8';
+                cancelButton.style.backgroundColor = '#2a2a2a';
+            });
+
+            saveButton.addEventListener('mouseenter', () => {
+                saveButton.style.backgroundColor = '#6b7280';
+                saveButton.style.borderColor = '#9ca3af';
+                saveButton.style.transform = 'translateY(-1px)';
+            });
+
+            saveButton.addEventListener('mouseleave', () => {
+                saveButton.style.backgroundColor = '#4b5563';
+                saveButton.style.borderColor = '#6b7280';
+                saveButton.style.transform = 'translateY(0)';
+            });
+
+            // Event handlers with proper cleanup
+            let isModalClosed = false;
+            
+            const closeModal = (result) => {
+                if (isModalClosed) return; // Prevent double-close
+                isModalClosed = true;
+                
+                // Remove event listeners
+                document.removeEventListener('keydown', escHandler);
+                
+                // Remove modal from DOM if it exists
+                if (modal.parentNode) {
+                    document.body.removeChild(modal);
+                }
+                
+                resolve(result);
+            };
+
+            cancelButton.addEventListener('click', () => {
+                closeModal(null);
+            });
+
+            saveButton.addEventListener('click', () => {
+                const selectedScale = parseFloat(
+                    optionsContainer.querySelector('input[name="imageScale"]:checked').value
+                );
+                closeModal(selectedScale);
+            });
+
+            // ESC key handler with safe cleanup
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal(null);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
+            // Update swipe handler to use closeModal
+            if (isMobile) {
+                const handleTouchEnd = () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    dialog.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                    
+                    const deltaY = currentY - startY;
+                    if (deltaY > 100) {
+                        // Swipe down to dismiss
+                        dialog.style.transform = 'translateY(100%)';
+                        setTimeout(() => {
+                            closeModal(null);
+                        }, 300);
+                    } else {
+                        dialog.style.transform = 'translateY(0)';
+                    }
+                };
+
+                dialog.addEventListener('touchend', handleTouchEnd, { passive: true });
+            }
+
+            // Assemble dialog
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(saveButton);
+
+            dialog.appendChild(title);
+            dialog.appendChild(description);
+            dialog.appendChild(optionsContainer);
+            dialog.appendChild(buttonContainer);
+
+            modal.appendChild(dialog);
+            document.body.appendChild(modal);
+
+            // Focus the save button
+            saveButton.focus();
+        });
+    }
+
+    static async canvasToBlob(canvas, format) {
+        return new Promise((resolve, reject) => {
+            const callback = (blob) => {
+                if (blob) {
+                    resolve(blob);
+                } else {
+                    reject(new Error("Failed to convert canvas to blob"));
+                }
+            };
+
+            try {
+                if (format === 'image/jpeg') {
+                    const quality = parseInt(UIManager.domElements.qualitySlider.value) / 100;
+                    canvas.toBlob(callback, format, quality);
+                } else {
+                    canvas.toBlob(callback, format);
+                }
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    static downloadWithCleanup(blob, format) {
         const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.style.display = 'none';
+
         const fileName = this.createCombinedFilename();
         const extension = format === 'image/jpeg' ? 'jpg' : 'png';
+        link.download = link.download = `${fileName}.${extension}`;
         
-        link.download = `${fileName}.${extension}`;
-
-        if (format === 'image/jpeg') {
-            const quality = parseInt(UIManager.domElements.qualitySlider.value) / 100;
-            link.href = saveCanvas.toDataURL(format, quality);
-        } else {
-            link.href = saveCanvas.toDataURL(format);
-        }
-
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
+        
+        // Clean up URL after a short delay (browser needs time to start download)
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
     }
 
     /**
@@ -1441,11 +2013,11 @@ class ImageRenderer {
         const {
             xOffsets = {left: 0, right: 0},
             yOffsets = {left: 0, right: 0},
-            avgWidth = -1
+            avgWidth = -1,
+            renderLog = false,
+            doRender = true
         } = options;
         const cropping = avgWidth !== -1;
-
-        const targetCtx = targetCanvas.getContext('2d');
         
         // Calculate gap and border spacing
         let renderGap, borderSpace = 0;
@@ -1453,12 +2025,6 @@ class ImageRenderer {
             renderGap = Math.round(this.pixelGap(SIC.images[0], SIC.images[1]) / UIManager.GAP_TO_BORDER_RATIO) * UIManager.GAP_TO_BORDER_RATIO * renderScale;
             if (UIManager.hasBorders) {
                 borderSpace = renderGap / UIManager.GAP_TO_BORDER_RATIO;
-            }
-            if (SIC.DEBUG && renderScale === 1) {
-                console.log(`Rendering image with:
-    gap: ${renderGap}, border: ${borderSpace},
-    left image: ${SIC.images[0].width}, ${SIC.images[0].height},
-    right image: ${SIC.images[1].width}, ${SIC.images[1].height}`);
             }
         } else {
             renderGap = avgWidth * (UIManager.gapPercent / 100);
@@ -1468,23 +2034,34 @@ class ImageRenderer {
         const img1Width = SIC.images[0].width * renderScale;
         const img2Width = SIC.images[1].width * renderScale;
         const rightImgStart = img1Width + renderGap;
-        const totalWidth = rightImgStart + img2Width + (borderSpace * 2);
+        const totalWidth = Math.round(rightImgStart + img2Width + (borderSpace * 2));
 
         const img1Height = SIC.images[0].height * renderScale;
         const img2Height = SIC.images[1].height * renderScale;
         const maxImageHeight = Math.max(img1Height + yOffsets.left, img2Height + yOffsets.right);
-        const maxHeight = maxImageHeight + (borderSpace * 2);
+        const maxHeight = Math.round(maxImageHeight + (borderSpace * 2));
 
-        // Set canvas dimensions
-        targetCanvas.width = totalWidth;
-        targetCanvas.height = maxHeight;
+        if (renderLog) {
+            console.log(`Rendering image with:
+    gap: ${renderGap}, border: ${borderSpace},
+    left image: (w: ${img1Width}, h: ${img1Height}),
+    right image: (w: ${img2Width}, h: ${img2Height}),
+    total size: (w: ${totalWidth}, h: ${maxHeight})`);
+        }
 
-        // Handle background fill
-        this.handleBackgroundFill(targetCtx, totalWidth, maxHeight, cropping, img1Width, img2Width, img1Height, img2Height, yOffsets, renderGap, borderSpace);
+        if (doRender) {
+            const targetCtx = targetCanvas.getContext('2d');
+            // Set canvas dimensions
+            targetCanvas.width = totalWidth;
+            targetCanvas.height = maxHeight;
 
-        // Handle rounded corners and draw images
-        this.drawImagesWithClipping(targetCtx, SIC.images[0], SIC.images[1], renderScale, cropping, xOffsets, yOffsets, borderSpace, 
-            img1Width, img1Height, img2Width, img2Height, rightImgStart);
+            // Handle background fill
+            this.handleBackgroundFill(targetCtx, totalWidth, maxHeight, cropping, img1Width, img2Width, img1Height, img2Height, yOffsets, renderGap, borderSpace);
+
+            // Handle rounded corners and draw images
+            this.drawImagesWithClipping(targetCtx, SIC.images[0], SIC.images[1], renderScale, cropping, xOffsets, yOffsets, borderSpace, 
+                img1Width, img1Height, img2Width, img2Height, rightImgStart);
+        }
 
         // Store render parameters
         const lastRenderParams = {
@@ -1492,7 +2069,9 @@ class ImageRenderer {
             img1Height,
             img2Width,
             img2Height,
-            rightImgStart: rightImgStart + borderSpace
+            rightImgStart: rightImgStart + borderSpace,
+            totalWidth,
+            totalHeight: maxHeight
         };
         
         return lastRenderParams;
@@ -1767,6 +2346,10 @@ class DisplayManager {
         const isVerticalLayout = window.getComputedStyle(mainContainer).flexDirection === 'column';
         const leftPanelWidth = document.fullscreenElement ? 0 : document.getElementById('left-panel').offsetWidth;
         return isVerticalLayout ? window.innerWidth - 15 : window.innerWidth - leftPanelWidth - 50;
+    }
+
+    static isMobile() {
+        return window.innerWidth <= 768 || window.innerHeight <= 600;
     }
 }
 

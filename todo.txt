@@ -1,4 +1,8 @@
 ==========  new code ===========
+Is showScaleDialog OK? Slider instead?
+
+Should round all image dimensions?
+
 Optimized color space conversion
 
 Throttle during crop mode?
@@ -11,7 +15,7 @@ Contraction OK on single image?
 
 Try leaving transparent background on for better rendering of transparent images?
 
-why no handles on right in DEBUG mode?
+why no handles on right in DEBUG mode when image is not cropped?
 
 Why does it find additional border when reload? Maybe only when saved with a border?
 
