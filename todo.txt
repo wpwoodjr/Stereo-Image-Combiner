@@ -1,7 +1,9 @@
 ==========  new code ===========
 Is showScaleDialog OK? Slider instead?
 
-Should round all image dimensions?
+large image bigger?  12/24?
+
+Should round all image dimensions? Especially on save image?
 
 Optimized color space conversion
 

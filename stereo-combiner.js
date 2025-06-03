@@ -44,7 +44,11 @@ class UIManager {
     }
 
     // Resets the UI to show the dropzone and hide the canvas.
-    static resetToDropzone() {
+    static resetToDropzone(progressId = null) {
+        if (progressId !== null) {
+            // hide progress message on screen
+            this.hideProgress(progressId);
+        }
         SIC.images = [];
         SIC.imageNames = [];
         this.updateImageNames();
@@ -364,7 +368,7 @@ class UIManager {
     static progressElements = new Map();
     static progressIdCounter = 0;
 
-    static showSaveProgress(message) {
+    static showProgress(message) {
         const id = ++this.progressIdCounter;
         
         const progressElement = document.createElement('div');
@@ -425,14 +429,14 @@ class UIManager {
         return id;
     }
 
-    static updateSaveProgress(id, message) {
+    static updateProgress(id, message) {
         const progress = this.progressElements.get(id);
         if (progress) {
             progress.messageElement.textContent = message;
         }
     }
 
-    static hideSaveProgress(id) {
+    static hideProgress(id) {
         const progress = this.progressElements.get(id);
         if (progress) {
             document.body.removeChild(progress.element);
@@ -461,8 +465,9 @@ class FileManager {
     static DEFAULT_JPG_QUALITY = 95;
     static LARGE_IMAGE_MOBILE = 8 * 1024 * 1024;
     static LARGE_IMAGE = this.LARGE_IMAGE_MOBILE * 2;
+    static DEFAULT_SAVE_IMAGE_SCALE = 0.75;
 
-    static async _renderRegions(sourceImage, regions, imageNames) {
+    static async _renderRegions(sourceImage, regions, imageNames, progressId) {
         const { region1, region2 } = regions;
         // width without gap
         const r1Width = region1.x + region1.width;
@@ -489,7 +494,7 @@ class FileManager {
             this._applyCrop(regions);
         } catch (cropError) {
             console.error("Error rendering sub-images from single image after analysis:", cropError);
-            await this._executeFallbackSplit(sourceImage, imageNames, "Error rendering analyzed sub-images.");
+            await this._executeFallbackSplit(sourceImage, imageNames, "Error rendering analyzed sub-images.", progressId);
         }
     }
 
@@ -597,7 +602,7 @@ class FileManager {
      * @param {string} contextMessage - A message for console logging about why fallback is triggered.
      * @private
      */
-    static async _executeFallbackSplit(originalImage, imageNames, contextMessage) {
+    static async _executeFallbackSplit(originalImage, imageNames, contextMessage, progressId) {
         console.warn(`Executing fallback split due to: ${contextMessage}`);
         const fallbackRegions = BorderFinder.splitAreaInHalfVertically(0, 0, originalImage.width, originalImage.height);
         if (fallbackRegions) {
@@ -611,11 +616,11 @@ class FileManager {
             } catch (fbError) {
                 console.error(`Error during fallback image splitting (${contextMessage}):`, fbError);
                 alert(`Fallback image splitting failed: ${fbError.message}. Please provide two separate images.`);
-                UIManager.resetToDropzone();
+                UIManager.resetToDropzone(progressId);
             }
         } else {
             alert("Image too small for any processing, even fallback splitting. Please provide a larger or two separate images.");
-            UIManager.resetToDropzone();
+            UIManager.resetToDropzone(progressId);
         }
     }
 
@@ -625,12 +630,16 @@ class FileManager {
      * @param {FileList} files - The list of files to process.
      */
     static async processFiles(files) {
+        let progressId = null;
         if (files.length === 1) {
             const file = files[0];
             if (!file.type.startsWith('image/')) {
                 alert('Please select an image file.');
                 return;
             }
+
+            // Show initial progress
+            progressId = UIManager.showProgress('Loading image...');
 
             let singleImg, originalName;
             try {
@@ -640,34 +649,46 @@ class FileManager {
             } catch (error) {
                 console.error("Error loading single image:", error.message || error);
                 alert('Error loading single image.');
-                UIManager.resetToDropzone();
+                UIManager.resetToDropzone(progressId);
                 return;
             }
 
             const { baseName, ext } = this._generateImageNameParts(originalName);
             const imageNames = [`${baseName}_L${ext}`, `${baseName}_R${ext}`];
 
+            UIManager.updateProgress(progressId, 'Finding image borders...');
+            // Allow UI to update before intensive processing
+            await new Promise(resolve => setTimeout(resolve, 500));
             const regions = BorderFinder.analyzeAndExtractSubImageRegions_MultiStage(
                 singleImg,
                 singleImg.naturalHeight,
                 singleImg.naturalHeight
             );
 
+            UIManager.updateProgress(progressId, 'Rendering images...');
+            // yield control to show progress message because if there's an error control may never be yielded
+            await new Promise(resolve => setTimeout(resolve, 150));
             if (regions && regions.region1 && regions.region2) {
-                await this._renderRegions(singleImg, regions, imageNames);
+                await this._renderRegions(singleImg, regions, imageNames, progressId);
             } else {
-                await this._executeFallbackSplit(singleImg, imageNames, "Analysis yielded invalid/null regions.");
+                await this._executeFallbackSplit(singleImg, imageNames, "Analysis yielded invalid/null regions.", progressId);
             }
+            // Auto-hide after a reasonable delay
+            setTimeout(() => {
+                UIManager.hideProgress(progressId);
+            }, 150);
 
         } else if (files.length === 2) {
             try {
                 for (const file of files) {
                     if (!file.type.startsWith('image/')) {
                         alert('Please select only image files.');
-                        UIManager.resetToDropzone();
                         return;
                     }
                 }
+
+                // Show initial progress
+                progressId = UIManager.showProgress('Loading images...');
 
                 const imageLoadPromises = Array.from(files).map(file => this._loadImageFromFile(file));
                 const loadedImageResults = await Promise.all(imageLoadPromises);
@@ -681,7 +702,7 @@ class FileManager {
                 if (!img1 || !img2 || !img1.naturalWidth || !img1.naturalHeight || !img2.naturalWidth || !img2.naturalHeight) {
                     console.error("One or both images have invalid dimensions after loading.", img1, img2);
                     alert("Could not process images due to invalid dimensions.");
-                    UIManager.resetToDropzone();
+                    UIManager.resetToDropzone(progressId);
                     return;
                 }
                 
@@ -689,7 +710,7 @@ class FileManager {
                 const combinedCtx = combinedCanvas.getContext('2d');
                 if (!combinedCtx) {
                     alert("Failed to create canvas context for combining images.");
-                    UIManager.resetToDropzone();
+                    UIManager.resetToDropzone(progressId);
                     return;
                 }
 
@@ -714,10 +735,13 @@ class FileManager {
                     combinedImg = await combinedImagePromise;
                 } catch (error) {
                     alert(error.message);
-                    UIManager.resetToDropzone();
+                    UIManager.resetToDropzone(progressId);
                     return;
                 }
 
+                UIManager.updateProgress(progressId, 'Finding image borders...');
+                // Allow UI to update before intensive processing
+                await new Promise(resolve => setTimeout(resolve, 500));
                 const actualSplitPoint = img1.naturalWidth;
                 const regions = BorderFinder.analyzeAndExtractSubImageRegions_MultiStage(
                     combinedImg,
@@ -726,6 +750,9 @@ class FileManager {
                     actualSplitPoint
                 );
 
+                UIManager.updateProgress(progressId, 'Rendering images...');
+                // yield control to show progress message because if there's an error control may never be yielded
+                await new Promise(resolve => setTimeout(resolve, 150));
                 this._finalizeImageLoading(originalImages, imageNames);
                 if (regions && regions.region1 && regions.region2) {
                     this._applyCrop(regions);
@@ -736,11 +763,14 @@ class FileManager {
     Img2(x:${img1.naturalWidth}, y:${0}, w:${img2.naturalWidth}, h:${img2.naturalHeight})`);
                     ImageRenderer.drawImages();
                 }
+                setTimeout(() => {
+                    UIManager.hideProgress(progressId);
+                }, 150);
 
             } catch (error) {
                 console.error("Error processing two images:", error.message || error);
                 alert('Error processing two images.');
-                UIManager.resetToDropzone();
+                UIManager.resetToDropzone(progressId);
             }
         } else {
             alert('Please select one or two images.');
@@ -784,25 +814,28 @@ class FileManager {
             }
 
             // Show initial progress
-            progressId = UIManager.showSaveProgress('Rendering image...');
+            progressId = UIManager.showProgress('Rendering image...');
+            // yield control to show progress message
+            await new Promise(resolve => setTimeout(resolve, 150));
 
             // Create canvas and render
             const canvas = document.createElement('canvas');
             ImageRenderer.renderCombinedImage(canvas, scale, { renderLog: true });
 
             // Convert to blob
-            UIManager.updateSaveProgress(progressId, 'Preparing image for download...');
+            UIManager.updateProgress(progressId, 'Preparing image for download...');
             const blob = await this.canvasToBlob(canvas, format);
 
             // Download with smart cleanup
-            UIManager.updateSaveProgress(progressId, 'Starting download...');
+            UIManager.updateProgress(progressId, 'Starting download...');
+            await new Promise(resolve => setTimeout(resolve, 150));
             this.downloadWithCleanup(blob, format);
 
-            UIManager.updateSaveProgress(progressId, 'Download initiated successfully!');
+            UIManager.updateProgress(progressId, 'Download initiated successfully!');
             
             // Auto-hide after a reasonable delay
             setTimeout(() => {
-                UIManager.hideSaveProgress(progressId);
+                UIManager.hideProgress(progressId);
             }, 2000);
 
         } catch (error) {
@@ -810,17 +843,18 @@ class FileManager {
             alert(`Failed to save image: ${error.message}`);
             
             if (progressId) {
-                UIManager.hideSaveProgress(progressId);
+                UIManager.hideProgress(progressId);
             }
         }
     }
 
     static async showScaleDialog(dimensions) {
         return new Promise((resolve) => {
-            // Better mobile detection - check both width AND height for landscape
             const isMobile = DisplayManager.isMobile();
-            const isPortrait = window.innerHeight > window.innerWidth;
-            const useMobileLayout = isMobile && isPortrait; // Only use mobile layout in portrait
+            const isPortrait = DisplayManager.isPortrait();
+            const useMobilePortraitLayout = isMobile && isPortrait;
+            const useGridLayout = isMobile && !isPortrait;
+            const saveImageScale = StorageManager.getItem('saveImageScale', this.DEFAULT_SAVE_IMAGE_SCALE);
             
             // Calculate scale options with realistic size estimates
             const scaleOptions = [
@@ -850,20 +884,20 @@ class FileManager {
                 left: 0;
                 width: 100%;
                 height: 100%;
-                background: rgba(0, 0, 0, ${useMobileLayout ? '0.9' : '0.8'});
+                background: rgba(0, 0, 0, ${useMobilePortraitLayout ? '0.9' : '0.8'});
                 backdrop-filter: blur(8px);
                 z-index: 10001;
                 display: flex;
-                align-items: ${useMobileLayout ? 'flex-end' : 'center'};
+                align-items: ${useMobilePortraitLayout ? 'flex-end' : 'center'};
                 justify-content: center;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
                 animation: fadeIn 0.3s ease-out;
-                padding: ${useMobileLayout ? '0' : '20px'};
+                padding: ${useMobilePortraitLayout ? '0' : '20px'};
                 box-sizing: border-box;
             `;
 
             const dialog = document.createElement('div');
-            dialog.style.cssText = useMobileLayout ? `
+            dialog.style.cssText = useMobilePortraitLayout ? `
                 background: #1e1e1e;
                 border: 1px solid #333333;
                 border-radius: 24px 24px 0 0;
@@ -878,98 +912,71 @@ class FileManager {
                 background: #1e1e1e;
                 border: 1px solid #333333;
                 border-radius: 16px;
-                padding: ${window.innerHeight <= 600 ? '20px' : '32px'};
-                max-width: ${window.innerHeight <= 600 ? '480px' : '520px'};
+                padding: ${useGridLayout ? '20px' : '32px'};
+                max-width: ${useGridLayout ? '480px' : '520px'};
                 width: 90%;
-                max-height: ${window.innerHeight <= 600 ? '95vh' : '80vh'};
+                max-height: ${useGridLayout ? '95vh' : '80vh'};
                 overflow-y: auto;
                 box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
                 animation: slideUp 0.3s ease-out;
             `;
 
-            // Mobile swipe handler - only for mobile portrait
-            let startY = 0;
-            let currentY = 0;
-            let isDragging = false;
-
-            if (useMobileLayout) {
-                const handleTouchStart = (e) => {
-                    startY = e.touches[0].clientY;
-                    isDragging = true;
-                    dialog.style.transition = 'none';
-                };
-
-                const handleTouchMove = (e) => {
-                    if (!isDragging) return;
-                    currentY = e.touches[0].clientY;
-                    const deltaY = Math.max(0, currentY - startY);
-                    
-                    if (deltaY > 0) {
-                        dialog.style.transform = `translateY(${deltaY}px)`;
-                    }
-                };
-
-                dialog.addEventListener('touchstart', handleTouchStart, { passive: true });
-                dialog.addEventListener('touchmove', handleTouchMove, { passive: true });
-            }
-
             const title = document.createElement('h2');
             title.textContent = 'Choose Image Size';
             title.style.cssText = `
-                margin: 0 0 ${useMobileLayout ? '12px' : (window.innerHeight <= 600 ? '8px' : '8px')} 0;
-                font-size: ${useMobileLayout ? '28px' : (window.innerHeight <= 600 ? '20px' : '24px')};
+                margin: 0 0 ${useMobilePortraitLayout ? '12px' : (useGridLayout ? '8px' : '8px')} 0;
+                font-size: ${useMobilePortraitLayout ? '28px' : (useGridLayout ? '20px' : '24px')};
                 font-weight: 700;
                 color: #ffffff;
                 letter-spacing: -0.02em;
-                text-align: ${useMobileLayout ? 'center' : 'left'};
+                text-align: ${useMobilePortraitLayout ? 'center' : 'left'};
             `;
 
             const description = document.createElement('p');
             description.textContent = 'This image is quite large. Choose a size option to balance quality and file size:';
             description.style.cssText = `
-                margin: 0 0 ${useMobileLayout ? '32px' : (window.innerHeight <= 600 ? '16px' : '28px')} 0;
+                margin: 0 0 ${useMobilePortraitLayout ? '32px' : (useGridLayout ? '16px' : '28px')} 0;
                 color: #a1a1aa;
                 line-height: 1.4;
-                font-size: ${useMobileLayout ? '16px' : (window.innerHeight <= 600 ? '13px' : '15px')};
-                text-align: ${useMobileLayout ? 'center' : 'left'};
+                font-size: ${useMobilePortraitLayout ? '16px' : (useGridLayout ? '13px' : '15px')};
+                text-align: ${useMobilePortraitLayout ? 'center' : 'left'};
             `;
 
             const optionsContainer = document.createElement('div');
             optionsContainer.style.cssText = `
-                margin-bottom: ${useMobileLayout ? '28px' : (window.innerHeight <= 600 ? '16px' : '32px')};
-                display: ${window.innerHeight <= 600 && !useMobileLayout ? 'grid' : 'flex'};
-                ${window.innerHeight <= 600 && !useMobileLayout ? 'grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;' : 'flex-direction: column;'}
-                gap: ${useMobileLayout ? '16px' : (window.innerHeight <= 600 ? '12px' : '12px')};
+                margin-bottom: ${useMobilePortraitLayout ? '28px' : (useGridLayout ? '16px' : '32px')};
+                display: ${useGridLayout && !useMobilePortraitLayout ? 'grid' : 'flex'};
+                ${useGridLayout && !useMobilePortraitLayout ? 'grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;' : 'flex-direction: column;'}
+                gap: ${useMobilePortraitLayout ? '16px' : (useGridLayout ? '12px' : '12px')};
             `;
 
             // Create radio buttons for each scale option
             scaleOptions.forEach((option, index) => {
                 const optionDiv = document.createElement('div');
-                const isGridLayout = window.innerHeight <= 600 && !useMobileLayout;
                 
                 optionDiv.style.cssText = `
                     display: flex;
                     align-items: center;
-                    padding: ${useMobileLayout ? '20px 16px' : (isGridLayout ? '16px 12px' : '16px')};
+                    padding: ${useMobilePortraitLayout ? '18px 16px' : (useGridLayout ? '16px 12px' : '16px')};
                     border: 2px solid #404040;
-                    border-radius: ${useMobileLayout ? '16px' : '12px'};
+                    border-radius: ${useMobilePortraitLayout ? '16px' : '12px'};
                     cursor: pointer;
                     transition: all 0.2s ease;
                     background: #2a2a2a;
                     position: relative;
-                    min-height: ${useMobileLayout ? '60px' : 'auto'};
+                    min-height: 'auto';
                 `;
 
                 const radio = document.createElement('input');
                 radio.type = 'radio';
                 radio.name = 'imageScale';
                 radio.value = option.scale;
-                radio.checked = index === 1; // Default to 75%
+                radio.checked = option.scale === saveImageScale;
                 radio.style.cssText = `
-                    width: ${useMobileLayout ? '24px' : '20px'};
-                    height: ${useMobileLayout ? '24px' : '20px'};
-                    margin-right: ${isGridLayout ? '0' : (useMobileLayout ? '20px' : '16px')};
-                    ${isGridLayout ? 'margin-bottom: 8px;' : ''}
+                    width: ${useMobilePortraitLayout ? '24px' : '20px'};
+                    height: ${useMobilePortraitLayout ? '24px' : '20px'};
+                    margin-right: ${useGridLayout ? '0' : (useMobilePortraitLayout ? '20px' : '16px')};
+                    ${useGridLayout ? 'margin-bottom: 8px;' : ''}
                     accent-color: #6b7280;
                     cursor: pointer;
                     flex-shrink: 0;
@@ -978,7 +985,7 @@ class FileManager {
                 const labelDiv = document.createElement('div');
                 labelDiv.style.cssText = `
                     flex: 1;
-                    ${isGridLayout ? 'text-align: center;' : ''}
+                    ${useGridLayout ? 'text-align: center;' : ''}
                 `;
 
                 // Shorter labels for grid layout
@@ -988,9 +995,9 @@ class FileManager {
                 labelText.style.cssText = `
                     font-weight: 600;
                     color: #ffffff;
-                    font-size: ${useMobileLayout ? '18px' : (isGridLayout ? '14px' : '16px')};
-                    margin-bottom: ${useMobileLayout ? '6px' : (isGridLayout ? '6px' : '4px')};
-                    line-height: ${isGridLayout ? '1.2' : '1.3'};
+                    font-size: ${useMobilePortraitLayout ? '18px' : (useGridLayout ? '14px' : '16px')};
+                    margin-bottom: ${useMobilePortraitLayout ? '6px' : (useGridLayout ? '6px' : '4px')};
+                    line-height: ${useGridLayout ? '1.2' : '1.3'};
                 `;
 
                 labelDiv.appendChild(labelText);
@@ -999,7 +1006,7 @@ class FileManager {
                 optionDiv.appendChild(labelDiv);
 
                 // Enhanced touch feedback for mobile
-                if (useMobileLayout) {
+                if (useMobilePortraitLayout) {
                     optionDiv.addEventListener('touchstart', () => {
                         optionDiv.style.transform = 'scale(0.98)';
                     }, { passive: true });
@@ -1053,43 +1060,43 @@ class FileManager {
             const buttonContainer = document.createElement('div');
             buttonContainer.style.cssText = `
                 display: flex;
-                gap: ${useMobileLayout ? '12px' : (window.innerHeight <= 600 ? '8px' : '16px')};
-                justify-content: ${useMobileLayout ? 'stretch' : 'flex-end'};
+                gap: ${useMobilePortraitLayout ? '12px' : (useGridLayout ? '8px' : '16px')};
+                justify-content: ${useMobilePortraitLayout ? 'stretch' : 'flex-end'};
                 flex-direction: row;
             `;
 
             const cancelButton = document.createElement('button');
             cancelButton.textContent = 'Cancel';
             cancelButton.style.cssText = `
-                padding: ${useMobileLayout ? '16px 20px' : (window.innerHeight <= 600 ? '8px 16px' : '12px 24px')};
+                padding: ${useMobilePortraitLayout ? '16px 20px' : (useGridLayout ? '8px 16px' : '12px 24px')};
                 border: 2px solid #525252;
                 background: #2a2a2a;
                 color: #d4d4d8;
-                border-radius: ${useMobileLayout ? '12px' : '10px'};
+                border-radius: ${useMobilePortraitLayout ? '12px' : '10px'};
                 cursor: pointer;
-                font-size: ${useMobileLayout ? '17px' : (window.innerHeight <= 600 ? '13px' : '15px')};
+                font-size: ${useMobilePortraitLayout ? '17px' : (useGridLayout ? '13px' : '15px')};
                 font-weight: 600;
                 transition: all 0.2s ease;
-                min-width: ${useMobileLayout ? 'auto' : (window.innerHeight <= 600 ? '80px' : '100px')};
-                flex: ${useMobileLayout ? '1' : 'none'};
-                min-height: ${useMobileLayout ? '52px' : 'auto'};
+                min-width: ${useMobilePortraitLayout ? 'auto' : (useGridLayout ? '80px' : '100px')};
+                flex: ${useMobilePortraitLayout ? '1' : 'none'};
+                min-height: ${useMobilePortraitLayout ? '52px' : 'auto'};
             `;
 
             const saveButton = document.createElement('button');
             saveButton.textContent = 'Save Image';
             saveButton.style.cssText = `
-                padding: ${useMobileLayout ? '16px 20px' : (window.innerHeight <= 600 ? '8px 16px' : '12px 24px')};
+                padding: ${useMobilePortraitLayout ? '16px 20px' : (useGridLayout ? '8px 16px' : '12px 24px')};
                 border: 2px solid #6b7280;
                 background: #4b5563;
                 color: white;
-                border-radius: ${useMobileLayout ? '12px' : '10px'};
+                border-radius: ${useMobilePortraitLayout ? '12px' : '10px'};
                 cursor: pointer;
-                font-size: ${useMobileLayout ? '17px' : (window.innerHeight <= 600 ? '13px' : '15px')};
+                font-size: ${useMobilePortraitLayout ? '17px' : (useGridLayout ? '13px' : '15px')};
                 font-weight: 600;
                 transition: all 0.2s ease;
-                min-width: ${useMobileLayout ? 'auto' : (window.innerHeight <= 600 ? '100px' : '120px')};
-                flex: ${useMobileLayout ? '2' : 'none'};
-                min-height: ${useMobileLayout ? '52px' : 'auto'};
+                min-width: ${useMobilePortraitLayout ? 'auto' : (useGridLayout ? '100px' : '120px')};
+                flex: ${useMobilePortraitLayout ? '2' : 'none'};
+                min-height: ${useMobilePortraitLayout ? '52px' : 'auto'};
             `;
 
             // Add CSS animations with mobile variants
@@ -1174,6 +1181,7 @@ class FileManager {
                 const selectedScale = parseFloat(
                     optionsContainer.querySelector('input[name="imageScale"]:checked').value
                 );
+                StorageManager.setItem('saveImageScale', selectedScale);
                 closeModal(selectedScale);
             });
 
@@ -1184,28 +1192,6 @@ class FileManager {
                 }
             };
             document.addEventListener('keydown', escHandler);
-
-            // Update swipe handler to use closeModal
-            if (isMobile) {
-                const handleTouchEnd = () => {
-                    if (!isDragging) return;
-                    isDragging = false;
-                    dialog.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                    
-                    const deltaY = currentY - startY;
-                    if (deltaY > 100) {
-                        // Swipe down to dismiss
-                        dialog.style.transform = 'translateY(100%)';
-                        setTimeout(() => {
-                            closeModal(null);
-                        }, 300);
-                    } else {
-                        dialog.style.transform = 'translateY(0)';
-                    }
-                };
-
-                dialog.addEventListener('touchend', handleTouchEnd, { passive: true });
-            }
 
             // Assemble dialog
             buttonContainer.appendChild(cancelButton);
@@ -2350,6 +2336,10 @@ class DisplayManager {
 
     static isMobile() {
         return window.innerWidth <= 768 || window.innerHeight <= 600;
+    }
+
+    static isPortrait() {
+        return window.innerHeight > window.innerWidth;
     }
 }
 
