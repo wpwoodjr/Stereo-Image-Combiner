@@ -685,8 +685,8 @@ class CropInteraction {
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
     }
 
-    static drawHandleBoxes() {
-        this.getHandle(0, 0);
+    static drawHandleBoxes(y) {
+        this.getHandle(0, y);
     }
 
     static getXY(e) {
@@ -1712,11 +1712,12 @@ class CropRenderer {
         const avgWidth = CropManager.cropBoxes[Box.LEFT].width;
         
         // Draw images with both x and y offsets
-        CropManager.currentParams = ImageRenderer.drawImages({
+        CropManager.currentParams = this.renderCroppedImages(
+            CropManager.currentScale,
             xOffsets,
             yOffsets,
-            avgWidth: avgWidth
-        });
+            avgWidth
+        );
 
         // Calculate image dimensions and positions
         const { img1Width, img1Height, img2Width, img2Height, rightImgStart } = CropManager.currentParams;
@@ -1738,11 +1739,8 @@ class CropRenderer {
         };
 
         // Draw semi-transparent overlay for areas outside the crop boxes
-        const bodyStyle = window.getComputedStyle(document.body);
-        const bodyBackgroundColor = bodyStyle.backgroundColor;
-        
         ctx.globalAlpha = this.CROP_BOX_OVERLAY_OPACITY;
-        ctx.fillStyle = bodyBackgroundColor;
+        ctx.fillStyle = ImageRenderer.BODY_BG_COLOR;
 
         // Left image overlay - shade the whole image
         ctx.fillRect(xOffsets.left, yOffsets.left, img1Width - xOffsets.left, img1Height);
@@ -1797,7 +1795,7 @@ class CropRenderer {
         ctx.globalAlpha = 1.0;
 
         if (SIC.DEBUG) {
-            CropInteraction.drawHandleBoxes();
+            CropInteraction.drawHandleBoxes(rightImgStart);
         }
     }
     
@@ -1809,7 +1807,86 @@ class CropRenderer {
         ctx.lineTo(x1, y2);
         ctx.stroke();
     }
-    
+
+    static renderCroppedImages(renderScale, xOffsets, yOffsets, avgWidth) {
+        const images = SIC.images;
+        // Get the main canvas context
+        const canvas = CropManager.canvas;
+        const ctx = CropManager.ctx;
+
+        // Calculate gap spacing
+        const renderGap = avgWidth * (UIManager.gapPercent / 100);
+
+        // Calculate dimensions
+        const img1Width = images[0].width * renderScale;
+        const img2Width = images[1].width * renderScale;
+        const rightImgStart = img1Width + renderGap;
+        const totalWidth = Math.ceil(rightImgStart + img2Width);
+
+        const img1Height = images[0].height * renderScale;
+        const img2Height = images[1].height * renderScale;
+        const maxHeight = Math.ceil(Math.max(img1Height + yOffsets.left, img2Height + yOffsets.right));
+
+        // Set canvas dimensions
+        canvas.width = totalWidth;
+        canvas.height = maxHeight;
+
+        // Crop mode background
+        ctx.fillStyle = ImageRenderer.BODY_BG_COLOR;
+        ctx.fillRect(0, 0, totalWidth, maxHeight);
+
+        // Fill gap area
+        const gapStart = Math.max(yOffsets.left, yOffsets.right);
+        const gapHeight = Math.min(img1Height + yOffsets.left, img2Height + yOffsets.right) - gapStart;
+
+        if (UIManager.isTransparent) {
+            ctx.clearRect(
+                img1Width,
+                gapStart,
+                renderGap,
+                gapHeight
+            );
+        } else {
+            ctx.fillStyle = UIManager.gapColor;
+            ctx.fillRect(
+                img1Width,
+                gapStart,
+                renderGap,
+                gapHeight
+            );
+        }
+
+        // Draw left image
+        ctx.drawImage(
+            images[0],
+            0, 0,
+            images[0].width - xOffsets.left / renderScale, images[0].height,
+            xOffsets.left, yOffsets.left,
+            img1Width - xOffsets.left, img1Height
+        );
+
+        // Draw right image
+        const xFactor = xOffsets.right / renderScale;
+        ctx.drawImage(
+            images[1],
+            -xFactor, 0,
+            images[1].width + xFactor, images[1].height,
+            rightImgStart, yOffsets.right,
+            img2Width + xOffsets.right, img2Height
+        );
+
+        // Store render parameters
+        const lastRenderParams = {
+            img1Width,
+            img1Height,
+            img2Width,
+            img2Height,
+            rightImgStart
+        };
+        
+        return lastRenderParams;
+    }
+
     static glowParameters() {
         // Calculate glow intensity if animation is active
         let glowIntensity = 0;
@@ -2097,9 +2174,6 @@ class AlignMode {
         CropOptions.lockedCheckbox.disabled = true;
         this.cropRatio = CropManager.cropBoxes[Box.LEFT].width / CropManager.cropBoxes[Box.LEFT].height;
 
-        // Disable transparent background image
-        CropManager.canvas.classList.remove('transparent-bg');
-
         this.savePreviousScalePercent = CropManager.currentScale / ImageRenderer.maxScale;
         if (this.scalePercent === 0) {
             this.scalePercent = StorageManager.getItem('alignModeScalePercent', this.savePreviousScalePercent);
@@ -2138,11 +2212,6 @@ class AlignMode {
         CropOptions.lockedCheckbox.disabled = false;
         CropOptions.lockedCheckbox.checked = this.saveLockedCheckbox;
 
-        // Restore transparent background image if in transparent mode
-        if (UIManager.isTransparent) {
-            CropManager.canvas.classList.add('transparent-bg');
-        }
-
         CropInteraction.currentHandle = Handle.OUTSIDE;
         CropInteraction.activeCropBox = Box.LEFT;
         CropInteraction.updateCursor(CropInteraction.currentHandle);
@@ -2172,7 +2241,7 @@ class AlignMode {
                         (CropInteraction.isDragging || CropInteraction.isArrowing);    
 
         // Draw images with both x and y offsets
-        this.drawImages(aligning);
+        this.renderAlignModeImages(aligning, CropManager.currentScale);
 
         // Ensure that both images are not above or below the top of the canvas
         const deltaYOffset = CropAnimation.checkImagePositions();
@@ -2191,15 +2260,13 @@ class AlignMode {
         // Get the main canvas context
         const canvas = CropManager.canvas;
         const ctx = CropManager.ctx;
-        const bodyStyle = window.getComputedStyle(document.body);
-        const bodyBackgroundColor = bodyStyle.backgroundColor;
 
         // Draw with right box
         const box = CropManager.cropBoxes[Box.RIGHT];
 
         // Draw semi-transparent overlay for areas outside the crop box
         ctx.globalAlpha = CropRenderer.CROP_BOX_OVERLAY_OPACITY;
-        ctx.fillStyle = bodyBackgroundColor;
+        ctx.fillStyle = ImageRenderer.BODY_BG_COLOR;
 
         ctx.fillRect(0, 0, box.x, canvas.height);
         ctx.fillRect(box.x, 0, canvas.width - box.x, box.y);
@@ -2224,38 +2291,38 @@ class AlignMode {
         ctx.globalAlpha = 1.0;
 
         if (SIC.DEBUG) {
-            CropInteraction.drawHandleBoxes();
+            CropInteraction.drawHandleBoxes(0);
         }
     }
     
-    static drawImages(aligning) {
-        if (SIC.images.length !== 2) return null;
-
+    static renderAlignModeImages(aligning, renderScale) {
+        const images = SIC.images;
         // Get the main canvas context
         const canvas = CropManager.canvas;
         const ctx = CropManager.ctx;
 
         // Calculate dimensions
-        const img1Width = SIC.images[0].width * CropManager.currentScale;
-        const img2Width = SIC.images[1].width * CropManager.currentScale;
-        const totalWidth = Math.max(img1Width, img2Width);
+        const img1Width = images[0].width * renderScale;
+        const img2Width = images[1].width * renderScale;
+        const maxWidth = Math.ceil(Math.max(img1Width, img2Width));
 
-        const img1Height = SIC.images[0].height * CropManager.currentScale;
-        const img2Height = SIC.images[1].height * CropManager.currentScale;
-        const maxHeight = Math.max(img1Height, img2Height);
+        const img1Height = images[0].height * renderScale;
+        const img2Height = images[1].height * renderScale;
+        const maxHeight = Math.ceil(Math.max(img1Height, img2Height));
 
         // Set canvas dimensions
-        canvas.width = totalWidth;
+        canvas.width = maxWidth;
         canvas.height = maxHeight;
 
         // Clear the canvas
-        ctx.clearRect(0, 0, totalWidth, maxHeight);
+        ctx.fillStyle = ImageRenderer.BODY_BG_COLOR;
+        ctx.fillRect(0, 0, maxWidth, maxHeight);
 
         // Draw the right image
         ctx.drawImage(
-            aligning ? this.alignImage1 : SIC.images[1],
+            aligning ? this.alignImage1 : images[1],
             0, 0,                                       // Source position
-            SIC.images[1].width, SIC.images[1].height,  // Source dimensions
+            images[1].width, images[1].height,          // Source dimensions
             0, 0,                                       // Destination position
             img2Width, img2Height                       // Destination dimensions
         );
@@ -2266,9 +2333,9 @@ class AlignMode {
         ctx.globalAlpha = 0.50;
         // Draw the left image
         ctx.drawImage(
-            aligning ? this.alignImage0 : SIC.images[0],
+            aligning ? this.alignImage0 : images[0],
             0, 0,                                       // Source position
-            SIC.images[0].width, SIC.images[0].height,  // Source dimensions
+            images[0].width, images[0].height,          // Source dimensions
             xOffset, yOffset,                           // Destination position with offsets
             img1Width, img1Height                       // Destination dimensions
         );

@@ -463,7 +463,7 @@ class UIManager {
 class FileManager {
     static DEFAULT_FORMAT = 'image/jpeg';
     static DEFAULT_JPG_QUALITY = 95;
-    static LARGE_IMAGE_MOBILE = 8 * 1024 * 1024;
+    static LARGE_IMAGE_MOBILE = 12 * 1024 * 1024;
     static LARGE_IMAGE = this.LARGE_IMAGE_MOBILE * 2;
     static DEFAULT_SAVE_IMAGE_SCALE = 0.75;
 
@@ -802,7 +802,7 @@ class FileManager {
             }
 
             // Calculate final dimensions and check if we need scale options
-            const { totalWidth, totalHeight } = ImageRenderer.renderCombinedImage(null, 1, { doRender: false });
+            const { totalWidth, totalHeight } = ImageRenderer.renderCombinedImage(null, 1, false, false);
             const dimensions = { width: totalWidth, height: totalHeight, pixelCount: totalWidth * totalHeight };
 
             let scale = 1.0;
@@ -820,7 +820,7 @@ class FileManager {
 
             // Create canvas and render
             const canvas = document.createElement('canvas');
-            ImageRenderer.renderCombinedImage(canvas, scale, { renderLog: true });
+            ImageRenderer.renderCombinedImage(canvas, scale, true, true);
 
             // Convert to blob
             UIManager.updateProgress(progressId, 'Preparing image for download...');
@@ -1725,7 +1725,7 @@ class BorderFinder {
         let testSplitPoint = 0;
         // look for gap with left and right of cropped image; failing that, original image left and right
         for (const { left, width } of bounds) {
-            testSplitPoint = actualSplitPoint > 0 ? actualSplitPoint : left + Math.floor(width / 2);
+            testSplitPoint = actualSplitPoint !== -1 ? actualSplitPoint : left + Math.floor(width / 2);
             if (SIC.DEBUG) {
                 console.log(`Looking for gap at: ${testSplitPoint}`);
             }
@@ -1850,7 +1850,7 @@ Height for one or both images is too small:
         const region2W = outerX2 - innerX2 + 1;
         const region1H = bottomY1 - topY1 + 1;
         const region2H = bottomY2 - topY2 + 1;
-        const splitPoint = actualSplitPoint > 0 ? actualSplitPoint : innerX1 + 1 + Math.floor(gapSize / 2);
+        const splitPoint = actualSplitPoint !== -1 ? actualSplitPoint : innerX1 + 1 + Math.floor(gapSize / 2);
 
         console.log(`Stage 5 (define image regions):
 Gap size: ${gapSize}, split at: ${splitPoint},
@@ -1860,7 +1860,7 @@ Img1(x:${outerX1}, y:${topY1}, w:${region1W}, h:${region1H}),
 Img2(x:${innerX2}, y:${topY2}, w:${region2W}, h:${region2H})`);
 
         // --- Stage 6: Define crop boundaries
-        let cropX1 = 0, cropX2 = 0, cropY = 0, cropWidth = 0, cropHeight = 0;
+        let cropY = 0, cropWidth = 0, cropHeight = 0;
 
         // find the width of the images including the borders but not including the gap
         const widthWithoutGap1 = innerX1 + 1;
@@ -1884,8 +1884,8 @@ Img2(x:${innerX2}, y:${topY2}, w:${region2W}, h:${region2H})`);
         }
 
         // crop the gap
-        cropX1 = widthWithoutGap1 - cropWidth;
-        cropX2 = this.SOFT_GAP_CROP ? innerX2 - splitPoint : 0;
+        const cropX1 = widthWithoutGap1 - cropWidth;
+        const cropX2 = this.SOFT_GAP_CROP ? innerX2 - splitPoint : 0;
 
         // see if we need to crop
         const needsCrop =
@@ -1907,9 +1907,9 @@ No crop needed`);
         return {
             region1: { x: outerX1, y: topY1, width: region1W, height: region1H },
             region2: { x: innerX2, y: topY2, width: region2W, height: region2H },
-            img1Height: img1Height,
-            img2Height: img2Height,
-            splitPoint: splitPoint,
+            img1Height,
+            img2Height,
+            splitPoint,
             cropBoundaries
         };
     }
@@ -1993,39 +1993,25 @@ class ImageRenderer {
         return avgWidth * (UIManager.gapPercent / 100);
     }
 
-    static renderCombinedImage(targetCanvas, renderScale, options = {}) {
-        if (SIC.images.length !== 2) return null;
-        
-        const {
-            xOffsets = {left: 0, right: 0},
-            yOffsets = {left: 0, right: 0},
-            avgWidth = -1,
-            renderLog = false,
-            doRender = true
-        } = options;
-        const cropping = avgWidth !== -1;
-        
+    static renderCombinedImage(targetCanvas, renderScale, renderLog, doRender) {
+        const images = SIC.images;
+        if (images.length !== 2) return null;
+
         // Calculate gap and border spacing
-        let renderGap, borderSpace = 0;
-        if (!cropping) {
-            renderGap = Math.round(this.pixelGap(SIC.images[0], SIC.images[1]) / UIManager.GAP_TO_BORDER_RATIO) * UIManager.GAP_TO_BORDER_RATIO * renderScale;
-            if (UIManager.hasBorders) {
-                borderSpace = renderGap / UIManager.GAP_TO_BORDER_RATIO;
-            }
-        } else {
-            renderGap = avgWidth * (UIManager.gapPercent / 100);
-        }
+        let renderGap = this.pixelGap(images[0], images[1]) * renderScale;
+        const borderSpace = UIManager.hasBorders ? Math.round(renderGap / UIManager.GAP_TO_BORDER_RATIO) : 0;
+        renderGap = Math.round(renderGap);
 
         // Calculate dimensions
-        const img1Width = SIC.images[0].width * renderScale;
-        const img2Width = SIC.images[1].width * renderScale;
+        const img1Width = Math.round(images[0].width * renderScale);
+        const img2Width = Math.round(images[1].width * renderScale);
         const rightImgStart = img1Width + renderGap;
-        const totalWidth = Math.round(rightImgStart + img2Width + (borderSpace * 2));
+        const totalWidth = rightImgStart + img2Width + (borderSpace * 2);
 
-        const img1Height = SIC.images[0].height * renderScale;
-        const img2Height = SIC.images[1].height * renderScale;
-        const maxImageHeight = Math.max(img1Height + yOffsets.left, img2Height + yOffsets.right);
-        const maxHeight = Math.round(maxImageHeight + (borderSpace * 2));
+        const img1Height = Math.round(images[0].height * renderScale);
+        const img2Height = Math.round(images[1].height * renderScale);
+        const maxImageHeight = Math.max(img1Height, img2Height);
+        const maxHeight = maxImageHeight + (borderSpace * 2);
 
         if (renderLog) {
             console.log(`Rendering image with:
@@ -2036,125 +2022,73 @@ class ImageRenderer {
         }
 
         if (doRender) {
-            const targetCtx = targetCanvas.getContext('2d');
+            const ctx = targetCanvas.getContext('2d');
             // Set canvas dimensions
             targetCanvas.width = totalWidth;
             targetCanvas.height = maxHeight;
 
             // Handle background fill
-            this.handleBackgroundFill(targetCtx, totalWidth, maxHeight, cropping, img1Width, img2Width, img1Height, img2Height, yOffsets, renderGap, borderSpace);
-
-            // Handle rounded corners and draw images
-            this.drawImagesWithClipping(targetCtx, SIC.images[0], SIC.images[1], renderScale, cropping, xOffsets, yOffsets, borderSpace, 
-                img1Width, img1Height, img2Width, img2Height, rightImgStart);
-        }
-
-        // Store render parameters
-        const lastRenderParams = {
-            img1Width,
-            img1Height,
-            img2Width,
-            img2Height,
-            rightImgStart: rightImgStart + borderSpace,
-            totalWidth,
-            totalHeight: maxHeight
-        };
-        
-        return lastRenderParams;
-    }
-
-    static handleBackgroundFill(ctx, totalWidth, maxHeight, cropping, img1Width, img2Width, img1Height, img2Height, yOffsets, renderGap, borderSpace) {
-        if (!cropping) {
             if (UIManager.isTransparent) {
                 ctx.clearRect(0, 0, totalWidth, maxHeight);
             } else {
                 ctx.fillStyle = UIManager.gapColor;
                 ctx.fillRect(0, 0, totalWidth, maxHeight);
             }
-        } else {
-            // Crop mode background
-            ctx.fillStyle = this.BODY_BG_COLOR;
-            ctx.fillRect(0, 0, totalWidth, maxHeight);
 
-            // Fill gap area
-            const gapStart = Math.max(yOffsets.left, yOffsets.right);
-            const gapHeight = Math.min(img1Height + yOffsets.left, img2Height + yOffsets.right) - gapStart;
+            // Handle rounded corners
+            ctx.save();
+            if (UIManager.cornerRadiusPercent > 0) {
+                const maxRadius = Math.min(img1Width, img2Width, img1Height, img2Height) / 2;
+                const renderCornerRadius = UIManager.cornerRadiusPercent / 100 * maxRadius;
 
-            if (UIManager.isTransparent) {
-                ctx.clearRect(
-                    img1Width + borderSpace,
-                    gapStart + borderSpace,
-                    renderGap,
-                    gapHeight
+                ctx.beginPath();
+                
+                // Left image clipping region
+                ctx.roundRect(
+                    borderSpace,
+                    borderSpace,
+                    img1Width,
+                    img1Height,
+                    renderCornerRadius
                 );
-            } else {
-                ctx.fillStyle = UIManager.gapColor;
-                ctx.fillRect(
-                    img1Width + borderSpace,
-                    gapStart + borderSpace,
-                    renderGap,
-                    gapHeight
+                
+                // Right image clipping region
+                ctx.roundRect(
+                    rightImgStart + borderSpace,
+                    borderSpace,
+                    img2Width,
+                    img2Height,
+                    renderCornerRadius
                 );
+                
+                ctx.clip();
             }
-        }
-    }
 
-    static drawImagesWithClipping(ctx, leftImg, rightImg, renderScale, cropping, xOffsets, yOffsets, borderSpace, 
-                          img1Width, img1Height, img2Width, img2Height, rightImgStart) {
-        ctx.save();
-        
-        // Handle rounded corners
-        if (!cropping && UIManager.cornerRadiusPercent > 0) {
-            const maxRadius = Math.min(img1Width, img2Width, img1Height, img2Height) / 2;
-            const renderCornerRadius = UIManager.cornerRadiusPercent / 100 * maxRadius;
+            // Draw left image
+            ctx.drawImage(
+                images[0],
+                0, 0,
+                images[0].width, images[0].height,
+                borderSpace, borderSpace,
+                img1Width, img1Height
+            );
 
-            ctx.beginPath();
-            
-            // Left image clipping region
-            ctx.roundRect(
-                xOffsets.left + borderSpace, 
-                yOffsets.left + borderSpace,
-                img1Width - xOffsets.left, 
-                img1Height,
-                renderCornerRadius
+            // Draw right image
+            ctx.drawImage(
+                images[1],
+                0, 0,
+                images[1].width, images[1].height,
+                rightImgStart + borderSpace, borderSpace,
+                img2Width, img2Height
             );
-            
-            // Right image clipping region
-            ctx.roundRect(
-                rightImgStart + borderSpace, 
-                yOffsets.right + borderSpace,
-                img2Width + xOffsets.right, 
-                img2Height,
-                renderCornerRadius
-            );
-            
-            ctx.clip();
+            ctx.restore();
         }
 
-        // Draw left image
-        ctx.drawImage(
-            leftImg,
-            0, 0,
-            leftImg.width - xOffsets.left / renderScale, leftImg.height,
-            xOffsets.left + borderSpace, yOffsets.left + borderSpace,
-            img1Width - xOffsets.left, img1Height
-        );
-
-        // Draw right image
-        const xFactor = xOffsets.right / renderScale;
-        ctx.drawImage(
-            rightImg,
-            -xFactor, 0,
-            rightImg.width + xFactor, rightImg.height,
-            rightImgStart + borderSpace, yOffsets.right + borderSpace,
-            img2Width + xOffsets.right, img2Height
-        );
-        
-        ctx.restore();
+        return { totalWidth, totalHeight: maxHeight };
     }
 
-    static drawImages(options = {}) {
-        return this.renderCombinedImage(UIManager.domElements.canvas, this.scale, options);
+    static drawImages() {
+        this.renderCombinedImage(UIManager.domElements.canvas, this.scale, false, true);
     }
 }
 

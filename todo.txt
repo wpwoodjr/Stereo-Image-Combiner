@@ -1,27 +1,21 @@
 ==========  new code ===========
 Is showScaleDialog OK? Slider instead?
 
-large image bigger?  12/24?
-
-Should round all image dimensions? Especially on save image?
-
-Optimized color space conversion
-
-Throttle during crop mode?
-
-It crops when widths of two images are different.  Is this desirable?  Heights?
-
 Contraction OK on single image?
     No... on Goose vertical / goose square with black background, it sees a gap of 1 and right border of 1
     This is because the initial outerX2 and innerX2 scans are scanning the whole image, not just where the Goose is
 
 Try leaving transparent background on for better rendering of transparent images?
 
-why no handles on right in DEBUG mode when image is not cropped?
-
 Why does it find additional border when reload? Maybe only when saved with a border?
 
 ========== Maybe later ==========
+Optimized color space conversion
+
+Throttle during crop mode?
+
+Remove currentScale?
+
 Have button to select type of cropping: min, max, none
 
 Have fn to crop borders on two images instead of having to recombine them first

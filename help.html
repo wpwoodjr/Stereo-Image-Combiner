@@ -262,14 +262,15 @@
                 <li>Click and drag inside the crop box to align a region or feature in the images</li>
                 <ul>
                     <li>The images appear overlaid with inverse grayscale coloring to highlight differences</li>
-                    <li>To achieve pleasing stereo depth, typically you want to align the objects which are closest to the viewer,
-                    so that the image extends behind the viewing window and not in front of the border of the window (creating a "window violation")</li>
+                    <li>To achieve pleasing stereo depth, typically you want to "align" the objects which are closest to the viewer.
+                    This ensures that the image extends behind the viewing window and not in front of the border of the window (creating a "window violation")</li>
                     <li>For example, for a stereo image of a mountain with a bush close to the viewer, align the bush, or the ground in front of the bush</li>
-                    <li>An area is aligned when it looks a uniform gray</li>
+                    <li>An area is "aligned" when it looks a uniform gray</li>
                     <li>Use the arrow keys for precision aligning at the pixel level (note the cursor must be inside the crop area, otherwise both images are moved together)</li>
+                    <li>Tip: When cross viewing, move the image to the right to bring the window border forward (or to the left when parallel viewing).</li>
                 </ul>
-                <li>Adjust the crop box size</li>
-                <li>Move the crop box by clicking and dragging on the images outside the crop box
+                <li>Adjust the crop box size with the resize handles</li>
+                <li>Move the crop box by clicking and dragging outside the crop box
                 <ul>
                     <li>The crop box will move over both images allowing them to be framed</li>
                 </ul>
@@ -284,7 +285,7 @@
                     <li>Check that the stereo view is pleasing</li>
                     <li>Return to align mode to tweak the alignment</li>
                 </ul>
-                <li>Adjust the crop boxes' size with the resize handles and position by clicking and dragging</li>
+                <li>Optionally adjust the crop boxes' size with the resize handles and position by clicking and dragging</li>
                 <ul>
                     <li>Images can be moved independently if "Synchronized Movement" is unchecked, however this isn't recommended if they were aligned properly in align mode</li>
                     <li>You can check "Horizontal Only" to prevent further relative vertical movement of the images</li>
