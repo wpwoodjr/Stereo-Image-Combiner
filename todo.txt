@@ -6,6 +6,7 @@ Contraction OK on single image?
     This is because the initial outerX2 and innerX2 scans are scanning the whole image, not just where the Goose is
 
 Try leaving transparent background on for better rendering of transparent images?
+  Transparent images will keep transparency if Transparent is checked
 
 Why does it find additional border when reload? Maybe only when saved with a border?
 
