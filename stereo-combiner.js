@@ -646,9 +646,6 @@ class UIManager {
 
             modal.appendChild(dialog);
             document.body.appendChild(modal);
-
-            // Focus the filename input
-            filenameInput.focus();
         });
     }
 
