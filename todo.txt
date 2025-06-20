@@ -1,6 +1,4 @@
 ==========  new code ===========
-Is showScaleDialog OK? Slider instead?
-
 Contraction OK on single image?
     No... on Goose vertical / goose square with black background, it sees a gap of 1 and right border of 1
     This is because the initial outerX2 and innerX2 scans are scanning the whole image, not just where the Goose is

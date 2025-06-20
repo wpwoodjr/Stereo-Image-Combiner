@@ -30,7 +30,9 @@ No server processing or uploading is required - all operations happen directly i
 - **Border Color Selection**: Choose any color for the space between your images, including transparent (must save as a PNG file)
 - **Image Swapping**: Easily swap the images with a single click or keyboard shortcut for cross and parallel viewing
 - **Scalable Preview**: Adjust the preview size without affecting the final output
+- **Scalable Output with Live Preview**: Control output resolution from 10-100% with real-time resolution feedback
 - **High-Quality Export**: Save the combined image in PNG format at full resolution or JPG at your selected quality
+- **Smart Save Dialog**: All save options (scale, filename, format, quality) organized in one convenient dialog
 - **Keyboard Shortcuts**: Speed up your workflow with convenient keyboard shortcuts
 - **Fullscreen Mode**: View and edit your images in fullscreen for more detailed work
 - **Responsive Design**: Optimized for both desktop and mobile devices
@@ -64,7 +66,13 @@ No server processing or uploading is required - all operations happen directly i
    - Click "Apply Crop" to confirm or "Cancel" to exit crop mode
    - After applying, you may enter crop mode again to continue where you left off
    - Click "Reset Crop" to restore original images
-6. Click "Save Image" to download the combined images in PNG or JPG format
+6. Click "Save Image..." to open the save options dialog:
+   - Adjust the scale slider to control output resolution (10-100%) with real-time preview
+   - Enter an optional filename prefix to help identify your images
+   - Select format (PNG for transparency support, JPG for smaller files)
+   - For JPG, adjust quality setting (higher quality = larger file size)
+   - Click "Save Image" in the dialog to download the combined image
+   - All save image preferences are automatically saved for next time
 
 ## Keyboard Shortcuts
 
@@ -87,8 +95,7 @@ No server processing or uploading is required - all operations happen directly i
 - Uses HTML5 Canvas for image manipulation and rendering
 - Handles various input image formats supported by your browser (JPG, PNG, GIF, etc.)
 - The final output is saved as a JPG with selectable quality setting, or as a PNG with full transparency support
-- Settings are saved in local storage for persistence between sessions
-
+- Settings and save preferences are saved in local storage for persistence between sessions
 ## Compatibility
 
 Works on mobile and desktop, including:

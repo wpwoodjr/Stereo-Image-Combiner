@@ -31,6 +31,7 @@ class UIManager {
     static hasBorders = this.DEFAULT_BORDERS;
     static isTransparent = this.DEFAULT_TRANSPARENT;
     static cornerRadiusPercent = this.DEFAULT_CORNER_RADIUS_PERCENT;
+    static saveOptions = {};
 
     static initialize() {
         this.domElements = this.initDOMElements();
@@ -80,12 +81,7 @@ class UIManager {
             swapButton: document.getElementById('swap'),
             leftImageName: document.getElementById('leftImageName'),
             rightImageName: document.getElementById('rightImageName'),
-            fileInput: document.getElementById('fileInput'),
-            filenamePrefixInput: document.getElementById('filenamePrefix'),
-            formatSelect: document.getElementById('format'),
-            qualitySlider: document.getElementById('quality'),
-            qualityValue: document.getElementById('qualityValue'),
-            qualityContainer: document.getElementById('qualityContainer')
+            fileInput: document.getElementById('fileInput')
         };
     }
 
@@ -134,21 +130,7 @@ class UIManager {
         elements.transparentCheckbox.addEventListener('input', () => this.updateTransparent());
         elements.cornerRadiusSlider.addEventListener('input', () => this.updateCornerRadius());
         elements.swapButton.addEventListener('click', () => this.updateSwap());
-        elements.saveButton.addEventListener('click', () => FileManager.saveImage());
-        
-        elements.filenamePrefixInput.addEventListener('input', function() {
-            StorageManager.setItem('filenamePrefix', this.value);
-        });
-
-        elements.formatSelect.addEventListener('change', function() {
-            elements.qualityContainer.style.display = this.value === 'image/jpeg' ? 'block' : 'none';
-            StorageManager.setItem('fileFormat', this.value);
-        });
-
-        elements.qualitySlider.addEventListener('input', function() {
-            elements.qualityValue.textContent = `${this.value}%`;
-            StorageManager.setItem('jpgQuality', this.value);
-        });
+        elements.saveButton.addEventListener('click', () => this.showSaveDialog());
     }
 
     static setupCanvasEvents() {
@@ -243,12 +225,431 @@ class UIManager {
         elements.cornerRadiusSlider.value = this.cornerRadiusPercent;
         elements.cornerRadiusValue.textContent = `${this.cornerRadiusPercent}%`;
 
-        // Reset format and quality
-        elements.filenamePrefixInput.value = StorageManager.getItem('filenamePrefix', '');
-        elements.qualitySlider.value = StorageManager.getItem('jpgQuality', FileManager.DEFAULT_JPG_QUALITY);
-        elements.qualityValue.textContent = `${elements.qualitySlider.value}%`;
-        elements.formatSelect.value = StorageManager.getItem('fileFormat', FileManager.DEFAULT_FORMAT);
-        elements.qualityContainer.style.display = elements.formatSelect.value === 'image/jpeg' ? 'block' : 'none';
+        // Reset saveOptions
+        this.saveOptions = {
+            outputScalePercent: StorageManager.getItem('outputScalePercent', FileManager.DEFAULT_OUTPUT_SCALE_PERCENT),
+            filenamePrefix: StorageManager.getItem('filenamePrefix', FileManager.DEFAULT_FILENAME_PREFIX),
+            fileFormat: StorageManager.getItem('fileFormat', FileManager.DEFAULT_FORMAT),
+            jpgQuality: StorageManager.getItem('jpgQuality', FileManager.DEFAULT_JPG_QUALITY)
+        };
+    }
+
+    static async showSaveDialog() {
+        return new Promise((resolve) => {
+            const isMobile = DisplayManager.isMobile();
+            const isPortrait = DisplayManager.isPortrait();
+            const useMobilePortraitLayout = isMobile && isPortrait;
+            
+            // Get save options
+            const { outputScalePercent, fileFormat, jpgQuality, filenamePrefix } = this.saveOptions;
+
+            // Create modal dialog
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, ${useMobilePortraitLayout ? '0.9' : '0.8'});
+                backdrop-filter: blur(8px);
+                z-index: 10001;
+                display: flex;
+                align-items: ${useMobilePortraitLayout ? 'flex-end' : 'center'};
+                justify-content: center;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+                animation: fadeIn 0.3s ease-out;
+                padding: ${useMobilePortraitLayout ? '0' : '20px'};
+                box-sizing: border-box;
+            `;
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = useMobilePortraitLayout ? `
+                background: #1e1e1e;
+                border: 1px solid #333333;
+                border-radius: 24px 24px 0 0;
+                padding: 20px 20px;
+                max-width: 320px;
+                width: 100%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+                animation: slideUpMobile 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                padding-bottom: calc(24px + env(safe-area-inset-bottom));
+            ` : `
+                background: #1e1e1e;
+                border: 1px solid #333333;
+                border-radius: 16px;
+                padding: 32px;
+                max-width: 320px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
+                animation: slideUp 0.3s ease-out;
+            `;
+
+            // Title
+            const title = document.createElement('h2');
+            title.textContent = 'Save Image Options';
+            title.style.cssText = `
+                margin: 0 0 24px 0;
+                font-size: ${useMobilePortraitLayout ? '28px' : '24px'};
+                font-weight: 700;
+                color: #ffffff;
+                letter-spacing: -0.02em;
+                text-align: ${useMobilePortraitLayout ? 'center' : 'left'};
+            `;
+
+            // Content container
+            const content = document.createElement('div');
+            content.style.cssText = `
+                display: flex;
+                flex-direction: column;
+                gap: 24px;
+                margin-bottom: 32px;
+            `;
+
+            // Scale section
+            const scaleSection = document.createElement('div');
+            const scaleLabel = document.createElement('label');
+            scaleLabel.textContent = 'Scale:';
+            scaleLabel.style.cssText = `
+                color: #cccccc;
+                margin-bottom: 8px;
+                display: block;
+                font-weight: 600;
+            `;
+
+            const scaleContainer = document.createElement('div');
+            scaleContainer.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            `;
+
+            const scaleSlider = document.createElement('input');
+            scaleSlider.type = 'range';
+            scaleSlider.min = '10';
+            scaleSlider.max = '100';
+            scaleSlider.value = (outputScalePercent * 100).toString();
+            scaleSlider.style.cssText = `
+                flex: 1;
+                background-color: #333333;
+                height: ${useMobilePortraitLayout ? '30px' : '20px'};
+            `;
+
+            const scaleValue = document.createElement('span');
+            scaleValue.style.cssText = `
+                color: #bbbbbb;
+                width: 60px;
+                text-align: right;
+                font-weight: 600;
+            `;
+
+            const resolutionInfo = document.createElement('div');
+            resolutionInfo.style.cssText = `
+                color: #888888;
+                font-size: 14px;
+                margin-top: 8px;
+            `;
+
+            // Update resolution display function
+            const updateResolution = () => {
+                const scale = parseInt(scaleSlider.value) / 100;
+                scaleValue.textContent = `${parseInt(scaleSlider.value)}%`;
+                
+                const { totalWidth, totalHeight } = ImageRenderer.renderCombinedImage(null, scale, false, false);
+                resolutionInfo.textContent = `Output resolution: ${totalWidth} × ${totalHeight}`;
+            };
+
+            scaleSlider.addEventListener('input', updateResolution);
+            updateResolution(); // Initialize
+
+            scaleContainer.appendChild(scaleSlider);
+            scaleContainer.appendChild(scaleValue);
+            scaleSection.appendChild(scaleLabel);
+            scaleSection.appendChild(scaleContainer);
+            scaleSection.appendChild(resolutionInfo);
+
+            // Filename section
+            const filenameSection = document.createElement('div');
+            const filenameLabel = document.createElement('label');
+            filenameLabel.textContent = 'Filename Prefix:';
+            filenameLabel.style.cssText = `
+                color: #cccccc;
+                margin-bottom: 8px;
+                display: block;
+                font-weight: 600;
+            `;
+
+            const filenameInput = document.createElement('input');
+            filenameInput.type = 'text';
+            filenameInput.value = filenamePrefix;
+            filenameInput.placeholder = 'e.g. Crossview';
+            filenameInput.style.cssText = `
+                width: 100%;
+                background-color: #333333;
+                color: #ffffff;
+                border: 1px solid #555555;
+                padding: ${useMobilePortraitLayout ? '12px' : '8px'};
+                border-radius: 4px;
+                font-size: ${useMobilePortraitLayout ? '16px' : '14px'};
+                box-sizing: border-box;
+            `;
+
+            filenameSection.appendChild(filenameLabel);
+            filenameSection.appendChild(filenameInput);
+
+            // Format section
+            const formatSection = document.createElement('div');
+            const formatLabel = document.createElement('label');
+            formatLabel.textContent = 'File Format:';
+            formatLabel.style.cssText = `
+                color: #cccccc;
+                margin-bottom: 8px;
+                display: block;
+                font-weight: 600;
+            `;
+
+            const formatSelect = document.createElement('select');
+            formatSelect.innerHTML = `
+                <option value="image/jpeg">JPG</option>
+                <option value="image/png">PNG</option>
+            `;
+            formatSelect.value = fileFormat;
+            formatSelect.style.cssText = `
+                width: 100%;
+                background-color: #333333;
+                color: #ffffff;
+                border: 1px solid #555555;
+                padding: ${useMobilePortraitLayout ? '12px' : '8px'};
+                border-radius: 4px;
+                font-size: ${useMobilePortraitLayout ? '16px' : '14px'};
+                box-sizing: border-box;
+            `;
+
+            formatSection.appendChild(formatLabel);
+            formatSection.appendChild(formatSelect);
+
+            // Quality section (for JPEG)
+            const qualitySection = document.createElement('div');
+            qualitySection.style.display = fileFormat === 'image/jpeg' ? 'block' : 'none';
+
+            const qualityLabel = document.createElement('label');
+            qualityLabel.textContent = 'Quality:';
+            qualityLabel.style.cssText = `
+                color: #cccccc;
+                margin-bottom: 8px;
+                display: block;
+                font-weight: 600;
+            `;
+
+            const qualityContainer = document.createElement('div');
+            qualityContainer.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            `;
+
+            const qualitySlider = document.createElement('input');
+            qualitySlider.type = 'range';
+            qualitySlider.min = '0';
+            qualitySlider.max = '100';
+            qualitySlider.value = jpgQuality.toString();
+            qualitySlider.style.cssText = `
+                flex: 1;
+                background-color: #333333;
+                height: ${useMobilePortraitLayout ? '30px' : '20px'};
+            `;
+
+            const qualityValue = document.createElement('span');
+            qualityValue.textContent = `${jpgQuality}%`;
+            qualityValue.style.cssText = `
+                color: #bbbbbb;
+                width: 60px;
+                text-align: right;
+                font-weight: 600;
+            `;
+
+            qualitySlider.addEventListener('input', function() {
+                qualityValue.textContent = `${this.value}%`;
+            });
+
+            qualityContainer.appendChild(qualitySlider);
+            qualityContainer.appendChild(qualityValue);
+            qualitySection.appendChild(qualityLabel);
+            qualitySection.appendChild(qualityContainer);
+
+            // Format change handler
+            formatSelect.addEventListener('change', function() {
+                qualitySection.style.display = this.value === 'image/jpeg' ? 'block' : 'none';
+            });
+
+            // Buttons
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex;
+                gap: ${useMobilePortraitLayout ? '12px' : '16px'};
+                justify-content: ${useMobilePortraitLayout ? 'stretch' : 'flex-end'};
+                flex-direction: row;
+            `;
+
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Cancel';
+            cancelButton.style.cssText = `
+                padding: ${useMobilePortraitLayout ? '16px 20px' : '12px 24px'};
+                border: 2px solid #525252;
+                background: #2a2a2a;
+                color: #d4d4d8;
+                border-radius: ${useMobilePortraitLayout ? '12px' : '10px'};
+                cursor: pointer;
+                font-size: ${useMobilePortraitLayout ? '17px' : '15px'};
+                font-weight: 600;
+                transition: all 0.2s ease;
+                min-width: ${useMobilePortraitLayout ? 'auto' : '100px'};
+                flex: ${useMobilePortraitLayout ? '1' : 'none'};
+                min-height: ${useMobilePortraitLayout ? '52px' : 'auto'};
+            `;
+
+            const saveButton = document.createElement('button');
+            saveButton.textContent = 'Save Image';
+            saveButton.style.cssText = `
+                padding: ${useMobilePortraitLayout ? '16px 20px' : '12px 24px'};
+                border: 2px solid #6b7280;
+                background: #4b5563;
+                color: white;
+                border-radius: ${useMobilePortraitLayout ? '12px' : '10px'};
+                cursor: pointer;
+                font-size: ${useMobilePortraitLayout ? '17px' : '15px'};
+                font-weight: 600;
+                transition: all 0.2s ease;
+                min-width: ${useMobilePortraitLayout ? 'auto' : '120px'};
+                flex: ${useMobilePortraitLayout ? '2' : 'none'};
+                min-height: ${useMobilePortraitLayout ? '52px' : 'auto'};
+            `;
+
+            // Add CSS animations if not already present
+            if (!document.getElementById('modal-animations')) {
+                const style = document.createElement('style');
+                style.id = 'modal-animations';
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes slideUp {
+                        from { 
+                            opacity: 0;
+                            transform: translateY(20px) scale(0.95);
+                        }
+                        to { 
+                            opacity: 1;
+                            transform: translateY(0) scale(1);
+                        }
+                    }
+                    @keyframes slideUpMobile {
+                        from { 
+                            transform: translateY(100%);
+                        }
+                        to { 
+                            transform: translateY(0);
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // Button hover effects
+            cancelButton.addEventListener('mouseenter', () => {
+                cancelButton.style.borderColor = '#737373';
+                cancelButton.style.color = '#ffffff';
+                cancelButton.style.backgroundColor = '#404040';
+            });
+
+            cancelButton.addEventListener('mouseleave', () => {
+                cancelButton.style.borderColor = '#525252';
+                cancelButton.style.color = '#d4d4d8';
+                cancelButton.style.backgroundColor = '#2a2a2a';
+            });
+
+            saveButton.addEventListener('mouseenter', () => {
+                saveButton.style.backgroundColor = '#6b7280';
+                saveButton.style.borderColor = '#9ca3af';
+                saveButton.style.transform = 'translateY(-1px)';
+            });
+
+            saveButton.addEventListener('mouseleave', () => {
+                saveButton.style.backgroundColor = '#4b5563';
+                saveButton.style.borderColor = '#6b7280';
+                saveButton.style.transform = 'translateY(0)';
+            });
+
+            // Event handlers
+            let isModalClosed = false;
+            
+            const closeModal = (shouldSave) => {
+                if (isModalClosed) return;
+                isModalClosed = true;
+                
+                document.removeEventListener('keydown', escHandler);
+                
+                if (modal.parentNode) {
+                    document.body.removeChild(modal);
+                }
+                
+                if (shouldSave) {
+                    // Get current values from the modal
+                    this.saveOptions = {
+                        outputScalePercent: parseInt(scaleSlider.value) / 100,
+                        filenamePrefix: filenameInput.value,
+                        fileFormat: formatSelect.value,
+                        jpgQuality: parseInt(qualitySlider.value)
+                    };
+                    
+                    // Try to save settings to localStorage for next time
+                    StorageManager.setItem('outputScalePercent', this.saveOptions.outputScalePercent);
+                    StorageManager.setItem('filenamePrefix', this.saveOptions.filenamePrefix);
+                    StorageManager.setItem('fileFormat', this.saveOptions.fileFormat);
+                    StorageManager.setItem('jpgQuality', this.saveOptions.jpgQuality);
+                    
+                    // Proceed with actual save, passing the current values
+                    FileManager.saveImage(this.saveOptions);
+                }
+                
+                resolve(shouldSave);
+            };
+
+            cancelButton.addEventListener('click', () => closeModal(false));
+            saveButton.addEventListener('click', () => closeModal(true));
+
+            // ESC key handler
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal(false);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
+            // Assemble dialog
+            content.appendChild(scaleSection);
+            content.appendChild(filenameSection);
+            content.appendChild(formatSection);
+            content.appendChild(qualitySection);
+
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(saveButton);
+
+            dialog.appendChild(title);
+            dialog.appendChild(content);
+            dialog.appendChild(buttonContainer);
+
+            modal.appendChild(dialog);
+            document.body.appendChild(modal);
+
+            // Focus the filename input
+            filenameInput.focus();
+        });
     }
 
     static updateScale() {
@@ -463,9 +864,8 @@ class UIManager {
 class FileManager {
     static DEFAULT_FORMAT = 'image/jpeg';
     static DEFAULT_JPG_QUALITY = 95;
-    static LARGE_IMAGE_MOBILE = 12 * 1024 * 1024;
-    static LARGE_IMAGE = this.LARGE_IMAGE_MOBILE * 2;
-    static DEFAULT_SAVE_IMAGE_SCALE = 0.75;
+    static DEFAULT_OUTPUT_SCALE_PERCENT = 1.0;
+    static DEFAULT_FILENAME_PREFIX = '';
 
     static async _renderRegions(sourceImage, regions, imageNames, progressId) {
         const { region1, region2 } = regions;
@@ -785,51 +1185,38 @@ class FileManager {
         }
     }
 
-    static async saveImage() {
-        const format = UIManager.domElements.formatSelect.value;
-        
-        if (UIManager.isTransparent && format === 'image/jpeg') {
-            alert('JPG format does not support transparency. Please choose PNG format to preserve transparency, or uncheck the Transparent option.');
-            return;
-        }
-
+    static async saveImage(saveOptions) {
         let progressId = null;
-        
-        try {
+         try {
             // Validate images first
             if (!SIC.images || SIC.images.length !== 2 || !SIC.images[0] || !SIC.images[1]) {
                 throw new Error("Images are not properly loaded");
             }
 
-            // Calculate final dimensions and check if we need scale options
-            const { totalWidth, totalHeight } = ImageRenderer.renderCombinedImage(null, 1, false, false);
-            const dimensions = { width: totalWidth, height: totalHeight, pixelCount: totalWidth * totalHeight };
-
-            let scale = 1.0;
-
-            // Show scale dialog for large images
-            if (dimensions.pixelCount > (DisplayManager.isMobile() ? this.LARGE_IMAGE_MOBILE : this.LARGE_IMAGE)) {
-                scale = await this.showScaleDialog(dimensions, format);
-                if (scale === null) return; // User cancelled
+            // Get save options
+            const { outputScalePercent, fileFormat, jpgQuality, filenamePrefix } = saveOptions;
+            
+            if (UIManager.isTransparent && fileFormat === 'image/jpeg') {
+                alert('JPG format does not support transparency. Please choose PNG format to preserve transparency, or uncheck the Transparent option.');
+                return;
             }
 
-            // Show initial progress
             progressId = UIManager.showProgress('Rendering image...');
             // yield control to show progress message
             await new Promise(resolve => setTimeout(resolve, 150));
 
             // Create canvas and render
             const canvas = document.createElement('canvas');
-            ImageRenderer.renderCombinedImage(canvas, scale, true, true);
+            ImageRenderer.renderCombinedImage(canvas, outputScalePercent, true, true);
 
             // Convert to blob
             UIManager.updateProgress(progressId, 'Preparing image for download...');
-            const blob = await this.canvasToBlob(canvas, format);
+            const blob = await this.canvasToBlob(canvas, fileFormat, jpgQuality);
 
             // Download with smart cleanup
             UIManager.updateProgress(progressId, 'Starting download...');
             await new Promise(resolve => setTimeout(resolve, 150));
-            this.downloadWithCleanup(blob, format);
+            this.downloadWithCleanup(blob, fileFormat, filenamePrefix);
 
             UIManager.updateProgress(progressId, 'Download initiated successfully!');
             
@@ -839,378 +1226,13 @@ class FileManager {
             }, 2000);
 
         } catch (error) {
+            UIManager.hideProgress(progressId);
             console.error('Save operation failed:', error);
             alert(`Failed to save image: ${error.message}`);
-            
-            if (progressId) {
-                UIManager.hideProgress(progressId);
-            }
         }
     }
 
-    static async showScaleDialog(dimensions) {
-        return new Promise((resolve) => {
-            const isMobile = DisplayManager.isMobile();
-            const isPortrait = DisplayManager.isPortrait();
-            const useMobilePortraitLayout = isMobile && isPortrait;
-            const useGridLayout = isMobile && !isPortrait;
-            const saveImageScale = StorageManager.getItem('saveImageScale', this.DEFAULT_SAVE_IMAGE_SCALE);
-            
-            // Calculate scale options with realistic size estimates
-            const scaleOptions = [
-                { 
-                    scale: 1.0, 
-                    label: `Full Size (${dimensions.width}×${dimensions.height})`,
-                },
-                { 
-                    scale: 0.75, 
-                    label: `75% Size (${Math.round(dimensions.width * 0.75)}×${Math.round(dimensions.height * 0.75)})`,
-                },
-                { 
-                    scale: 0.5, 
-                    label: `50% Size (${Math.round(dimensions.width * 0.5)}×${Math.round(dimensions.height * 0.5)})`,
-                },
-                { 
-                    scale: 0.25, 
-                    label: `25% Size (${Math.round(dimensions.width * 0.25)}×${Math.round(dimensions.height * 0.25)})`,
-                }
-            ];
-
-            // Create modal dialog with responsive design
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, ${useMobilePortraitLayout ? '0.9' : '0.8'});
-                backdrop-filter: blur(8px);
-                z-index: 10001;
-                display: flex;
-                align-items: ${useMobilePortraitLayout ? 'flex-end' : 'center'};
-                justify-content: center;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-                animation: fadeIn 0.3s ease-out;
-                padding: ${useMobilePortraitLayout ? '0' : '20px'};
-                box-sizing: border-box;
-            `;
-
-            const dialog = document.createElement('div');
-            dialog.style.cssText = useMobilePortraitLayout ? `
-                background: #1e1e1e;
-                border: 1px solid #333333;
-                border-radius: 24px 24px 0 0;
-                padding: 24px 20px;
-                width: 100%;
-                max-height: 85vh;
-                overflow-y: auto;
-                box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
-                animation: slideUpMobile 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                padding-bottom: calc(24px + env(safe-area-inset-bottom));
-            ` : `
-                background: #1e1e1e;
-                border: 1px solid #333333;
-                border-radius: 16px;
-                padding: ${useGridLayout ? '20px' : '32px'};
-                max-width: ${useGridLayout ? '480px' : '520px'};
-                width: 90%;
-                max-height: ${useGridLayout ? '95vh' : '80vh'};
-                overflow-y: auto;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
-                animation: slideUp 0.3s ease-out;
-            `;
-
-            const title = document.createElement('h2');
-            title.textContent = 'Choose Image Size';
-            title.style.cssText = `
-                margin: 0 0 ${useMobilePortraitLayout ? '12px' : (useGridLayout ? '8px' : '8px')} 0;
-                font-size: ${useMobilePortraitLayout ? '28px' : (useGridLayout ? '20px' : '24px')};
-                font-weight: 700;
-                color: #ffffff;
-                letter-spacing: -0.02em;
-                text-align: ${useMobilePortraitLayout ? 'center' : 'left'};
-            `;
-
-            const description = document.createElement('p');
-            description.textContent = 'This image is quite large. Choose a size option to balance quality and file size:';
-            description.style.cssText = `
-                margin: 0 0 ${useMobilePortraitLayout ? '32px' : (useGridLayout ? '16px' : '28px')} 0;
-                color: #a1a1aa;
-                line-height: 1.4;
-                font-size: ${useMobilePortraitLayout ? '16px' : (useGridLayout ? '13px' : '15px')};
-                text-align: ${useMobilePortraitLayout ? 'center' : 'left'};
-            `;
-
-            const optionsContainer = document.createElement('div');
-            optionsContainer.style.cssText = `
-                margin-bottom: ${useMobilePortraitLayout ? '28px' : (useGridLayout ? '16px' : '32px')};
-                display: ${useGridLayout && !useMobilePortraitLayout ? 'grid' : 'flex'};
-                ${useGridLayout && !useMobilePortraitLayout ? 'grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;' : 'flex-direction: column;'}
-                gap: ${useMobilePortraitLayout ? '16px' : (useGridLayout ? '12px' : '12px')};
-            `;
-
-            // Create radio buttons for each scale option
-            scaleOptions.forEach((option, index) => {
-                const optionDiv = document.createElement('div');
-                
-                optionDiv.style.cssText = `
-                    display: flex;
-                    align-items: center;
-                    padding: ${useMobilePortraitLayout ? '18px 16px' : (useGridLayout ? '16px 12px' : '16px')};
-                    border: 2px solid #404040;
-                    border-radius: ${useMobilePortraitLayout ? '16px' : '12px'};
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    background: #2a2a2a;
-                    position: relative;
-                    min-height: 'auto';
-                `;
-
-                const radio = document.createElement('input');
-                radio.type = 'radio';
-                radio.name = 'imageScale';
-                radio.value = option.scale;
-                radio.checked = option.scale === saveImageScale;
-                radio.style.cssText = `
-                    width: ${useMobilePortraitLayout ? '24px' : '20px'};
-                    height: ${useMobilePortraitLayout ? '24px' : '20px'};
-                    margin-right: ${useGridLayout ? '0' : (useMobilePortraitLayout ? '20px' : '16px')};
-                    ${useGridLayout ? 'margin-bottom: 8px;' : ''}
-                    accent-color: #6b7280;
-                    cursor: pointer;
-                    flex-shrink: 0;
-                `;
-
-                const labelDiv = document.createElement('div');
-                labelDiv.style.cssText = `
-                    flex: 1;
-                    ${useGridLayout ? 'text-align: center;' : ''}
-                `;
-
-                // Shorter labels for grid layout
-                const labelText = document.createElement('div');
-                labelText.textContent = option.label;
-                
-                labelText.style.cssText = `
-                    font-weight: 600;
-                    color: #ffffff;
-                    font-size: ${useMobilePortraitLayout ? '18px' : (useGridLayout ? '14px' : '16px')};
-                    margin-bottom: ${useMobilePortraitLayout ? '6px' : (useGridLayout ? '6px' : '4px')};
-                    line-height: ${useGridLayout ? '1.2' : '1.3'};
-                `;
-
-                labelDiv.appendChild(labelText);
-
-                optionDiv.appendChild(radio);
-                optionDiv.appendChild(labelDiv);
-
-                // Enhanced touch feedback for mobile
-                if (useMobilePortraitLayout) {
-                    optionDiv.addEventListener('touchstart', () => {
-                        optionDiv.style.transform = 'scale(0.98)';
-                    }, { passive: true });
-
-                    optionDiv.addEventListener('touchend', () => {
-                        optionDiv.style.transform = 'scale(1)';
-                    }, { passive: true });
-                }
-
-                // Hover and selection styles
-                optionDiv.addEventListener('mouseenter', () => {
-                    if (!radio.checked) {
-                        optionDiv.style.borderColor = '#525252';
-                        optionDiv.style.backgroundColor = '#333333';
-                    }
-                });
-
-                optionDiv.addEventListener('mouseleave', () => {
-                    if (!radio.checked) {
-                        optionDiv.style.borderColor = '#404040';
-                        optionDiv.style.backgroundColor = '#2a2a2a';
-                    }
-                });
-
-                // Click handler for the entire option
-                optionDiv.addEventListener('click', () => {
-                    radio.checked = true;
-                    // Update visual selection
-                    optionsContainer.querySelectorAll('[data-option]').forEach(div => {
-                        div.style.borderColor = '#404040';
-                        div.style.backgroundColor = '#2a2a2a';
-                        div.style.boxShadow = 'none';
-                    });
-                    optionDiv.style.borderColor = '#6b7280';
-                    optionDiv.style.backgroundColor = '#374151';
-                    optionDiv.style.boxShadow = '0 0 0 3px rgba(107, 114, 128, 0.2)';
-                });
-
-                // Set initial selection style
-                if (radio.checked) {
-                    optionDiv.style.borderColor = '#6b7280';
-                    optionDiv.style.backgroundColor = '#374151';
-                    optionDiv.style.boxShadow = '0 0 0 3px rgba(107, 114, 128, 0.2)';
-                }
-
-                optionDiv.setAttribute('data-option', 'true');
-                optionsContainer.appendChild(optionDiv);
-            });
-
-            // Buttons with responsive layout
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = `
-                display: flex;
-                gap: ${useMobilePortraitLayout ? '12px' : (useGridLayout ? '8px' : '16px')};
-                justify-content: ${useMobilePortraitLayout ? 'stretch' : 'flex-end'};
-                flex-direction: row;
-            `;
-
-            const cancelButton = document.createElement('button');
-            cancelButton.textContent = 'Cancel';
-            cancelButton.style.cssText = `
-                padding: ${useMobilePortraitLayout ? '16px 20px' : (useGridLayout ? '8px 16px' : '12px 24px')};
-                border: 2px solid #525252;
-                background: #2a2a2a;
-                color: #d4d4d8;
-                border-radius: ${useMobilePortraitLayout ? '12px' : '10px'};
-                cursor: pointer;
-                font-size: ${useMobilePortraitLayout ? '17px' : (useGridLayout ? '13px' : '15px')};
-                font-weight: 600;
-                transition: all 0.2s ease;
-                min-width: ${useMobilePortraitLayout ? 'auto' : (useGridLayout ? '80px' : '100px')};
-                flex: ${useMobilePortraitLayout ? '1' : 'none'};
-                min-height: ${useMobilePortraitLayout ? '52px' : 'auto'};
-            `;
-
-            const saveButton = document.createElement('button');
-            saveButton.textContent = 'Save Image';
-            saveButton.style.cssText = `
-                padding: ${useMobilePortraitLayout ? '16px 20px' : (useGridLayout ? '8px 16px' : '12px 24px')};
-                border: 2px solid #6b7280;
-                background: #4b5563;
-                color: white;
-                border-radius: ${useMobilePortraitLayout ? '12px' : '10px'};
-                cursor: pointer;
-                font-size: ${useMobilePortraitLayout ? '17px' : (useGridLayout ? '13px' : '15px')};
-                font-weight: 600;
-                transition: all 0.2s ease;
-                min-width: ${useMobilePortraitLayout ? 'auto' : (useGridLayout ? '100px' : '120px')};
-                flex: ${useMobilePortraitLayout ? '2' : 'none'};
-                min-height: ${useMobilePortraitLayout ? '52px' : 'auto'};
-            `;
-
-            // Add CSS animations with mobile variants
-            if (!document.getElementById('modal-animations')) {
-                const style = document.createElement('style');
-                style.id = 'modal-animations';
-                style.textContent = `
-                    @keyframes fadeIn {
-                        from { opacity: 0; }
-                        to { opacity: 1; }
-                    }
-                    @keyframes slideUp {
-                        from { 
-                            opacity: 0;
-                            transform: translateY(20px) scale(0.95);
-                        }
-                        to { 
-                            opacity: 1;
-                            transform: translateY(0) scale(1);
-                        }
-                    }
-                    @keyframes slideUpMobile {
-                        from { 
-                            transform: translateY(100%);
-                        }
-                        to { 
-                            transform: translateY(0);
-                        }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
-            // Enhanced button hover effects
-            cancelButton.addEventListener('mouseenter', () => {
-                cancelButton.style.borderColor = '#737373';
-                cancelButton.style.color = '#ffffff';
-                cancelButton.style.backgroundColor = '#404040';
-            });
-
-            cancelButton.addEventListener('mouseleave', () => {
-                cancelButton.style.borderColor = '#525252';
-                cancelButton.style.color = '#d4d4d8';
-                cancelButton.style.backgroundColor = '#2a2a2a';
-            });
-
-            saveButton.addEventListener('mouseenter', () => {
-                saveButton.style.backgroundColor = '#6b7280';
-                saveButton.style.borderColor = '#9ca3af';
-                saveButton.style.transform = 'translateY(-1px)';
-            });
-
-            saveButton.addEventListener('mouseleave', () => {
-                saveButton.style.backgroundColor = '#4b5563';
-                saveButton.style.borderColor = '#6b7280';
-                saveButton.style.transform = 'translateY(0)';
-            });
-
-            // Event handlers with proper cleanup
-            let isModalClosed = false;
-            
-            const closeModal = (result) => {
-                if (isModalClosed) return; // Prevent double-close
-                isModalClosed = true;
-                
-                // Remove event listeners
-                document.removeEventListener('keydown', escHandler);
-                
-                // Remove modal from DOM if it exists
-                if (modal.parentNode) {
-                    document.body.removeChild(modal);
-                }
-                
-                resolve(result);
-            };
-
-            cancelButton.addEventListener('click', () => {
-                closeModal(null);
-            });
-
-            saveButton.addEventListener('click', () => {
-                const selectedScale = parseFloat(
-                    optionsContainer.querySelector('input[name="imageScale"]:checked').value
-                );
-                StorageManager.setItem('saveImageScale', selectedScale);
-                closeModal(selectedScale);
-            });
-
-            // ESC key handler with safe cleanup
-            const escHandler = (e) => {
-                if (e.key === 'Escape') {
-                    closeModal(null);
-                }
-            };
-            document.addEventListener('keydown', escHandler);
-
-            // Assemble dialog
-            buttonContainer.appendChild(cancelButton);
-            buttonContainer.appendChild(saveButton);
-
-            dialog.appendChild(title);
-            dialog.appendChild(description);
-            dialog.appendChild(optionsContainer);
-            dialog.appendChild(buttonContainer);
-
-            modal.appendChild(dialog);
-            document.body.appendChild(modal);
-
-            // Focus the save button
-            saveButton.focus();
-        });
-    }
-
-    static async canvasToBlob(canvas, format) {
+    static async canvasToBlob(canvas, fileFormat, jpgQuality) {
         return new Promise((resolve, reject) => {
             const callback = (blob) => {
                 if (blob) {
@@ -1221,11 +1243,10 @@ class FileManager {
             };
 
             try {
-                if (format === 'image/jpeg') {
-                    const quality = parseInt(UIManager.domElements.qualitySlider.value) / 100;
-                    canvas.toBlob(callback, format, quality);
+                if (fileFormat === 'image/jpeg') {
+                    canvas.toBlob(callback, fileFormat, jpgQuality / 100);
                 } else {
-                    canvas.toBlob(callback, format);
+                    canvas.toBlob(callback, fileFormat);
                 }
             } catch (error) {
                 reject(error);
@@ -1233,14 +1254,14 @@ class FileManager {
         });
     }
 
-    static downloadWithCleanup(blob, format) {
+    static downloadWithCleanup(blob, fileFormat, filenamePrefix) {
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.href = url;
         link.style.display = 'none';
 
-        const fileName = this.createCombinedFilename();
-        const extension = format === 'image/jpeg' ? 'jpg' : 'png';
+        const fileName = this.createCombinedFilename(filenamePrefix);
+        const extension = fileFormat === 'image/jpeg' ? 'jpg' : 'png';
         link.download = link.download = `${fileName}.${extension}`;
         
         document.body.appendChild(link);
@@ -1298,18 +1319,18 @@ class FileManager {
      * Also removes an immediately following separator (space, _, -) and trims leading spaces from the result.
      * Comparison is case-insensitive.
      * @param {string} name The name to strip.
-     * @param {string} userInputPrefix The prefix to remove.
+     * @param {string} filenamePrefix The prefix to remove.
      * @returns {string} The name with the prefix stripped, or the original name.
      */
-    static _stripUserInputPrefix(name, userInputPrefix) {
-        if (!userInputPrefix || !name) {
+    static _stripFilenamePrefix(name, filenamePrefix) {
+        if (!filenamePrefix || !name) {
             return name;
         }
-        const prefixLower = userInputPrefix.toLowerCase();
+        const prefixLower = filenamePrefix.toLowerCase();
         const nameLower = name.toLowerCase();
 
         if (nameLower.startsWith(prefixLower)) {
-            let strippedName = name.substring(userInputPrefix.length);
+            let strippedName = name.substring(filenamePrefix.length);
             // If the character immediately after the prefix was a common separator, remove it too.
             if (strippedName.length > 0 && [' ', '_', '-'].includes(strippedName.charAt(0))) {
                 strippedName = strippedName.substring(1);
@@ -1322,25 +1343,25 @@ class FileManager {
     /**
      * Creates a combined filename.
      */
-    static createCombinedFilename() {
-        const userInputPrefix = UIManager.domElements.filenamePrefixInput.value.trim();
+    static createCombinedFilename(userInputPrefix) {
+        const filenamePrefix = userInputPrefix.trim();
         const imageNames = SIC.imageNames;
         const DEFAULT_CORE_NAME = "stereo_image";
         const MIN_CORE_LENGTH = 3; 
 
         if (!imageNames || imageNames.length < 2 || !imageNames[0] || !imageNames[1]) {
-            return userInputPrefix ? `${userInputPrefix} ${DEFAULT_CORE_NAME}`.trim() : DEFAULT_CORE_NAME;
+            return filenamePrefix ? `${filenamePrefix} ${DEFAULT_CORE_NAME}`.trim() : DEFAULT_CORE_NAME;
         }
 
         let baseName1_noExt = imageNames[0].includes('.') ? 
             imageNames[0].substring(0, imageNames[0].lastIndexOf('.')) : 
             imageNames[0];
-        let baseName2_noExt = imageNames[1].includes('.') ? 
-            imageNames[1].substring(0, imageNames[1].lastIndexOf('.')) : 
+        let baseName2_noExt = imageNames[1].includes('.') ?
+            imageNames[1].substring(0, imageNames[1].lastIndexOf('.')) :
             imageNames[1];
 
-        const normalizedBaseName1 = this._stripUserInputPrefix(baseName1_noExt, userInputPrefix);
-        const normalizedBaseName2 = this._stripUserInputPrefix(baseName2_noExt, userInputPrefix);
+        const normalizedBaseName1 = this._stripFilenamePrefix(baseName1_noExt, filenamePrefix);
+        const normalizedBaseName2 = this._stripFilenamePrefix(baseName2_noExt, filenamePrefix);
         
         let finalNameCore;
 
@@ -1362,15 +1383,15 @@ class FileManager {
             finalNameCore = finalNameCore.trim();
         }
 
-        if (userInputPrefix) {
+        if (filenamePrefix) {
             const coreLower = finalNameCore.toLowerCase();
-            const prefixLower = userInputPrefix.toLowerCase();
+            const prefixLower = filenamePrefix.toLowerCase();
             if (coreLower.startsWith(prefixLower) && 
                 (coreLower.length === prefixLower.length || [' ', '_', '-'].includes(coreLower.charAt(prefixLower.length)))) {
                 return finalNameCore; // Already contains prefix, or prefix is the start of the core
             }
             // Ensure a space if both prefix and core are non-empty and core doesn't start with the prefix already
-            return `${userInputPrefix} ${finalNameCore}`.trim(); // Trim in case finalNameCore was empty
+            return `${filenamePrefix} ${finalNameCore}`.trim(); // Trim in case finalNameCore was empty
         }
         
         return finalNameCore;
@@ -1952,7 +1973,7 @@ class StorageManager {
 // ===================================
 class ImageRenderer {
     static BODY_BG_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--body-bg-color').trim();
-    static DEFAULT_SCALE_PERCENT = 100;
+    static DEFAULT_SCALE_PERCENT = 1;
     static scale = 1;
     static maxScale = 1;
 

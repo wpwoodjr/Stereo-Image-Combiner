@@ -83,14 +83,20 @@
 "When you're satisfied with your stereo pair, it's time to save."
 
 **Actions**:
-1. Click "Apply Crop" to confirm cropping
+1. Click "Apply Crop" to confirm cropping (if cropped)
 2. Make final adjustments to gap, borders, colors
-3. Add filename prefix: "Add a prefix like 'Cross' or 'Parallel' to identify your images"
-4. Choose format: "PNG for transparency support, JPG for smaller files"
-5. For large images, show the scale dialog: "The app automatically offers size options for large images"
-6. Click "Save Image" and show the download
+3. Click "Save Image..." to open the save options dialog
+4. **Save Dialog demonstration**:
+   - "The save dialog gives you full control over your output"
+   - Adjust scale slider: "Control the output resolution from 10% to 100% - watch the resolution update in real-time"
+   - Add filename prefix: "Add a prefix like 'Cross' or 'Parallel' to identify your images"
+   - Choose format: "PNG for transparency support, JPG for smaller files"
+   - For JPG, adjust quality: "Higher quality means larger file size"
+5. Click "Save Image" in the dialog and show the download
 
-**Key callout**: "The saved image is high-quality and ready for sharing or printing."
+**Key callouts**: 
+- "All your preferences are automatically saved for next time"
+- "The saved image is high-quality and ready for sharing or printing"
 
 ## Closing (30 seconds)
 **Visual**: Show the final result and return to homepage
