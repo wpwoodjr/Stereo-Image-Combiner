@@ -1,14 +1,14 @@
-==========  new code ===========
+========== current ===========
 Contraction OK on single image?
     No... on Goose vertical / goose square with black background, it sees a gap of 1 and right border of 1
     This is because the initial outerX2 and innerX2 scans are scanning the whole image, not just where the Goose is
 
-Try leaving transparent background on for better rendering of transparent images?
-  Transparent images will keep transparency if Transparent is checked
-
 Why does it find additional border when reload? Maybe only when saved with a border?
 
 ========== Maybe later ==========
+Try leaving transparent background on for better rendering of transparent images?
+  Transparent images will keep transparency if Transparent is checked
+
 Optimized color space conversion
 
 Throttle during crop mode?
@@ -56,8 +56,6 @@ On the first crop, enterAlignMode captures the previous scale as the uncropped s
 drag and drop doesn't work in firefox
   set about:config setting: dom.events.dataTransfer.imageAsFile.enabled to true
   then will work ff to ff but not chrome to ff
-
-thin line at 0% gap (but not in saved image)
 
 Crop, since gap gets smaller on geese, scale size is too small, not optimal, can't even get it bigger with resize
 

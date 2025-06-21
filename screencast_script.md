@@ -3,7 +3,7 @@
 ## Introduction (30 seconds)
 **Visual**: Show the app homepage with the title and drop zone
 **Narration**: 
-"Welcome to Stereo Image Combiner - a powerful web-based tool for creating stereo image pairs. Whether you have two separate images or a single stereo pair that needs splitting, this app makes it easy to align, crop, and combine images for cross-eyed or parallel viewing."
+"In this video I'll do a quick overview of Stereo Image Combiner - a powerful web-based tool for creating stereo image pairs. Whether you have two separate images or a single stereo pair that needs splitting, this app makes it easy to align, crop, and combine images for cross-eyed or parallel viewing."
 
 **Action**: Point to the GitHub link and mention it's open source and works entirely in your browser - no uploads required.
 
