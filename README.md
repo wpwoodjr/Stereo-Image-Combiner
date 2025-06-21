@@ -1,8 +1,8 @@
 # Stereo Image Combiner
 
-A web-based tool for combining images side by side with customizable options. Particularly useful for stereo image pairs.
+A web-based tool for preparing images for stereo image viewing.
 
-![image](https://github.com/user-attachments/assets/16ed694b-2dbc-4411-b4a4-37cbbf535d05)
+![image](https://github.com/user-attachments/assets/59634ff0-387b-4620-93ad-a787becc8dde)
 
 ## Overview
 
