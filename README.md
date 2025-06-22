@@ -5,7 +5,7 @@ A web-based tool for preparing images for stereo image viewing.
 ![image](https://github.com/user-attachments/assets/59634ff0-387b-4620-93ad-a787becc8dde)
 
 ## Overview
-
+A short video overview is available her: https://www.youtube.com/watch?v=zS4IscGsM7M
 Stereo Image Combiner is a lightweight browser-based application that allows users to:
 - Combine two images side by side into a single stereo image (cross or parallel)
 - Work with pre-existing stereo image pairs
