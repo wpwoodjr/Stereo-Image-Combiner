@@ -2303,6 +2303,7 @@ class HelpManager {
         const headerContainer = document.querySelector('.header-container');
         const helpIconContainer = document.createElement('div');
         helpIconContainer.className = 'help-icon';
+        helpIconContainer.title = 'Help';
         helpIconContainer.style.cssText = `
             display: flex;
             align-items: center;
@@ -2313,7 +2314,7 @@ class HelpManager {
             height: 40px;
             transition: background-color 0.2s;
             position: absolute;
-            right: 60px;
+            right: 50px;
             cursor: pointer;
         `;
 
